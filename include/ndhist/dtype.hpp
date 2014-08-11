@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+namespace ndhist {
+
 /**
  * The dtype_desc class provides a base class for all data type classes
  * usable with ndhist. It stores the size of the particular data type in bytes.
@@ -62,5 +64,52 @@ class uint64
       : base()
     {}
 };
+
+class dtype_value
+{
+  public:
+    dtype_value(dtype_desc const & dt)
+      : dtype_desc_(dt)
+      , data_(NULL)
+    {}
+
+    template <typename T>
+    bool
+    set(T value)
+    {
+        size_t sizeT = sizeof(T);
+        // Check if T is compatible with the given dtype_desc.
+        dtype<T> dt;
+        if(dt.GetSize() != sizeT)
+        {
+            return false;
+        }
+
+        // Allocate memory, if not done so alreay before.
+        if(data_ == NULL)
+        {
+            data_ = malloc(sizeT);
+            if(data_ == NULL)
+            {
+                return false;
+            }
+        }
+
+        memcpy(data_, &value, sizeT);
+        return true;
+    }
+
+    template <typename T>
+    T&
+    get()
+    {
+
+    }
+  protected:
+    char* data_;
+    dtype_desc dtype_desc_;
+};
+
+}// namespace ndhist
 
 #endif
