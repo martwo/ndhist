@@ -1,0 +1,3 @@
+# Ignore editor temp files.
+*.hpp~
+*.cpp~
