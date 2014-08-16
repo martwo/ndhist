@@ -21,22 +21,85 @@ else()
         "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel.")
 endif()
 
-# Set NDHist_BINARY_DIR and NDHist_SOURCE_DIR cmake variables.
-project(NDHist CXX)
+# Set ndhist_BINARY_DIR and ndhist_SOURCE_DIR cmake variables.
+project(ndhist CXX)
 
 message(STATUS "Configuring project \"${PROJECT_NAME}\"")
 message(STATUS "+    project source dir: ${PROJECT_SOURCE_DIR}")
 
-set(NDHIST_CONFIGURED_SUCCESSFULLY TRUE
-    CACHE BOOL "${PROJECT_NAME} configured successfully." FORCE)
+set(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY TRUE)
 
 include(${CMAKE_SOURCE_DIR}/cmake/config.cmake)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     CACHE PATH "Output directory for shared libraries." FORCE)
 
+include(${CMAKE_SOURCE_DIR}/cmake/find_tool.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/tools/boost.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/tools/python.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/tools/numpy.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/tools/boostnumpy.cmake)
 
+find_boost()
 find_python()
+find_numpy()
 find_boostnumpy()
+
+if(NOT (BOOST_FOUND AND PYTHON_FOUND AND NUMPY_FOUND AND BOOSTNUMPY_FOUND))
+    set(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY FALSE)
+endif()
+
+if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
+
+    list(APPEND ${PROJECT_NAME}_libndhist_INCLUDE_DIRS
+        ${BOOST_INCLUDE_DIRS}
+        ${PYTHON_INCLUDE_DIRS}
+        ${NUMPY_INCLUDE_DIRS}
+        ${BOOSTNUMPY_INCLUDE_DIRS}
+        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/src
+    )
+
+    list(APPEND ${PROJECT_NAME}_libndhist_LIBRARIES
+        ${PYTHON_LIBRARIES}
+        ${BOOST_LIBRARIES}
+        ${BOOSTNUMPY_LIBRARIES}
+    )
+
+    list(APPEND ${PROJECT_NAME}_libndhist_SOURCE_FILES
+        src/ndhist/detail/nddatarray.cpp
+    )
+
+    include_directories(
+        ${${PROJECT_NAME}_libndhist_INCLUDE_DIRS}
+    )
+    add_library(ndhist
+        ${${PROJECT_NAME}_libndhist_SOURCE_FILES}
+    )
+    target_link_libraries(ndhist
+        ${${PROJECT_NAME}_libndhist_LIBRARIES}
+    )
+    get_target_property(${PROJECT_NAME}_libndhist_LIBRARY_OUTPUT_DIRECTORY
+        ndhist LIBRARY_OUTPUT_DIRECTORY)
+    add_custom_command(TARGET ndhist
+        PRE_LINK
+        COMMAND mkdir -p ${${PROJECT_NAME}_libndhist_LIBRARY_OUTPUT_DIRECTORY}
+    )
+
+    # Install all the public header files into the include directory.
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ndhist
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
+        FILES_MATCHING PATTERN "*.hpp"
+        PATTERN ".git" EXCLUDE
+    )
+
+    # Install the shared libraries into the library directory.
+    install(TARGETS ndhist
+        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    )
+
+    message(STATUS "Project \"${PROJECT_NAME}\" configured.")
+    message(STATUS "+    Now, type-in \"cd ${CMAKE_BINARY_DIR} && make && make install\"!")
+    message(STATUS "+    \"${PROJECT_NAME}\" will be installed in '${CMAKE_INSTALL_PREFIX}'.")
+
+endif()

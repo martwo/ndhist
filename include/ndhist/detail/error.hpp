@@ -6,15 +6,19 @@ namespace detail {
 
 class error: public std::exception
 {
+  public:
     error(std::string msg)
       : msg_(msg)
+    {}
 
-    virtual
-    const char* what() const
+    const char* what() const throw()
     {
         return msg_.c_str();
     }
 
+    ~error() throw() {}
+
+  protected:
     std::string msg_;
 };
 

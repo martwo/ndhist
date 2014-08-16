@@ -5,9 +5,14 @@
 
 #include <vector>
 
+#include <boost/shared_ptr.hpp>
+
+#include <boost/numpy/ndarray.hpp>
+
 #include <ndhist/detail/error.hpp>
-#include <ndhist/dtype.hpp>
-#include <ndhist/detail/NDDataArray.hpp>
+#include <ndhist/detail/nddatarray.hpp>
+
+namespace bn = boost::numpy;
 
 namespace ndhist {
 
@@ -16,21 +21,23 @@ class ndhist
   public:
     ndhist(
           std::vector<uint32_t> nbins
-        , std::vector<detail::NDDataArray> edges)
+        , std::vector<bn::ndarray> edges)
     {
         if(nbins.size() != edges.size())
         {
-            throw error("Dimension ");
+            throw error(
+                "The lenghts of the nbins and edges arrays must be equal!");
         }
     }
+
   private:
     ndhist() {};
 
     /// The bin contents.
-    boost::shared_ptr<detail::NDDataArray> bc_ptr_;
+    boost::shared_ptr<detail::nddatarray> bc_ptr_;
 
-    /// The vector of ed
-    std::vector<detail::NDDataArray> edges_;
+    /// The vector of the edges arrays.
+    boost::shared_ptr< std::vector<detail::nddatarray> > edges_ptr_;
 };
 
 }// namespace ndhist

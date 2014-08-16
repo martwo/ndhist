@@ -1,5 +1,18 @@
-#ifndef NDHIST_DETAIL_NDDATAARRAY_H_INCLUDED
-#define NDHIST_DETAIL_NDDATAARRAY_H_INCLUDED 1
+/**
+ * $Id$
+ *
+ * Copyright (C)
+ * 2014 - $Date$
+ *     Martin Wolf <ndhist@martin-wolf.org>
+ *
+ * This file is distributed under the BSD 2-Clause Open Source License
+ * (See LICENSE file).
+ *
+ */
+#ifndef NDHIST_DETAIL_NDDATARRAY_H_INCLUDED
+#define NDHIST_DETAIL_NDDATARRAY_H_INCLUDED 1
+
+#include <vector>
 
 #include <boost/numpy/dtype.hpp>
 
@@ -11,13 +24,13 @@ namespace ndhist {
 namespace detail {
 
 /**
- * The NDDataArray class provides a generic contigious byte data array
+ * The nddatarray class provides a generic contigious byte data array
  * mapping into a multi-dimensional space.
  */
-class NDDataArray
+class nddatarray
 {
   public:
-    NDDataArray(
+    nddatarray(
         std::vector<intptr_t> shape
       , std::vector<intptr_t> add_front_capacity
       , std::vector<intptr_t> add_back_capacity
@@ -50,16 +63,16 @@ class NDDataArray
             const size_t cap_i = add_front_capacity_[i] + shape_[i] + add_back_capacity_[i];
             capacity *= cap_i;
         }
-        if(! capacity > 0)
+        if(! (capacity > 0))
         {
             throw error(
                 "The capacity is less or equal 0!");
         }
-        Calloc(capacity, dt_.GetSize());
+        Calloc(capacity, dt_.get_itemsize());
     }
 
     virtual
-    ~NDDataArray()
+    ~nddatarray()
     {
         if(data_)
         {
@@ -107,4 +120,4 @@ class NDDataArray
 }// namespace detail
 }// namespace ndhist
 
-#endif
+#endif // ! NDHIST_DETAIL_NDDATARRAY_H_INCLUDED
