@@ -25,9 +25,11 @@ void register_ndhist()
         , bp::init<
             bn::ndarray const &
           , bp::list const &
+          , bn::dtype const &
           >(
           ( bp::arg("nbins")
           , bp::arg("edges")
+          , bp::arg("dtype")
           )
           )
          )

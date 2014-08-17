@@ -11,7 +11,9 @@
 #include <boost/python/list.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include <boost/numpy/dtype.hpp>
 #include <boost/numpy/ndarray.hpp>
+
 
 #include <ndhist/detail/error.hpp>
 #include <ndhist/detail/nddatarray.hpp>
@@ -43,7 +45,20 @@ class ndhist
         }
 
         const intptr_t nd = shape.get_size();
+
         // Construct the bin content array.
+        // -- Check if the dtype of the shape array is equivalent to intptr_t.
+        if(! bn::dtype::equivalent(shape.get_dtype(), bn::detail::builtin_dtype<intptr_t>::get()))
+        {
+            throw detail::error(
+                "The dtype of the shape array is not equivalent to an array "
+                "with elements of type \"intptr_t\"!");
+        }
+        // Since the shape's elements have the same memory size as the intptr_t
+        // type, we can just copy the byte data into a std::vector<intptr_t>.
+
+        
+        //bn::ndarray flatshape = shape.flatten("C");
 
     }
 
