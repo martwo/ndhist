@@ -34,6 +34,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/config.cmake)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     CACHE PATH "Output directory for shared libraries." FORCE)
 
+include(${CMAKE_SOURCE_DIR}/cmake/add_python_module.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/find_tool.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/tools/boost.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/tools/python.cmake)
@@ -97,6 +98,13 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
     install(TARGETS ndhist
         LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     )
+
+    # Install the shared libraries into the library directory.
+    install(TARGETS ndhist
+        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    )
+
+    add_subdirectory(src/pybindings)
 
     message(STATUS "Project \"${PROJECT_NAME}\" configured.")
     message(STATUS "+    Now, type-in \"cd ${CMAKE_BINARY_DIR} && make && make install\"!")
