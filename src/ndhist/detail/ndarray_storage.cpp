@@ -12,14 +12,14 @@
 #include <cstddef>
 #include <cstdlib>
 
-#include <ndhist/detail/nddatarray.hpp>
+#include <ndhist/detail/ndarray_storage.hpp>
 
 namespace ndhist {
 namespace detail {
 
 //______________________________________________________________________________
 void
-nddatarray::
+ndarray_storage::
 Calloc(size_t capacity, size_t elsize)
 {
     data_ = (char*)calloc(capacity, elsize);
@@ -31,7 +31,7 @@ Calloc(size_t capacity, size_t elsize)
 
 //______________________________________________________________________________
 void
-nddatarray::
+ndarray_storage::
 Free()
 {
     free(data_);

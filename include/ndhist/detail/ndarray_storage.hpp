@@ -9,8 +9,8 @@
  * (See LICENSE file).
  *
  */
-#ifndef NDHIST_DETAIL_NDDATARRAY_H_INCLUDED
-#define NDHIST_DETAIL_NDDATARRAY_H_INCLUDED 1
+#ifndef NDHIST_DETAIL_NDARRAY_STORAGE_H_INCLUDED
+#define NDHIST_DETAIL_NDARRAY_STORAGE_H_INCLUDED 1
 
 #include <vector>
 
@@ -24,13 +24,18 @@ namespace ndhist {
 namespace detail {
 
 /**
- * The nddatarray class provides a generic contigious byte data array
- * mapping into a multi-dimensional space.
+ * The ndarray_storage class provides storage management functionalities for
+ * a ndarray object through a generic contigious byte array. This byte array
+ * can be accessed via a ndarray object which can be build around this storage.
+ * The storage can be bigger than the ndarray accesses. This allows to add
+ * additional (hidden) capacity to arrays, which can be used for growing the
+ * ndarray without memory re-allocation.
+ *
  */
-class nddatarray
+class ndarray_storage
 {
   public:
-    nddatarray(
+    ndarray_storage(
         std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
       , std::vector<intptr_t> const & back_capacity
@@ -72,7 +77,7 @@ class nddatarray
     }
 
     virtual
-    ~nddatarray()
+    ~ndarray_storage()
     {
         if(data_)
         {
@@ -120,4 +125,4 @@ class nddatarray
 }// namespace detail
 }// namespace ndhist
 
-#endif // ! NDHIST_DETAIL_NDDATARRAY_H_INCLUDED
+#endif // ! NDHIST_DETAIL_NDARRAY_STORAGE_H_INCLUDED

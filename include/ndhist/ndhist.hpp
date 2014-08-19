@@ -16,7 +16,7 @@
 
 
 #include <ndhist/error.hpp>
-#include <ndhist/detail/nddatarray.hpp>
+#include <ndhist/detail/ndarray_storage.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -55,10 +55,10 @@ class ndhist
     ndhist() {};
 
     /// The bin contents.
-    boost::shared_ptr<detail::nddatarray> bc_ptr_;
+    boost::shared_ptr<detail::ndarray_storage> bc_ptr_;
 
     /// The vector of the edges arrays.
-    boost::shared_ptr< std::vector<detail::nddatarray> > edges_ptr_;
+    boost::shared_ptr< std::vector<detail::ndarray_storage> > edges_ptr_;
 };
 
 }// namespace ndhist
