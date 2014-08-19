@@ -16,7 +16,7 @@
 
 #include <boost/numpy/dtype.hpp>
 
-#include <ndhist/detail/error.hpp>
+#include <ndhist/error.hpp>
 
 namespace bn = boost::numpy;
 
@@ -31,41 +31,41 @@ class nddatarray
 {
   public:
     nddatarray(
-        std::vector<intptr_t> shape
-      , std::vector<intptr_t> add_front_capacity
-      , std::vector<intptr_t> add_back_capacity
+        std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
       , bn::dtype const & dt
     )
       : shape_(shape)
-      , add_front_capacity_(add_front_capacity)
-      , add_back_capacity_(add_back_capacity)
+      , front_capacity_(front_capacity)
+      , back_capacity_(back_capacity)
       , dt_(dt)
       , data_(NULL)
     {
         const size_t nd = shape_.size();
-        if(! (add_front_capacity_.size() == nd &&
-              add_back_capacity_.size()  == nd)
+        if(! (front_capacity_.size() == nd &&
+              back_capacity_.size()  == nd)
           )
         {
-            throw error(
-                "The lengthes of shape, add_front_capacity and "
-                "add_back_capacity must be equal!");
+            throw ValueError(
+                "The lengthes of shape, front_capacity and "
+                "back_capacity must be equal!");
         }
         if(nd == 0)
         {
-            throw error(
+            throw ValueError(
                 "The array must be at least 1-dimensional, i.e. "
                 "len(shape) > 0!");
         }
         size_t capacity = 1;
         for(size_t i=0; i<nd; ++i)
         {
-            const size_t cap_i = add_front_capacity_[i] + shape_[i] + add_back_capacity_[i];
+            const size_t cap_i = front_capacity_[i] + shape_[i] + back_capacity_[i];
             capacity *= cap_i;
         }
         if(! (capacity > 0))
         {
-            throw error(
+            throw AssertionError(
                 "The capacity is less or equal 0!");
         }
         Calloc(capacity, dt_.get_itemsize());
@@ -105,8 +105,8 @@ class nddatarray
     /** The additional front and back capacities define how many additional
      *  elements each dimension has.
      */
-    std::vector<intptr_t> add_front_capacity_;
-    std::vector<intptr_t> add_back_capacity_;
+    std::vector<intptr_t> front_capacity_;
+    std::vector<intptr_t> back_capacity_;
 
     /** The numpy data type object, defining the element size in bytes.
      */

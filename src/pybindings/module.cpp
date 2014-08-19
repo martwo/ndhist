@@ -14,6 +14,7 @@
 
 namespace ndhist {
 
+void register_error_types();
 void register_ndhist();
 
 }// namespace ndhist
@@ -21,5 +22,6 @@ void register_ndhist();
 BOOST_PYTHON_MODULE(ndhist)
 {
     boost::numpy::initialize();
+    ndhist::register_error_types();
     ndhist::register_ndhist();
 }

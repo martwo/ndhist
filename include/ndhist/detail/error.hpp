@@ -4,6 +4,11 @@
 namespace ndhist {
 namespace detail {
 
+struct AssertionErrorType {};
+struct MemoryErrorType    {};
+struct ValueErrorType     {};
+
+template<class ErrType>
 class error: public std::exception
 {
   public:

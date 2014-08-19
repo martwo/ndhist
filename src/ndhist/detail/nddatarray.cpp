@@ -25,7 +25,7 @@ Calloc(size_t capacity, size_t elsize)
     data_ = (char*)calloc(capacity, elsize);
     if(data_ == NULL)
     {
-        throw error("Unable to allocate memory!");
+        throw MemoryError("Unable to allocate memory!");
     }
 }
 
