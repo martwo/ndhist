@@ -32,8 +32,12 @@ void register_ndhist()
           , bp::arg("dtype")
           )
           )
-         )
+        )
 
+        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bp::with_custodian_and_ward_postcall<0,1>())
+            , "The ndarray holding the bin contents.")
+            // We keep the ndhist object (i.e. "1") alive as long as the
+            // returned ndarray (i.e. "0") is alive.
     ;
 }
 

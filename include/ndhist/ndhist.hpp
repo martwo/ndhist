@@ -26,40 +26,71 @@ namespace ndhist {
 class ndhist
 {
   public:
+
+
     ndhist(
-        bn::ndarray const & shape
-      , bp::list const & edges
-      , bn::dtype const & dt
+        boost::numpy::ndarray const & shape
+      , boost::python::list const & edges
+      , boost::numpy::dtype const & dt
     )
+      : bc_(ConstructBinContentStorage(shape, dt))
     {
-        if(shape.get_nd() != 1)
-        {
-            throw ValueError(
-                "The shape array must be 1-dimensional!");
-        }
-        if(shape.get_size() != bp::len(edges))
+
+        if(shape.get_size() != boost::python::len(edges))
         {
             throw ValueError(
                 "The size of the shape array and the length of the edges list "
                 "must be equal!");
         }
-
-        std::vector<intptr_t> shape_vec = shape.as_vector<intptr_t>();
-        
-
-        //bn::ndarray flatshape = shape.flatten("C");
-
     }
 
+    virtual ~ndhist() {}
+
+    boost::numpy::ndarray
+    GetBinContentArray();
+
+    intptr_t
+    GetAddr() const
+    { return reinterpret_cast<intptr_t>(boost::python::object(*this).ptr()); }
   private:
     ndhist() {};
 
-    /// The bin contents.
-    boost::shared_ptr<detail::ndarray_storage> bc_ptr_;
+    /** Constructs a ndarray_storage object for the bin contents. The extra
+     *  front and back capacity will be set to zero.
+     */
+    static
+    detail::ndarray_storage
+    ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt);
 
-    /// The vector of the edges arrays.
-    boost::shared_ptr< std::vector<detail::ndarray_storage> > edges_ptr_;
+    /** The bin contents.
+     */
+    detail::ndarray_storage bc_;
+
+    /** The vector of the edges arrays.
+     */
+    std::vector<detail::ndarray_storage> edges_;
 };
+
+
+detail::ndarray_storage
+ndhist::
+ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt)
+{
+    if(shape.get_nd() != 1)
+    {
+        throw ValueError(
+            "The shape array must be 1-dimensional!");
+    }
+
+    std::vector<intptr_t> shape_vec = shape.as_vector<intptr_t>();
+
+    // This function does not allow to specify extra front and back
+    // capacity, so we set it to zero for all dimensions.
+    std::vector<intptr_t> front_capacity(shape.get_size(), 0);
+    std::vector<intptr_t> back_capacity(shape.get_size(), 0);
+
+    return detail::ndarray_storage(shape_vec, front_capacity, back_capacity, dt);
+}
 
 }// namespace ndhist
 

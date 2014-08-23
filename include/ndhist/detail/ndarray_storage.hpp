@@ -12,13 +12,13 @@
 #ifndef NDHIST_DETAIL_NDARRAY_STORAGE_H_INCLUDED
 #define NDHIST_DETAIL_NDARRAY_STORAGE_H_INCLUDED 1
 
+#include <iostream>
 #include <vector>
 
 #include <boost/numpy/dtype.hpp>
+#include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/error.hpp>
-
-namespace bn = boost::numpy;
 
 namespace ndhist {
 namespace detail {
@@ -35,11 +35,16 @@ namespace detail {
 class ndarray_storage
 {
   public:
+    ndarray_storage()
+      : dt_(boost::python::object())
+      , data_(NULL)
+    {}
+
     ndarray_storage(
         std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
       , std::vector<intptr_t> const & back_capacity
-      , bn::dtype const & dt
+      , boost::numpy::dtype   const & dt
     )
       : shape_(shape)
       , front_capacity_(front_capacity)
@@ -79,24 +84,38 @@ class ndarray_storage
     virtual
     ~ndarray_storage()
     {
+        std::cout << "Destructing ndarray_storage" << std::endl;
         if(data_)
         {
             Free();
         }
     }
 
+    /** Calculates the offset of the data pointer needed for a ndarray wrapping
+     *  this ndarray storage.
+     */
+    intptr_t CalcDataOffset() const;
+
+    /** Calculates the strides for a ndarray wrapping this ndarray storage.
+     */
+    std::vector<intptr_t> CalcStrides() const;
+
+    /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
+     *  with the correct layout, i.e. strides.
+     */
+    boost::numpy::ndarray
+    ConstructNDArray(boost::python::object const & data_owner);
+
   protected:
-    /**
-     * Allocates capacity*elsize number of bytes of new memory, initialized to
-     * zero. It returns "true" after success and "false" otherwise. It uses the
-     * calloc C function, which is faster than malloc + memset for large chunks
-     * of memory allocation, due to OS specific memory management.
-     * (cf. http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc)
+    /** Allocates capacity*elsize number of bytes of new memory, initialized to
+     *  zero. It returns "true" after success and "false" otherwise. It uses the
+     *  calloc C function, which is faster than malloc + memset for large chunks
+     *  of memory allocation, due to OS specific memory management.
+     *  (cf. http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc)
      */
     void Calloc(size_t capacity, size_t elsize);
 
-    /**
-     * Calls free on data_ and sets data_ to NULL.
+    /** Calls free on data_ and sets data_ to NULL.
      */
     void Free();
 
@@ -115,7 +134,7 @@ class ndarray_storage
 
     /** The numpy data type object, defining the element size in bytes.
      */
-    bn::dtype dt_;
+    boost::numpy::dtype dt_;
 
     /** The actual data storage.
      */
