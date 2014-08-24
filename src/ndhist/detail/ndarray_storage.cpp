@@ -59,9 +59,9 @@ CalcStrides() const
 //______________________________________________________________________________
 bn::ndarray
 ndarray_storage::
-ConstructNDArray(bp::object const & data_owner)
+ConstructNDArray(bp::object const * data_owner)
 {
-    return bn::from_data(data_+CalcDataOffset(), dt_, shape_, CalcStrides(), &data_owner);
+    return bn::from_data(data_+CalcDataOffset(), dt_, shape_, CalcStrides(), data_owner);
 }
 
 //______________________________________________________________________________

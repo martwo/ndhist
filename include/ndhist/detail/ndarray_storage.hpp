@@ -104,7 +104,7 @@ class ndarray_storage
      *  with the correct layout, i.e. strides.
      */
     boost::numpy::ndarray
-    ConstructNDArray(boost::python::object const & data_owner);
+    ConstructNDArray(boost::python::object const * data_owner=NULL);
 
   protected:
     /** Allocates capacity*elsize number of bytes of new memory, initialized to

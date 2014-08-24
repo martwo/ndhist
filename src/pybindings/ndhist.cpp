@@ -12,9 +12,12 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
 
+#include <boost/numpy/ndarray_accessor_return.hpp>
+
 #include <ndhist/ndhist.hpp>
 
 namespace bp = boost::python;
+namespace bn = boost::numpy;
 
 namespace ndhist {
 
@@ -34,10 +37,10 @@ void register_ndhist()
           )
         )
 
-        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bp::with_custodian_and_ward_postcall<0,1>())
+        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents.")
-            // We keep the ndhist object (i.e. "1") alive as long as the
-            // returned ndarray (i.e. "0") is alive.
+            // We use the bn::ndarray_accessor_return CallPolicy to keep the
+            // ndhist object alive as long as the returned ndarray is alive.
     ;
 }
 

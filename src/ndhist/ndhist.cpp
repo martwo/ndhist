@@ -9,8 +9,7 @@
  * (See LICENSE file).
  *
  */
-#include <boost/python.hpp>
-#include <boost/python/ptr.hpp>
+#include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/ndhist.hpp>
 
@@ -23,8 +22,7 @@ bn::ndarray
 ndhist::
 GetBinContentArray()
 {
-    bp::object self(bp::ptr(this));
-    return bc_.ConstructNDArray(self);
+    return bc_.ConstructNDArray();
 }
 
 }//namespace ndhist
