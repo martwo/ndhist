@@ -32,6 +32,7 @@ namespace detail {
  * ndarray without memory re-allocation.
  *
  */
+// FIXME: this should be boost::noncopyable!
 class ndarray_storage
 {
   public:

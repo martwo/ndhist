@@ -37,10 +37,16 @@ void register_ndhist()
           )
         )
 
-        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return())
+        // We use the bn::ndarray_accessor_return CallPolicy to keep the
+        // ndhist object alive as long as the returned ndarray is alive.
+        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return()
+            , (bp::arg("self")))
             , "The ndarray holding the bin contents.")
-            // We use the bn::ndarray_accessor_return CallPolicy to keep the
-            // ndhist object alive as long as the returned ndarray is alive.
+
+        .def("get_bin_edges", bp::make_function(&ndhist::GetEdgesArray, bn::ndarray_accessor_return()
+            , (bp::arg("self"), bp::arg("axis")=0))
+            , "Gets the ndarray holding the bin edges for the given axis. "
+              "The default axis is 0.")
     ;
 }
 

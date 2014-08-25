@@ -5,6 +5,7 @@ namespace ndhist {
 namespace detail {
 
 struct AssertionErrorType {};
+struct IndexErrorType     {};
 struct MemoryErrorType    {};
 struct ValueErrorType     {};
 
@@ -30,4 +31,4 @@ class error: public std::exception
 }// namespace detail
 }// namespace ndhist
 
-#endif
+#endif // ! NDHIST_DETAIL_ERROR_HPP_INCLUDED
