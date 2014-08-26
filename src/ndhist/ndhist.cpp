@@ -105,15 +105,22 @@ GetBinContentArray()
 
 bn::ndarray
 ndhist::
-GetEdgesArray(size_t axis)
+GetEdgesArray(int axis)
 {
-    if(axis >= edges_.size())
+    // Count axis from the back if axis is negative.
+    if(axis < 0) {
+        axis += edges_.size();
+    }
+
+    if(axis < 0 || axis >= edges_.size())
     {
         std::stringstream ss;
         ss << "The axis parameter must be in the interval "
-           << "[0, " << edges_.size()-1 << "]!";
+           << "[0, " << edges_.size()-1 << "] or "
+           << "[-1, -"<< edges_.size() <<"]!";
         throw IndexError(ss.str());
     }
+
     return edges_[axis]->ConstructNDArray();
 }
 

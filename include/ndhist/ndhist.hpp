@@ -53,7 +53,7 @@ class ndhist
     GetBinContentArray();
 
     boost::numpy::ndarray
-    GetEdgesArray(size_t axis=0);
+    GetEdgesArray(int axis=0);
 
   private:
     ndhist() {};
