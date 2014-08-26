@@ -62,13 +62,12 @@ class ndhist
      *  front and back capacity will be set to zero.
      */
     static
-    detail::ndarray_storage
+    boost::shared_ptr<detail::ndarray_storage>
     ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt);
 
     /** The bin contents.
-     *  FIXME: For memory security reasons, this should be a boost::shared_ptr!
      */
-    detail::ndarray_storage bc_;
+    boost::shared_ptr<detail::ndarray_storage> bc_;
 
     /** The vector of the edges arrays.
      */

@@ -43,7 +43,7 @@ CalcDataOffset() const
 //______________________________________________________________________________
 std::vector<intptr_t>
 ndarray_storage::
-CalcStrides() const
+CalcDataStrides() const
 {
     const int itemsize = dt_.get_itemsize();
     std::vector<intptr_t> strides(shape_.size(), itemsize);
@@ -61,7 +61,7 @@ bn::ndarray
 ndarray_storage::
 ConstructNDArray(bp::object const * data_owner)
 {
-    return bn::from_data(data_+CalcDataOffset(), dt_, shape_, CalcStrides(), data_owner);
+    return bn::from_data(data_+CalcDataOffset(), dt_, shape_, CalcDataStrides(), data_owner);
 }
 
 //______________________________________________________________________________

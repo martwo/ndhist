@@ -27,20 +27,15 @@ namespace detail {
  * The ndarray_storage class provides storage management functionalities for
  * a ndarray object through a generic contigious byte array. This byte array
  * can be accessed via a ndarray object which can be build around this storage.
- * The storage can be bigger than the ndarray accesses. This allows to add
+ * The storage can be bigger than what the ndarray accesses. This allows to add
  * additional (hidden) capacity to arrays, which can be used for growing the
  * ndarray without memory re-allocation.
  *
  */
-// FIXME: this should be boost::noncopyable!
 class ndarray_storage
+  : public boost::noncopyable
 {
   public:
-    ndarray_storage()
-      : dt_(boost::python::object())
-      , data_(NULL)
-    {}
-
     ndarray_storage(
         std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
@@ -97,9 +92,9 @@ class ndarray_storage
      */
     intptr_t CalcDataOffset() const;
 
-    /** Calculates the strides for a ndarray wrapping this ndarray storage.
+    /** Calculates the data strides for a ndarray wrapping this ndarray storage.
      */
-    std::vector<intptr_t> CalcStrides() const;
+    std::vector<intptr_t> CalcDataStrides() const;
 
     /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
      *  with the correct layout, i.e. strides.
@@ -137,7 +132,7 @@ class ndarray_storage
      */
     boost::numpy::dtype dt_;
 
-    /** The actual data storage.
+    /** The pointer to the actual data storage.
      */
     char* data_;
 };

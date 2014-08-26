@@ -75,7 +75,7 @@ ndhist(
     }
 }
 
-detail::ndarray_storage
+boost::shared_ptr<detail::ndarray_storage>
 ndhist::
 ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt)
 {
@@ -92,14 +92,15 @@ ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt)
     std::vector<intptr_t> front_capacity(shape.get_size(), 0);
     std::vector<intptr_t> back_capacity(shape.get_size(), 0);
 
-    return detail::ndarray_storage(shape_vec, front_capacity, back_capacity, dt);
+    return boost::shared_ptr<detail::ndarray_storage>(
+        new detail::ndarray_storage(shape_vec, front_capacity, back_capacity, dt));
 }
 
 bn::ndarray
 ndhist::
 GetBinContentArray()
 {
-    return bc_.ConstructNDArray();
+    return bc_->ConstructNDArray();
 }
 
 bn::ndarray
