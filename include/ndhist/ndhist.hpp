@@ -1,5 +1,16 @@
-#ifndef NDHIST_NDHIST_H_INCLUDED
-#define NDHIST_NDHIST_H_INCLUDED 1
+/**
+ * $Id$
+ *
+ * Copyright (C)
+ * 2014 - $Date$
+ *     Martin Wolf <ndhist@martin-wolf.org>
+ *
+ * This file is distributed under the BSD 2-Clause Open Source License
+ * (See LICENSE file).
+ *
+ */
+#ifndef NDHIST_NDHIST_HPP_INCLUDED
+#define NDHIST_NDHIST_HPP_INCLUDED 1
 
 #include <iostream>
 #include <stdint.h>
@@ -76,4 +87,4 @@ class ndhist
 
 }// namespace ndhist
 
-#endif
+#endif // !NDHIST_NDHIST_HPP_INCLUDED
