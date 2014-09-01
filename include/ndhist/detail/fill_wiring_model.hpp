@@ -21,6 +21,7 @@
 #include <boost/numpy/dstream/wiring/arg_from_core_shape_data.hpp>
 #include <boost/numpy/dstream/wiring/arg_type_to_array_dtype.hpp>
 #include <boost/numpy/dstream/wiring/return_type_to_array_dtype.hpp>
+#include <boost/numpy/dstream/wiring/return_to_core_shape_data.hpp>
 
 namespace ndhist {
 
@@ -124,7 +125,8 @@ struct fill_wiring_model
           ClassT & self
         , FCaller const & f_caller
         , boost::numpy::detail::iter & iter
-        , std::vector< std::vector<intptr_t> > const & core_shapes
+        , std::vector< std::vector<intptr_t> > const & out_core_shapes
+        , std::vector< std::vector<intptr_t> > const & in_core_shapes
         , bool & error_flag
     )
     {
@@ -135,16 +137,30 @@ struct fill_wiring_model
                   , in_arr_data_holding_t0
                 >::type
                 arg_converter_t0;
+/*
+        // Define the return value converter type, that will be used to transfer
+        // the function's return data into the output arrays.
 
+        typedef typename boost::numpy::dstream::wiring::converter::detail::return_to_core_shape_data_converter<
+                    typename MappingDefinition::out
+                  , typename FTypes::return_type
+                >::type
+                return_to_core_shape_data_t;
+*/
         do {
             intptr_t size = iter.get_inner_loop_size();
             while(size--)
             {
                 std::cout << "Calling f:";
-                f_caller.call(
-                    self
-                  , arg_converter_t0::apply(iter, MappingDefinition::out::arity + 0, core_shapes[MappingDefinition::out::arity + 0])
-                );
+                //return_to_core_shape_data_t::apply(
+                      f_caller.call(
+                          self
+                        , arg_converter_t0::apply(iter, MappingDefinition::out::arity + 0, in_core_shapes[0])
+                      )
+                //    , iter
+                //    , out_core_shapes
+                //)
+                ;
 
                 iter.add_inner_loop_strides_to_data_ptrs();
             }
