@@ -23,6 +23,7 @@
 #include <boost/numpy/dstream/wiring/return_type_to_array_dtype.hpp>
 #include <boost/numpy/dstream/wiring/return_to_core_shape_data.hpp>
 
+
 namespace ndhist {
 
 namespace detail {

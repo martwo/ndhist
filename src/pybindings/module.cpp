@@ -15,8 +15,8 @@
 
 #include <boost/numpy.hpp>
 #include <boost/numpy/dstream.hpp>
-
-#include <ndhist/detail/fill_wiring_model.hpp>
+#include <boost/numpy/dstream/wiring/generalized_wiring_model.hpp>
+//#include <ndhist/detail/fill_wiring_model.hpp>
 
 
 namespace bp = boost::python;
@@ -29,7 +29,7 @@ void register_error_types();
 void register_ndhist();
 
 static
-void testfct(std::vector<bp::object> v)
+std::vector<int> testfct(std::vector<bp::object> v)
 {
     std::cout << "v.size = " << v.size() << std::endl;
     // Now get attr _v from each object.
@@ -41,7 +41,15 @@ void testfct(std::vector<bp::object> v)
         std::cout << "d"<<i<<" = "<<d << ", ";
     }
 
+    std::vector<int> r;
+    for(int i=0; i<v.size(); ++i)
+    {
+        r.push_back(i);
+    }
+    r.push_back(300);
+    return r;
 }
+
 
 }// namespace ndhist
 
@@ -54,7 +62,7 @@ BOOST_PYTHON_MODULE(ndhist)
     ds::def("testfct", &ndhist::testfct
         , (bp::arg("t"))
         , "Doc"
-        //, ( ds::scalar() >> ds::none() )
-        , ndhist::fill_wiring_model_selector()
+        //, ( ds::array<2>() >> ds::array<2>() )
+        , ds::wiring::generalized_wiring_model_selector()
     );
 }
