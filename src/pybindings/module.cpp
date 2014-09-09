@@ -33,6 +33,7 @@ std::vector<int> testfct(std::vector<bp::object> v)
 {
     std::cout << "v.size = " << v.size() << std::endl;
     // Now get attr _v from each object.
+
     for (int i=0; i<v.size(); ++i)
     {
 
@@ -46,10 +47,51 @@ std::vector<int> testfct(std::vector<bp::object> v)
     {
         r.push_back(i);
     }
-    r.push_back(300);
+
     return r;
 }
 
+static
+std::vector< std::vector<int> >
+power_series( std::vector<int> v )
+{
+    std::cout << "power_series called." << std::endl;
+    std::vector< std::vector<int> > r(3);
+    for(int exp=0; exp<3; ++exp)
+    {
+        r[exp] = std::vector<int>(v.size());
+        for(int i=0; i<v.size(); ++i)
+        {
+            r[exp][i] = std::pow(v[i], exp);
+        }
+    }
+    std::cout << "power_series returns." << std::endl;
+    return r;
+}
+
+static
+void multidimvectorarg(std::vector< std::vector< std::vector<int> > > v)
+{
+    for(int i=0; i<v.size(); ++i)
+    {
+        for(int j=0; j<v[i].size(); ++j)
+        {
+            for(int k=0; k<v[i][j].size(); ++k)
+            {
+                std::cout << "v["<<i<<"]["<<j<<"]["<<k<<"] = "<<v[i][j][k] << std::endl;
+            }
+        }
+    }
+}
+
+static
+void nd1vectorarg(std::vector< int > v)
+{
+    for(int i=0; i<v.size(); ++i)
+    {
+        std::cout << "v["<<i<<"] = "<<v[i] << std::endl;
+    }
+}
 
 }// namespace ndhist
 
@@ -65,4 +107,24 @@ BOOST_PYTHON_MODULE(ndhist)
         //, ( ds::array<2>() >> ds::array<2>() )
         , ds::wiring::generalized_wiring_model_selector()
     );
+
+    ds::def("multidimvectorarg", &ndhist::multidimvectorarg
+        , (bp::arg("v"))
+        , "Doc"
+        , ds::wiring::generalized_wiring_model_selector()
+    );
+
+    ds::def("nd1vectorarg", &ndhist::nd1vectorarg
+        , (bp::arg("v"))
+        , "Doc"
+        , ds::wiring::generalized_wiring_model_selector()
+    );
+
+    ds::def("power_series", ndhist::power_series
+        , (bp::arg("v"))
+        , "Doc"
+        , (ds::array<ds::dim::I>() >> ( ds::array<ds::dim::I>(), ds::array<ds::dim::I>(), ds::array<ds::dim::I>() ))
+        , ds::wiring::generalized_wiring_model_selector()
+    );
+ 
 }
