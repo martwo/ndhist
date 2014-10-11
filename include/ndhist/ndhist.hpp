@@ -50,7 +50,7 @@ class ndhist
      *  other Python type, even entire objects.
      *
      *  The dt dtype object defines the data type for the bin contents. For a
-     *  histogram is this usually an integer or float type.
+     *  histogram this is usually an integer or float type.
      */
     ndhist(
         boost::numpy::ndarray const & shape

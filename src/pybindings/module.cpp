@@ -16,7 +16,8 @@
 #include <boost/numpy.hpp>
 #include <boost/numpy/dstream.hpp>
 #include <boost/numpy/dstream/wiring/generalized_wiring_model.hpp>
-//#include <ndhist/detail/fill_wiring_model.hpp>
+
+
 
 
 namespace bp = boost::python;
@@ -27,6 +28,8 @@ namespace ndhist {
 
 void register_error_types();
 void register_ndhist();
+
+
 
 static
 std::vector<int> testfct(std::vector<bp::object> v)
@@ -93,6 +96,20 @@ void nd1vectorarg(std::vector< int > v)
     }
 }
 
+static
+bp::object obj_return(int v)
+{
+    std::stringstream ss;
+    ss << "v = " << v << std::endl;
+    return bp::str(ss.str());
+}
+
+static
+int scalar_return(int v)
+{
+    return v*v;
+}
+
 }// namespace ndhist
 
 BOOST_PYTHON_MODULE(ndhist)
@@ -126,5 +143,10 @@ BOOST_PYTHON_MODULE(ndhist)
         , (ds::array<ds::dim::I>() >> ( ds::array<ds::dim::I>(), ds::array<ds::dim::I>(), ds::array<ds::dim::I>() ))
         , ds::wiring::generalized_wiring_model_selector()
     );
- 
+
+    ds::def("obj_return", ndhist::obj_return, (bp::arg("v")), "Doc");
+
+    ds::def("scalar_return", ndhist::scalar_return, (bp::arg("v")), "Doc");
+
+
 }
