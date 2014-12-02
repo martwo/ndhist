@@ -28,12 +28,19 @@ namespace ndhist {
 class ndtable
 {
   public:
+    /** Constructs a ndtable object with a given shape and data type. This
+     *  constructor does not allow for extra front or back capacity.
+     */
     ndtable(
         boost::numpy::ndarray const & shape
       , boost::numpy::dtype const & dt
     );
 
     virtual ~ndtable() {}
+
+    /** Constructs a ndarray object holding the data of this ndtable object.
+     */
+    boost::numpy::ndarray GetNDArray();
 
   private:
     /** Constructs a ndarray_storage object for the ndtable's data. The extra
@@ -43,6 +50,8 @@ class ndtable
     boost::shared_ptr<detail::ndarray_storage>
     ConstructDataStorage(boost::numpy::ndarray const & shape, boost::numpy::dtype const & dt);
 
+    /** The actual data storage object. It is living on the heap.
+     */
     boost::shared_ptr<detail::ndarray_storage> data_;
 };
 

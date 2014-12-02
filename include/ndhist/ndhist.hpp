@@ -19,7 +19,6 @@
 #include <iostream>
 
 #include <boost/python.hpp>
-#include <boost/python/list.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <boost/numpy/dtype.hpp>
@@ -65,6 +64,13 @@ class ndhist
 
     boost::numpy::ndarray
     GetEdgesArray(int axis=0);
+
+    /** Fills a given n-dimension value into the histogram's bin content array.
+     *  On the Python side, the *ndvalue* is a numpy object array that might
+     *  hold values of different types. The order of these types must match the
+     *  types of the bin edges vector.
+     */
+    void Fill(std::vector<boost::python::object> ndvalue, boost::python::object weight);
 
   private:
     ndhist() {};

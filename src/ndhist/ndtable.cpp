@@ -45,4 +45,11 @@ ndtable(
 {
 }
 
+bn::ndarray
+ndtable::
+GetNDArray()
+{
+    return data_->ConstructNDArray();
+}
+
 }// namespace ndhist

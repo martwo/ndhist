@@ -124,4 +124,23 @@ GetEdgesArray(int axis)
     return edges_[axis]->ConstructNDArray();
 }
 
+double extract_double(bp::object const & obj)
+{
+    return bp::extract<double>(obj);
+}
+
+void
+ndhist::
+Fill(std::vector<bp::object> ndvalue, bp::object weight)
+{
+    // TODO: Implement function to get the i-th dimension index of the bin
+    //       content array given the i-th value of the ndvalue array.
+    std::cout << "ndvalue = [";
+    for(size_t i=0; i<ndvalue.size(); ++i)
+    {
+        std::cout << extract_double(ndvalue[i])<<",";
+    }
+    std::cout << "]" << std::endl;
+}
+
 }//namespace ndhist

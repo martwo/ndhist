@@ -13,6 +13,7 @@
 #include <boost/python.hpp>
 
 #include <boost/numpy/ndarray_accessor_return.hpp>
+#include <boost/numpy/dstream.hpp>
 
 #include <ndhist/ndhist.hpp>
 
@@ -47,6 +48,8 @@ void register_ndhist()
             , (bp::arg("self"), bp::arg("axis")=0))
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
+        .def(bn::dstream::method("fill", &ndhist::Fill,
+             ( bp::arg("ndvalue"), bp::arg("weight"))))
     ;
 }
 

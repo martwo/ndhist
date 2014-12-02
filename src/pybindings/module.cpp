@@ -28,6 +28,7 @@ namespace ndhist {
 
 void register_error_types();
 void register_ndhist();
+void register_ndtable();
 
 
 
@@ -117,6 +118,7 @@ BOOST_PYTHON_MODULE(ndhist)
     boost::numpy::initialize();
     ndhist::register_error_types();
     ndhist::register_ndhist();
+    ndhist::register_ndtable();
 
     ds::def("testfct", &ndhist::testfct
         , (bp::arg("t"))
