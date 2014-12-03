@@ -71,7 +71,8 @@ ndhist(
             throw MemoryError(
                 "Could not copy edge array into internal storage!");
         }
-        edges_.push_back(storage);
+        edges_storage_.push_back(storage);
+        edges_.push_back(storage_arr);
     }
 }
 
@@ -124,9 +125,22 @@ GetEdgesArray(int axis)
     return edges_[axis]->ConstructNDArray();
 }
 
-double extract_double(bp::object const & obj)
+
+intptr_t get_axis_bin_index(bn::ndarray const & edges, bp::object const & value)
 {
-    return bp::extract<double>(obj);
+    // We know that edges is 1-dimensional by construction and the edges are
+    // ordered ascedently.
+    intptr_t const N = edges.get_size();
+    for(intptr_t i=0; i<N; ++i)
+    {
+        bp::object lower_edge = edges.get_item<bp::object>(i);
+        if(lower_edge > value)
+        {
+            return i-1;
+        }
+    }
+
+    return -2;
 }
 
 void
@@ -135,12 +149,22 @@ Fill(std::vector<bp::object> ndvalue, bp::object weight)
 {
     // TODO: Implement function to get the i-th dimension index of the bin
     //       content array given the i-th value of the ndvalue array.
-    std::cout << "ndvalue = [";
+    //
+    //       Create an Axis struct holding different implementations for this
+    //       function depending on the axis edge value type.
+    //bp::object self(bp::ptr(this));
+
+    //std::cout << "ndvalue = [";
     for(size_t i=0; i<ndvalue.size(); ++i)
     {
-        std::cout << extract_double(ndvalue[i])<<",";
+        // Construct the ndarray representation from the edges storage for the
+        // i-th dimension and set the owner the Py_None object.
+        //bn::ndarray edges = edges_[i]->ConstructNDArray(&self);
+        intptr_t axis_idx = get_axis_bin_index(edges_[i], ndvalue[i]);
+
+      //  std::cout << axis_idx <<",";
     }
-    std::cout << "]" << std::endl;
+    //std::cout << "]" << std::endl;
 }
 
 }//namespace ndhist

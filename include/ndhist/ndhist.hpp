@@ -88,7 +88,8 @@ class ndhist
 
     /** The vector of the edges arrays.
      */
-    std::vector< boost::shared_ptr<detail::ndarray_storage> > edges_;
+    std::vector< boost::shared_ptr<detail::ndarray_storage> > edges_storage_;
+    std::vector< boost::numpy::ndarray > edges_;
 };
 
 }// namespace ndhist
