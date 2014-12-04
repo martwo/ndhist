@@ -10,6 +10,7 @@
  *
  */
 #include <sstream>
+#include <boost/python/type_id.hpp>
 
 #include <boost/numpy/ndarray.hpp>
 
@@ -56,6 +57,17 @@ ndhist(
             ss << "The number of edges for the " << i << "th dimension of this "
                << "histogram must be " << n_bin_dim+1 << "!";
             throw ValueError(ss.str());
+        }
+
+        // Check the type of the edge values for the current axis.
+        bn::dtype axis_dtype = arr.get_dtype();
+        if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<int64_t>()))
+        {
+            std::cout << "Found int64 equiv. edge type." << std::endl;
+        }
+        if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
+        {
+            std::cout << "Found bp::object equiv. edge type." << std::endl;
         }
 
         std::vector<intptr_t> shape(1, n_bin_dim+1);
@@ -122,7 +134,7 @@ GetEdgesArray(int axis)
         throw IndexError(ss.str());
     }
 
-    return edges_[axis]->ConstructNDArray();
+    return edges_[axis];
 }
 
 
@@ -133,7 +145,21 @@ intptr_t get_axis_bin_index(bn::ndarray const & edges, bp::object const & value)
     intptr_t const N = edges.get_size();
     for(intptr_t i=0; i<N; ++i)
     {
-        bp::object lower_edge = edges.get_item<bp::object>(i);
+        bp::object lower_edge = edges.get_item<bp::object, intptr_t>(i);
+        PyTypeObject* lower_edge_type = (PyTypeObject*)PyObject_Type(lower_edge.ptr());
+        if((! PyObject_TypeCheck(value.ptr(), lower_edge_type)) &&
+           (! (bn::is_any_scalar(value) && bn::is_any_scalar(lower_edge)) )
+        )
+        {
+            Py_DECREF(lower_edge_type);
+            std::stringstream ss;
+            ss << "The value for axis " << i+1 << " must be a subclass of the "
+               << "edges objects of axis "<< i+1 << " of the same type! "
+               << "Otherwise comparison operators might be ill-defined.";
+            throw TypeError(ss.str());
+        }
+        Py_DECREF(lower_edge_type);
+
         if(lower_edge > value)
         {
             return i-1;

@@ -33,6 +33,46 @@ namespace bn = boost::numpy;
 
 namespace ndhist {
 
+struct AxisBase
+{
+    virtual ~AxisBase() {}
+
+    virtual intptr_t get_bin_index(boost::python::object const & value) = 0;
+};
+
+template <class Derived>
+struct Axis : AxisBase
+{
+    intptr_t
+    get_bin_index(boost::python::object const & value)
+    {
+        return static_cast<Derived*>(this)->get_bin_index(value);
+    }
+};
+
+struct GenericAxis : Axis<GenericAxis>
+{
+    GenericAxis()
+    {}
+
+    intptr_t
+    get_bin_index(boost::python::object const & value)
+    {
+        return 0;
+    }
+
+    boost::shared_ptr<detail::ndarray_storage> edges_storage_;
+};
+
+struct LinearAxisWithConstantBinWidths : Axis<LinearAxisWithConstantBinWidths>
+{
+    intptr_t
+    get_bin_index(boost::python::object const & value)
+    {
+        return 0;
+    }
+};
+
 class ndhist
 {
   public:
@@ -85,6 +125,8 @@ class ndhist
     /** The bin contents.
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
+
+    //std::vector<AxisBase> axes_;
 
     /** The vector of the edges arrays.
      */

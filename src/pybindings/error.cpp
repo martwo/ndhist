@@ -34,6 +34,7 @@ NDHIST_ERROR_TRANSLATE(AssertionError)
 NDHIST_ERROR_TRANSLATE(IndexError)
 NDHIST_ERROR_TRANSLATE(MemoryError)
 NDHIST_ERROR_TRANSLATE(ValueError)
+NDHIST_ERROR_TRANSLATE(TypeError)
 
 #undef NDHIST_ERROR_TRANSLATE
 
@@ -43,6 +44,7 @@ void register_error_types()
     bp::register_exception_translator<IndexError>    (&translate<IndexError>);
     bp::register_exception_translator<MemoryError>   (&translate<MemoryError>);
     bp::register_exception_translator<ValueError>    (&translate<ValueError>);
+    bp::register_exception_translator<TypeError>     (&translate<TypeError>);
 }
 
 }// namespace ndhist

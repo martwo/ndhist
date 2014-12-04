@@ -8,6 +8,7 @@ struct AssertionErrorType {};
 struct IndexErrorType     {};
 struct MemoryErrorType    {};
 struct ValueErrorType     {};
+struct TypeErrorType      {};
 
 template<class ErrType>
 class error: public std::exception
