@@ -68,23 +68,9 @@ ndhist(
         if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
         {
             std::cout << "Found bp::object equiv. edge type." << std::endl;
-        }
 
-        std::vector<intptr_t> shape(1, n_bin_dim+1);
-        std::vector<intptr_t> front_capacity(1, 0);
-        std::vector<intptr_t> back_capacity(1, 0);
-        boost::shared_ptr<detail::ndarray_storage> storage(
-            new detail::ndarray_storage(shape, front_capacity, back_capacity, arr.get_dtype()));
-        // Copy the data from the user provided edge array to the storage array.
-
-        bn::ndarray storage_arr = storage->ConstructNDArray(&self);
-        if(!bn::copy_into(storage_arr, arr))
-        {
-            throw MemoryError(
-                "Could not copy edge array into internal storage!");
         }
-        edges_storage_.push_back(storage);
-        edges_.push_back(storage_arr);
+        axes_.push_back(boost::shared_ptr<detail::GenericAxis>(new detail::GenericAxis(this, arr, 0, 0)));
     }
 }
 
@@ -115,59 +101,30 @@ GetBinContentArray()
 {
     return bc_->ConstructNDArray();
 }
-
+/*
 bn::ndarray
 ndhist::
 GetEdgesArray(int axis)
 {
     // Count axis from the back if axis is negative.
     if(axis < 0) {
-        axis += edges_.size();
+        axis += axes_.size();
     }
 
-    if(axis < 0 || axis >= edges_.size())
+    if(axis < 0 || axis >= axes_.size())
     {
         std::stringstream ss;
         ss << "The axis parameter must be in the interval "
-           << "[0, " << edges_.size()-1 << "] or "
-           << "[-1, -"<< edges_.size() <<"]!";
+           << "[0, " << axes_.size()-1 << "] or "
+           << "[-1, -"<< axes_.size() <<"]!";
         throw IndexError(ss.str());
     }
 
-    return edges_[axis];
+    return axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data);
 }
+*/
 
 
-intptr_t get_axis_bin_index(bn::ndarray const & edges, bp::object const & value)
-{
-    // We know that edges is 1-dimensional by construction and the edges are
-    // ordered ascedently.
-    intptr_t const N = edges.get_size();
-    for(intptr_t i=0; i<N; ++i)
-    {
-        bp::object lower_edge = edges.get_item<bp::object, intptr_t>(i);
-        PyTypeObject* lower_edge_type = (PyTypeObject*)PyObject_Type(lower_edge.ptr());
-        if((! PyObject_TypeCheck(value.ptr(), lower_edge_type)) &&
-           (! (bn::is_any_scalar(value) && bn::is_any_scalar(lower_edge)) )
-        )
-        {
-            Py_DECREF(lower_edge_type);
-            std::stringstream ss;
-            ss << "The value for axis " << i+1 << " must be a subclass of the "
-               << "edges objects of axis "<< i+1 << " of the same type! "
-               << "Otherwise comparison operators might be ill-defined.";
-            throw TypeError(ss.str());
-        }
-        Py_DECREF(lower_edge_type);
-
-        if(lower_edge > value)
-        {
-            return i-1;
-        }
-    }
-
-    return -2;
-}
 
 void
 ndhist::
@@ -180,17 +137,17 @@ Fill(std::vector<bp::object> ndvalue, bp::object weight)
     //       function depending on the axis edge value type.
     //bp::object self(bp::ptr(this));
 
-    //std::cout << "ndvalue = [";
+    std::cout << "ndvalue = [";
     for(size_t i=0; i<ndvalue.size(); ++i)
     {
         // Construct the ndarray representation from the edges storage for the
         // i-th dimension and set the owner the Py_None object.
         //bn::ndarray edges = edges_[i]->ConstructNDArray(&self);
-        intptr_t axis_idx = get_axis_bin_index(edges_[i], ndvalue[i]);
+        intptr_t axis_idx = axes_[i]->get_bin_index_fct(axes_[i]->data_, ndvalue[i]);
 
-      //  std::cout << axis_idx <<",";
+        std::cout << axis_idx <<",";
     }
-    //std::cout << "]" << std::endl;
+    std::cout << "]" << std::endl;
 }
 
 }//namespace ndhist

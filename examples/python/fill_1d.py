@@ -24,14 +24,14 @@ class Value2(object):
         return self._v <= rhs._v
 
 h = ndhist.ndhist(np.array([2]),
-                  #[np.array([0,1,2], dtype=np.dtype(np.int32))],
-                  [np.array([Value(0),Value(1),Value(2)], dtype=np.dtype(object))],
+                  [np.array([0,1,2], dtype=np.dtype(np.int32))],
+                  #[np.array([Value(0),Value(1),Value(2)], dtype=np.dtype(object))],
                   dtype=np.dtype(np.int64))
 
-#values = np.random.uniform(0, 2, size=10000000)
-#vs = values.astype(np.dtype(np.int32))
-#vs = np.reshape(vs, (vs.shape[0],1))
+values = np.random.uniform(0, 2, size=1000000)
+vs = values.astype(np.dtype(np.int32))
+vs = np.reshape(vs, (vs.shape[0],1))
 #print vs.dtype
-#h.fill(vs, 1)
+h.fill(vs, 1)
 #h.fill([np.int32(1.2), np.int32(2.2)], 1)
-h.fill(np.array([Value(0.4)], dtype=np.dtype(object)), 1)
+#h.fill(np.array([[Value(-0.4)], [Value(0.4)], [Value(1.4)], [Value(2.4)]], dtype=np.dtype(object)), 1)

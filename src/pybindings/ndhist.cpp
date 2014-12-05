@@ -43,11 +43,12 @@ void register_ndhist()
         .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return()
             , (bp::arg("self")))
             , "The ndarray holding the bin contents.")
-
+/*
         .def("get_bin_edges", bp::make_function(&ndhist::GetEdgesArray, bn::ndarray_accessor_return()
             , (bp::arg("self"), bp::arg("axis")=0))
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
+*/
         .def(bn::dstream::method("fill", &ndhist::Fill,
              ( bp::arg("ndvalue"), bp::arg("weight"))))
     ;

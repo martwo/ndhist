@@ -24,8 +24,8 @@
 #include <boost/numpy/dtype.hpp>
 #include <boost/numpy/ndarray.hpp>
 
-
 #include <ndhist/error.hpp>
+#include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
 
 namespace bp = boost::python;
@@ -33,45 +33,31 @@ namespace bn = boost::numpy;
 
 namespace ndhist {
 
-struct AxisBase
-{
-    virtual ~AxisBase() {}
 
-    virtual intptr_t get_bin_index(boost::python::object const & value) = 0;
-};
 
-template <class Derived>
-struct Axis : AxisBase
-{
-    intptr_t
-    get_bin_index(boost::python::object const & value)
-    {
-        return static_cast<Derived*>(this)->get_bin_index(value);
-    }
-};
 
-struct GenericAxis : Axis<GenericAxis>
-{
-    GenericAxis()
-    {}
-
-    intptr_t
-    get_bin_index(boost::python::object const & value)
-    {
-        return 0;
-    }
-
-    boost::shared_ptr<detail::ndarray_storage> edges_storage_;
-};
-
-struct LinearAxisWithConstantBinWidths : Axis<LinearAxisWithConstantBinWidths>
-{
-    intptr_t
-    get_bin_index(boost::python::object const & value)
-    {
-        return 0;
-    }
-};
+// struct GenericAxis : Axis<GenericAxis>
+// {
+//     GenericAxis()
+//     {}
+//
+//     intptr_t
+//     get_bin_index(boost::python::object const & value)
+//     {
+//         return 0;
+//     }
+//
+//     boost::shared_ptr<detail::ndarray_storage> edges_storage_;
+// };
+//
+// struct LinearAxisWithConstantBinWidths : Axis<LinearAxisWithConstantBinWidths>
+// {
+//     intptr_t
+//     get_bin_index(boost::python::object const & value)
+//     {
+//         return 0;
+//     }
+// };
 
 class ndhist
 {
@@ -102,8 +88,8 @@ class ndhist
     boost::numpy::ndarray
     GetBinContentArray();
 
-    boost::numpy::ndarray
-    GetEdgesArray(int axis=0);
+//     boost::numpy::ndarray
+//     GetEdgesArray(int axis=0);
 
     /** Fills a given n-dimension value into the histogram's bin content array.
      *  On the Python side, the *ndvalue* is a numpy object array that might
@@ -112,7 +98,7 @@ class ndhist
      */
     void Fill(std::vector<boost::python::object> ndvalue, boost::python::object weight);
 
-  private:
+private:
     ndhist() {};
 
     /** Constructs a ndarray_storage object for the bin contents. The extra
@@ -126,12 +112,7 @@ class ndhist
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
 
-    //std::vector<AxisBase> axes_;
-
-    /** The vector of the edges arrays.
-     */
-    std::vector< boost::shared_ptr<detail::ndarray_storage> > edges_storage_;
-    std::vector< boost::numpy::ndarray > edges_;
+    std::vector< boost::shared_ptr<detail::Axis> > axes_;
 };
 
 }// namespace ndhist
