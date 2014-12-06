@@ -10,10 +10,10 @@
  *
  */
 #include <sstream>
-#include <boost/python/type_id.hpp>
 
 #include <boost/numpy/ndarray.hpp>
 
+#include <ndhist/detail/generic_axis.hpp>
 #include <ndhist/ndhist.hpp>
 
 namespace bp = boost::python;
@@ -61,16 +61,19 @@ ndhist(
 
         // Check the type of the edge values for the current axis.
         bn::dtype axis_dtype = arr.get_dtype();
-        if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<int64_t>()))
+        if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<double>()))
         {
-            std::cout << "Found int64 equiv. edge type." << std::endl;
+            std::cout << "Found double equiv. edge type." << std::endl;
+
         }
-        if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
+        else if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
         {
             std::cout << "Found bp::object equiv. edge type." << std::endl;
 
+
         }
-        axes_.push_back(boost::shared_ptr<detail::GenericAxis>(new detail::GenericAxis(this, arr, 0, 0)));
+        //axes_.push_back(boost::shared_ptr<detail::GenericAxis<double> >(new detail::GenericAxis<double>(this, arr, 0, 0)));
+        axes_.push_back(boost::shared_ptr<detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(this, arr, 0, 0)));
     }
 }
 
@@ -137,7 +140,7 @@ Fill(std::vector<bp::object> ndvalue, bp::object weight)
     //       function depending on the axis edge value type.
     //bp::object self(bp::ptr(this));
 
-    std::cout << "ndvalue = [";
+    //std::cout << "ndvalue = [";
     for(size_t i=0; i<ndvalue.size(); ++i)
     {
         // Construct the ndarray representation from the edges storage for the
@@ -145,9 +148,9 @@ Fill(std::vector<bp::object> ndvalue, bp::object weight)
         //bn::ndarray edges = edges_[i]->ConstructNDArray(&self);
         intptr_t axis_idx = axes_[i]->get_bin_index_fct(axes_[i]->data_, ndvalue[i]);
 
-        std::cout << axis_idx <<",";
+        //std::cout << axis_idx <<",";
     }
-    std::cout << "]" << std::endl;
+    //std::cout << "]" << std::endl;
 }
 
 }//namespace ndhist
