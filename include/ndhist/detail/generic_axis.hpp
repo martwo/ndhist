@@ -66,13 +66,13 @@ struct GenericAxis
         // ValueType.
         //bn::ndarray & arr = data.arr_[0];
         bn::ndarray & arr = *static_cast<bn::ndarray*>(&data.arr_);
-        boost::numpy::flat_iterator<ValueType> iter(arr);
-        boost::numpy::flat_iterator<ValueType> iter_end;
+        bn::flat_iterator<ValueType> iter(arr);
+        bn::flat_iterator<ValueType> iter_end;
 
         for(intptr_t i=0; iter != iter_end; ++iter)
         {
-            ValueType lower_edge = *iter;
-            std::cout << "lower_edge = " << lower_edge << std::endl;
+            ValueType & lower_edge = *iter;
+            //std::cout << "lower_edge = " << lower_edge << std::endl;
             if(lower_edge > value)
             {
                 return i-1;

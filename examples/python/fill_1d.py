@@ -27,15 +27,15 @@ class Value2(object):
 h = ndhist.ndhist(np.array([10]),
                   [np.array([0,1,2,3,4,5,6,7,8,9,10], dtype=np.dtype(np.float64))],
                   #[np.array([Value(0),Value(1),Value(2)], dtype=np.dtype(object))],
-                  dtype=np.dtype(np.int64))
+                  dtype=np.dtype(np.bool))
 #for i in range(0, 10):
 #    h.bc[i] = Value(0)
-#values = np.random.uniform(0, 10, size=10000000)
-values = np.array([1,2,3,4,5,6,7,8,9,10,9,8,7,6,5,4,3,2,1,0])
+values = np.random.uniform(0, 5, size=10000000)
+#values = np.array([1,2,3,4,5,6,7,8,9,10,9,8,7,6,5,4,3,2,1,0])
 vs = values.astype(np.dtype(np.float64))
 vs = np.reshape(vs, (vs.shape[0],1))
 #print vs.dtype
-h.fill(vs, np.int64(1))
+h.fill(vs, 1)
 #print("[")
 #for i in range(0, 10):
 #    print("%f,"%h.bc[i]._v)

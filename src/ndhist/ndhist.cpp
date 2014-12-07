@@ -21,6 +21,95 @@ namespace bn = boost::numpy;
 
 namespace ndhist {
 
+namespace detail {
+
+template <typename ValueType>
+struct fill_traits
+{
+    static
+    void
+    fill(ndhist & self, std::vector<bp::object> const & ndvalue, bp::object const & weight)
+    {
+        bn::ndarray & bc_arr = self.GetBCArray();
+        int const nd = bc_arr.get_nd();
+        assert(nd == ndvalue.size());
+        std::vector<intptr_t> indices(nd);
+        intptr_t itershape[nd];
+        int arr_op_bcr[nd];
+        for(size_t i=0; i<nd; ++i)
+        {
+            boost::shared_ptr<detail::Axis> & axis = self.GetAxes()[i];
+            intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue[i]);
+            if(axis_idx >= 0)
+            {
+                indices[i] = axis_idx;
+            }
+            else
+            {
+                // The current value is out of the axis bounds. Just ignore it
+                // for the moment.
+                return;
+            }
+            itershape[i] = -1;
+            arr_op_bcr[i] = i;
+        }
+
+        bn::detail::iter_flags_t iter_flags =
+            bn::detail::iter::flags::MULTI_INDEX::value
+          | bn::detail::iter::flags::DONT_NEGATE_STRIDES::value;
+
+        bn::detail::iter_operand_flags_t arr_op_flags = bn::detail::iter_operand::flags::READONLY::value;
+        bn::detail::iter_operand arr_op(bc_arr, arr_op_flags, arr_op_bcr);
+        bn::detail::iter iter(
+            iter_flags
+          , bn::KEEPORDER
+          , bn::NO_CASTING
+          , nd           // n_iter_axes
+          , itershape
+          , 0            // buffersize
+          , arr_op
+        );
+        iter.init_full_iteration();
+        iter.go_to(indices);
+
+        ValueType & value = *reinterpret_cast<ValueType*>(iter.get_data(0));
+        ValueType w = bp::extract<ValueType>(weight);
+        value += w;
+    }
+};
+
+template <>
+struct fill_traits<bp::object>
+{
+    static
+    void
+    fill(ndhist & self, std::vector<bp::object> const & ndvalue, bp::object const & weight)
+    {
+        size_t const coordnd = ndvalue.size();
+        bp::list indices;
+        for(size_t i=0; i<coordnd; ++i)
+        {
+            boost::shared_ptr<detail::Axis> & axis = self.GetAxes()[i];
+            intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue[i]);
+            if(axis_idx >= 0) {
+                std::cout << "Add "<< axis_idx<<" for axis = "<<i<<std::endl;
+                indices.append(axis_idx);
+            }
+            else {
+                // The current value is out of the axis bounds. Just ignore it
+                // for the moment.
+                return;
+            }
+        }
+
+        bn::ndarray & bc_arr = self.GetBCArray();
+        bp::object bc = bc_arr[indices].scalarize();
+        bc += weight;
+    }
+};
+
+}// namespace detail
+
 ndhist::
 ndhist(
     bn::ndarray const & shape
@@ -32,6 +121,42 @@ ndhist(
     // Create a ndarray for the bin content.
     bp::object self(bp::ptr(this));
     bc_arr_ = bc_->ConstructNDArray(&self);
+
+    #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE)                               \
+    if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<BCDTYPE>()))     \
+    {                                                                          \
+        if(bc_dtype_supported) {                                               \
+            std::stringstream ss;                                              \
+            ss << "The bin content data type is supported by more than one "   \
+               << "possible C++ data type! This is an internal error!";        \
+            throw TypeError(ss.str());                                         \
+        }                                                                      \
+        std::cout << "Found " << BOOST_PP_STRINGIZE(BCDTYPE) << " equiv. "     \
+                  << "bc data type." << std::endl;                             \
+        fill_fct_ = &detail::fill_traits<BCDTYPE>::fill;                       \
+        bc_dtype_supported = true;                                             \
+    }
+
+    // Set the fill function based on the bin content data type.
+    bn::dtype bc_dtype = GetBCArray().get_dtype();
+    bool bc_dtype_supported = false;
+    NDHIST_BC_DATA_TYPE_SUPPORT(bool)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int16_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint16_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int32_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint32_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int64_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint64_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(float)
+    NDHIST_BC_DATA_TYPE_SUPPORT(double)
+    NDHIST_BC_DATA_TYPE_SUPPORT(bp::object)
+    if(!bc_dtype_supported)
+    {
+        std::stringstream ss;
+        ss << "The data type of the bin content array is not supported.";
+        throw TypeError(ss.str());
+    }
+    #undef NDHIST_BC_DATA_TYPE_SUPPORT
 
     const size_t nd = shape.get_size();
     if(bp::len(edges) != nd)
@@ -142,74 +267,7 @@ void
 ndhist::
 Fill(std::vector<bp::object> ndvalue, bp::object weight)
 {
-    // TODO: Implement function to get the i-th dimension index of the bin
-    //       content array given the i-th value of the ndvalue array.
-    //
-    //       Create an Axis struct holding different implementations for this
-    //       function depending on the axis edge value type.
-    bn::ndarray & bc_arr = *static_cast<bn::ndarray*>(&bc_arr_);
-    int const nd = bc_arr.get_nd();
-
-    //std::cout << "ndvalue = [";
-    bp::list indices;
-    std::vector<intptr_t> indices_vec(nd);
-
-    for(size_t i=0; i<ndvalue.size(); ++i)
-    {
-        intptr_t axis_idx = axes_[i]->get_bin_index_fct(axes_[i]->data_, ndvalue[i]);
-        if(axis_idx >= 0) {
-            std::cout << "Add "<< axis_idx<<" for axis = "<<i<<std::endl;
-            indices.append(axis_idx);
-            indices_vec[i] = axis_idx;
-        }
-        else {
-            // The current value is out of the axis bounds. Just ignore it
-            // for the moment.
-            return;
-        }
-        //std::cout << axis_idx <<",";
-    }
-
-
-    bn::detail::iter_flags_t iter_flags =
-        bn::detail::iter::flags::MULTI_INDEX::value
-      | bn::detail::iter::flags::DONT_NEGATE_STRIDES::value;
-
-    intptr_t itershape[nd];
-    int arr_op_bcr[nd];
-    for(int i=0; i<nd; ++i)
-    {
-        itershape[i] = -1;
-        arr_op_bcr[i] = i;
-    }
-    bn::detail::iter_operand_flags_t arr_op_flags = bn::detail::iter_operand::flags::READONLY::value;
-    bn::detail::iter_operand arr_op(bc_arr, arr_op_flags, arr_op_bcr);
-    bn::detail::iter iter(
-        iter_flags
-      , bn::KEEPORDER
-      , bn::NO_CASTING
-      , nd           // n_iter_axes
-      , itershape
-      , 0           // buffersize
-      , arr_op
-    );
-    iter.init_full_iteration();
-    iter.go_to(indices_vec);
-
-    int64_t & value = *reinterpret_cast<int64_t*>(iter.get_data(0));
-    int64_t w = bp::extract<int64_t>(weight);
-    value += w;
-    /*
-
-    bp::object bc = bc_arr[indices].scalarize();
-    bool s = bn::is_any_scalar(bc);
-    bc += weight;
-    //int64_t c = bp::extract<int64_t>(bc);
-    std::cout << "s = " << s << std::endl;
-    //std::cout << "c = " << c << std::endl;
-    //bc += bp::extract<int64_t>(weight);
-    //std::cout << "]" << std::endl;
-    */
+    fill_fct_(*this, ndvalue, weight);
 }
 
 }//namespace ndhist

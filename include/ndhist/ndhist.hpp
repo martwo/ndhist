@@ -72,7 +72,21 @@ class ndhist
      */
     void Fill(std::vector<boost::python::object> ndvalue, boost::python::object weight);
 
-private:
+    inline
+    std::vector< boost::shared_ptr<detail::Axis> > &
+    GetAxes()
+    {
+        return axes_;
+    }
+
+    inline
+    bn::ndarray &
+    GetBCArray()
+    {
+        return *static_cast<bn::ndarray*>(&bc_arr_);
+    }
+
+  private:
     ndhist() {};
 
     /** Constructs a ndarray_storage object for the bin contents. The extra
@@ -88,6 +102,8 @@ private:
     boost::python::object bc_arr_;
 
     std::vector< boost::shared_ptr<detail::Axis> > axes_;
+
+    boost::function<void (ndhist &, std::vector<bp::object> const &, bp::object const &)> fill_fct_;
 };
 
 }// namespace ndhist
