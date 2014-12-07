@@ -24,15 +24,65 @@ namespace detail {
 struct GenericAxisData : AxisData
 {
     boost::shared_ptr<ndarray_storage> storage_;
-    // Note: We use a std::vector here, because we cannot default-construct a
-    //       ndarray object.
-    std::vector<bn::ndarray> arr_;
+    bp::object arr_;
 };
 
 template <typename ValueType>
 struct GenericAxis
   : Axis
-{};
+{
+    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    {
+        get_bin_index_fct = &GenericAxis::get_bin_index;
+        data_ = boost::shared_ptr<GenericAxisData>(new GenericAxisData());
+        GenericAxisData & ddata = *static_cast<GenericAxisData*>(data_.get());
+        intptr_t const nbins = edges.get_size();
+        std::vector<intptr_t> shape(1, nbins);
+        std::vector<intptr_t> front_capacity_vec(1, front_capacity);
+        std::vector<intptr_t> back_capacity_vec(1, back_capacity);
+        ddata.storage_ = boost::shared_ptr<detail::ndarray_storage>(
+            new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
+        // Copy the data from the user provided edge array to the storage array.
+        bp::object owner(bp::ptr(h));
+        ddata.arr_ = ddata.storage_->ConstructNDArray(&owner);
+        bn::ndarray & arr = *static_cast<bn::ndarray*>(&ddata.arr_);
+        if(!bn::copy_into(arr, edges))
+        {
+            // FIXME: Get the error string from the already set BP error.
+            throw MemoryError(
+               "Could not copy edge array into internal storage!");
+        }
+    }
+
+    static
+    intptr_t
+    get_bin_index(boost::shared_ptr<AxisData> axisdata, bp::object const & value_obj)
+    {
+        ValueType const value = bp::extract<ValueType>(value_obj);
+
+        GenericAxisData & data = *static_cast<GenericAxisData *>(axisdata.get());
+        // We know that edges is 1-dimensional by construction and the edges are
+        // ordered ascedently. Also we know that the value type of the edges is
+        // ValueType.
+        //bn::ndarray & arr = data.arr_[0];
+        bn::ndarray & arr = *static_cast<bn::ndarray*>(&data.arr_);
+        boost::numpy::flat_iterator<ValueType> iter(arr);
+        boost::numpy::flat_iterator<ValueType> iter_end;
+
+        for(intptr_t i=0; iter != iter_end; ++iter)
+        {
+            ValueType lower_edge = *iter;
+            std::cout << "lower_edge = " << lower_edge << std::endl;
+            if(lower_edge > value)
+            {
+                return i-1;
+            }
+            ++i;
+        }
+
+        return -2;
+    }
+};
 
 template <>
 struct GenericAxis<bp::object>
@@ -51,8 +101,9 @@ struct GenericAxis<bp::object>
             new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
         // Copy the data from the user provided edge array to the storage array.
         bp::object owner(bp::ptr(h));
-        ddata.arr_.push_back(ddata.storage_->ConstructNDArray(&owner));
-        if(!bn::copy_into(ddata.arr_[0], edges))
+        ddata.arr_ = ddata.storage_->ConstructNDArray(&owner);
+        bn::ndarray & arr = *static_cast<bn::ndarray*>(&ddata.arr_);
+        if(!bn::copy_into(arr, edges))
         {
             // FIXME: Get the error string from the already set BP error.
             throw MemoryError(
@@ -67,7 +118,8 @@ struct GenericAxis<bp::object>
         GenericAxisData & data = *static_cast<GenericAxisData *>(axisdata.get());
         // We know that edges is 1-dimensional by construction and the edges are
         // ordered ascedently.
-        bn::ndarray & arr = data.arr_[0];
+        //bn::ndarray & arr = data.arr_[0];
+        bn::ndarray & arr = *static_cast<bn::ndarray*>(&data.arr_);
         boost::numpy::flat_iterator<bp::object> iter(arr);
         boost::numpy::flat_iterator<bp::object> iter_end;
 
@@ -101,60 +153,7 @@ struct GenericAxis<bp::object>
     }
 };
 
-template<>
-struct GenericAxis<double>
-  : Axis
-{
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
-    {
-        get_bin_index_fct = &GenericAxis::get_bin_index;
-        data_ = boost::shared_ptr<GenericAxisData>(new GenericAxisData());
-        GenericAxisData & ddata = *static_cast<GenericAxisData*>(data_.get());
-        intptr_t const nbins = edges.get_size();
-        std::vector<intptr_t> shape(1, nbins);
-        std::vector<intptr_t> front_capacity_vec(1, front_capacity);
-        std::vector<intptr_t> back_capacity_vec(1, back_capacity);
-        ddata.storage_ = boost::shared_ptr<detail::ndarray_storage>(
-            new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
-        // Copy the data from the user provided edge array to the storage array.
-        bp::object owner(bp::ptr(h));
-        ddata.arr_.push_back(ddata.storage_->ConstructNDArray(&owner));
-        if(!bn::copy_into(ddata.arr_[0], edges))
-        {
-            // FIXME: Get the error string from the already set BP error.
-            throw MemoryError(
-               "Could not copy edge array into internal storage!");
-        }
-    }
 
-    static
-    intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> axisdata, bp::object const & value_obj)
-    {
-        double const value = bp::extract<double>(value_obj);
-
-        GenericAxisData & data = *static_cast<GenericAxisData *>(axisdata.get());
-        // We know that edges is 1-dimensional by construction and the edges are
-        // ordered ascedently. Also we know that the value type of the edges is
-        // double.
-        bn::ndarray & arr = data.arr_[0];
-        boost::numpy::flat_iterator<double> iter(arr);
-        boost::numpy::flat_iterator<double> iter_end;
-
-        for(intptr_t i=0; iter != iter_end; ++iter)
-        {
-            double lower_edge = *iter;
-            std::cout << "lower_edge = " << lower_edge << std::endl;
-            if(lower_edge > value)
-            {
-                return i-1;
-            }
-            ++i;
-        }
-
-        return -2;
-    }
-};
 
 }//namespace detail
 }//namespace ndhist

@@ -33,32 +33,6 @@ namespace bn = boost::numpy;
 
 namespace ndhist {
 
-
-
-
-// struct GenericAxis : Axis<GenericAxis>
-// {
-//     GenericAxis()
-//     {}
-//
-//     intptr_t
-//     get_bin_index(boost::python::object const & value)
-//     {
-//         return 0;
-//     }
-//
-//     boost::shared_ptr<detail::ndarray_storage> edges_storage_;
-// };
-//
-// struct LinearAxisWithConstantBinWidths : Axis<LinearAxisWithConstantBinWidths>
-// {
-//     intptr_t
-//     get_bin_index(boost::python::object const & value)
-//     {
-//         return 0;
-//     }
-// };
-
 class ndhist
 {
   public:
@@ -111,6 +85,7 @@ private:
     /** The bin contents.
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
+    boost::python::object bc_arr_;
 
     std::vector< boost::shared_ptr<detail::Axis> > axes_;
 };

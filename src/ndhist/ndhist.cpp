@@ -29,6 +29,10 @@ ndhist(
 )
   : bc_(ConstructBinContentStorage(shape, dt))
 {
+    // Create a ndarray for the bin content.
+    bp::object self(bp::ptr(this));
+    bc_arr_ = bc_->ConstructNDArray(&self);
+
     const size_t nd = shape.get_size();
     if(bp::len(edges) != nd)
     {
@@ -38,8 +42,7 @@ ndhist(
         throw ValueError(ss.str());
     }
 
-    // Construct the edges storages.
-    bp::object self(bp::ptr(this));
+    // Construct the axes of the histogram.
     for(size_t i=0; i<nd; ++i)
     {
         const intptr_t n_bin_dim = bp::extract<intptr_t>(shape.get_item<bp::object>(i));
@@ -54,7 +57,7 @@ ndhist(
         if(arr.get_size() != n_bin_dim+1)
         {
             std::stringstream ss;
-            ss << "The number of edges for the " << i << "th dimension of this "
+            ss << "The number of edges for the " << i+1 << "th dimension of this "
                << "histogram must be " << n_bin_dim+1 << "!";
             throw ValueError(ss.str());
         }
@@ -64,16 +67,22 @@ ndhist(
         if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<double>()))
         {
             std::cout << "Found double equiv. edge type." << std::endl;
-
+            axes_.push_back(boost::shared_ptr<detail::GenericAxis<double> >(new detail::GenericAxis<double>(this, arr, 0, 0)));
         }
+
         else if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
         {
             std::cout << "Found bp::object equiv. edge type." << std::endl;
-
+            axes_.push_back(boost::shared_ptr<detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(this, arr, 0, 0)));
 
         }
-        //axes_.push_back(boost::shared_ptr<detail::GenericAxis<double> >(new detail::GenericAxis<double>(this, arr, 0, 0)));
-        axes_.push_back(boost::shared_ptr<detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(this, arr, 0, 0)));
+        else
+        {
+            std::stringstream ss;
+            ss << "The data type of the edges of axis "<< i+1<< " is not "
+               << "supported.";
+            throw TypeError(ss.str());
+        }
     }
 }
 
@@ -138,19 +147,69 @@ Fill(std::vector<bp::object> ndvalue, bp::object weight)
     //
     //       Create an Axis struct holding different implementations for this
     //       function depending on the axis edge value type.
-    //bp::object self(bp::ptr(this));
+    bn::ndarray & bc_arr = *static_cast<bn::ndarray*>(&bc_arr_);
+    int const nd = bc_arr.get_nd();
 
     //std::cout << "ndvalue = [";
+    bp::list indices;
+    std::vector<intptr_t> indices_vec(nd);
+
     for(size_t i=0; i<ndvalue.size(); ++i)
     {
-        // Construct the ndarray representation from the edges storage for the
-        // i-th dimension and set the owner the Py_None object.
-        //bn::ndarray edges = edges_[i]->ConstructNDArray(&self);
         intptr_t axis_idx = axes_[i]->get_bin_index_fct(axes_[i]->data_, ndvalue[i]);
-
+        if(axis_idx >= 0) {
+            std::cout << "Add "<< axis_idx<<" for axis = "<<i<<std::endl;
+            indices.append(axis_idx);
+            indices_vec[i] = axis_idx;
+        }
+        else {
+            // The current value is out of the axis bounds. Just ignore it
+            // for the moment.
+            return;
+        }
         //std::cout << axis_idx <<",";
     }
+
+
+    bn::detail::iter_flags_t iter_flags =
+        bn::detail::iter::flags::MULTI_INDEX::value
+      | bn::detail::iter::flags::DONT_NEGATE_STRIDES::value;
+
+    intptr_t itershape[nd];
+    int arr_op_bcr[nd];
+    for(int i=0; i<nd; ++i)
+    {
+        itershape[i] = -1;
+        arr_op_bcr[i] = i;
+    }
+    bn::detail::iter_operand_flags_t arr_op_flags = bn::detail::iter_operand::flags::READONLY::value;
+    bn::detail::iter_operand arr_op(bc_arr, arr_op_flags, arr_op_bcr);
+    bn::detail::iter iter(
+        iter_flags
+      , bn::KEEPORDER
+      , bn::NO_CASTING
+      , nd           // n_iter_axes
+      , itershape
+      , 0           // buffersize
+      , arr_op
+    );
+    iter.init_full_iteration();
+    iter.go_to(indices_vec);
+
+    int64_t & value = *reinterpret_cast<int64_t*>(iter.get_data(0));
+    int64_t w = bp::extract<int64_t>(weight);
+    value += w;
+    /*
+
+    bp::object bc = bc_arr[indices].scalarize();
+    bool s = bn::is_any_scalar(bc);
+    bc += weight;
+    //int64_t c = bp::extract<int64_t>(bc);
+    std::cout << "s = " << s << std::endl;
+    //std::cout << "c = " << c << std::endl;
+    //bc += bp::extract<int64_t>(weight);
     //std::cout << "]" << std::endl;
+    */
 }
 
 }//namespace ndhist
