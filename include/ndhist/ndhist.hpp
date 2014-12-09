@@ -52,9 +52,10 @@ class ndhist
      *  histogram this is usually an integer or float type.
      */
     ndhist(
-        boost::numpy::ndarray const & shape
-      , boost::python::list const & edges
-      , boost::numpy::dtype const & dt
+        bn::ndarray const & shape
+      , bp::list const & edges
+      , bn::dtype const & dt
+      , bp::object const & bc_class = bp::object()
     );
 
     virtual ~ndhist() {}
@@ -70,7 +71,7 @@ class ndhist
      *  hold values of different types. The order of these types must match the
      *  types of the bin edges vector.
      */
-    void Fill(std::vector<boost::python::object> ndvalue, boost::python::object weight);
+    void Fill(bp::object const & ndvalue_obj, bp::object const & weight_obj);
 
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
@@ -84,6 +85,19 @@ class ndhist
     GetBCArray()
     {
         return *static_cast<bn::ndarray*>(&bc_arr_);
+    }
+
+    inline
+    bn::ndarray const &
+    GetBCArray() const
+    {
+        return *static_cast<bn::ndarray const *>(&bc_arr_);
+    }
+
+    inline
+    int get_nd() const
+    {
+        return GetBCArray().get_nd();
     }
 
   private:
@@ -103,7 +117,7 @@ class ndhist
 
     std::vector< boost::shared_ptr<detail::Axis> > axes_;
 
-    boost::function<void (ndhist &, std::vector<bp::object> const &, bp::object const &)> fill_fct_;
+    boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 };
 
 }// namespace ndhist

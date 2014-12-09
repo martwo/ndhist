@@ -32,7 +32,7 @@ struct AxisData;
 
 struct Axis
 {
-    boost::function<intptr_t (boost::shared_ptr<AxisData>, bp::object const &)> get_bin_index_fct;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *)> get_bin_index_fct;
     boost::shared_ptr<AxisData> data_;
 };
 

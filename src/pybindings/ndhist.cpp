@@ -30,10 +30,12 @@ void register_ndhist()
             bn::ndarray const &
           , bp::list const &
           , bn::dtype const &
+          , bp::object
           >(
           ( bp::arg("nbins")
           , bp::arg("edges")
           , bp::arg("dtype")
+          , bp::arg("bc_class")=bp::object()
           )
           )
         )
@@ -49,8 +51,10 @@ void register_ndhist()
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
 */
-        .def(bn::dstream::method("fill", &ndhist::Fill,
-             ( bp::arg("ndvalue"), bp::arg("weight"))))
+        .def("fill", &ndhist::Fill
+             , (bp::arg("ndvalue"), bp::arg("weight"))
+             , "Fills")
+
     ;
 }
 
