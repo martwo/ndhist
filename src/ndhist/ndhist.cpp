@@ -13,6 +13,7 @@
 
 #include <boost/python/refcount.hpp>
 #include <boost/numpy/ndarray.hpp>
+#include <boost/numpy/indexed_iterator.hpp>
 #include <boost/numpy/dstream.hpp>
 
 #include <ndhist/detail/generic_axis.hpp>
@@ -78,34 +79,12 @@ struct fill_traits
         );
         iter.init_full_iteration();
 
-        // Create an iterator for the bin content array.
+        // Create an indexed iterator for the bin content array.
         bn::ndarray & bc_arr = self.GetBCArray();
-        int const nd = bc_arr.get_nd();
-        intptr_t bc_itershape[nd];
-        int bc_arr_op_bcr[nd];
-        for(size_t i=0; i<nd; ++i)
-        {
-            bc_itershape[i] = -1;
-            bc_arr_op_bcr[i] = i;
-        }
-        bn::detail::iter_flags_t bc_iter_flags =
-            bn::detail::iter::flags::MULTI_INDEX::value
-          | bn::detail::iter::flags::DONT_NEGATE_STRIDES::value;
-
-        bn::detail::iter_operand_flags_t bc_arr_op_flags = bn::detail::iter_operand::flags::READONLY::value;
-        bn::detail::iter_operand bc_arr_op(bc_arr, bc_arr_op_flags, bc_arr_op_bcr);
-        bn::detail::iter bc_iter(
-            bc_iter_flags
-          , bn::KEEPORDER
-          , bn::NO_CASTING
-          , nd           // n_iter_axes
-          , bc_itershape
-          , 0            // buffersize
-          , bc_arr_op
-        );
-        bc_iter.init_full_iteration();
+        bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
         // Do the iteration.
+        int const nd = bc_arr.get_nd();
         std::vector<intptr_t> indices(nd);
         std::vector<intptr_t> ndvalue_dim_indices(1);
         std::vector<intptr_t> const ndvalue_strides = iter.get_operand(0).get_strides_vector();
@@ -143,9 +122,9 @@ struct fill_traits
                     // Get the weight value for this fill iteration.
                     BCValueType & weight = *reinterpret_cast<BCValueType*>(iter.get_data(1));
                     // Jump to the location of the requested bin content.
-                    bc_iter.go_to(indices);
+                    bc_iter.jump_to(indices);
                     // Get a reference to the bin content's value.
-                    BCValueType & bc_value = *reinterpret_cast<BCValueType*>(bc_iter.get_data(0));
+                    BCValueType & bc_value = *bc_iter;
                     bc_value += weight;
                 }
 
@@ -210,35 +189,12 @@ struct fill_traits<bp::object>
         );
         iter.init_full_iteration();
 
-        // Create an iterator for the bin content array.
+        // Create an indexed iterator for the bin content array.
         bn::ndarray & bc_arr = self.GetBCArray();
-        int const nd = bc_arr.get_nd();
-        intptr_t bc_itershape[nd];
-        int bc_arr_op_bcr[nd];
-        for(size_t i=0; i<nd; ++i)
-        {
-            bc_itershape[i] = -1;
-            bc_arr_op_bcr[i] = i;
-        }
-        bn::detail::iter_flags_t bc_iter_flags =
-            bn::detail::iter::flags::MULTI_INDEX::value
-          | bn::detail::iter::flags::REFS_OK::value
-          | bn::detail::iter::flags::DONT_NEGATE_STRIDES::value;
-
-        bn::detail::iter_operand_flags_t bc_arr_op_flags = bn::detail::iter_operand::flags::READONLY::value;
-        bn::detail::iter_operand bc_arr_op(bc_arr, bc_arr_op_flags, bc_arr_op_bcr);
-        bn::detail::iter bc_iter(
-            bc_iter_flags
-          , bn::KEEPORDER
-          , bn::NO_CASTING
-          , nd           // n_iter_axes
-          , bc_itershape
-          , 0            // buffersize
-          , bc_arr_op
-        );
-        bc_iter.init_full_iteration();
+        bn::indexed_iterator<bp::object> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
         // Do the iteration.
+        int const nd = bc_arr.get_nd();
         std::vector<intptr_t> indices(nd);
         std::vector<intptr_t> ndvalue_dim_indices(1);
         std::vector<intptr_t> const ndvalue_strides = iter.get_operand(0).get_strides_vector();
@@ -278,15 +234,9 @@ struct fill_traits<bp::object>
                     bp::object weight(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*weight_ptr)));
 
                     // Jump to the location of the requested bin content.
-                    bc_iter.go_to(indices);
-                    // Get a reference to the bin content's value.
-                    uintptr_t * bc_value_ptr = reinterpret_cast<uintptr_t*>(bc_iter.get_data(0));
-                    if(*bc_value_ptr == 0)
-                    {
-                        throw ValueError("Bin content object missing. Did you forget to initialize?");
-                    }
-                    bp::object bc_value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bc_value_ptr)));
+                    bc_iter.jump_to(indices);
 
+                    bp::object bc_value = *bc_iter;
                     // Use the bp::object operator+= implementation, which will
                     // call the appropriate Python function of the object.
                     bc_value += weight;
