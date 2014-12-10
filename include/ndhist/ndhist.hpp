@@ -60,11 +60,17 @@ class ndhist
 
     virtual ~ndhist() {}
 
-    boost::numpy::ndarray
+    bn::ndarray
     GetBinContentArray();
 
-//     boost::numpy::ndarray
-//     GetEdgesArray(int axis=0);
+    /**
+     * \brief Returns the ndarray holding the bin edges of the given axis.
+     *        Note, that this is always a copy, since the edges are supposed
+     *        to be readonly, because a re-edging of an already filled histogram
+     *        does not make sense.
+     */
+    bn::ndarray
+    get_edges_ndarray(intptr_t axis=0) const;
 
     /** Fills a given n-dimension value into the histogram's bin content array.
      *  On the Python side, the *ndvalue* is a numpy object array that might

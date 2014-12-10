@@ -23,9 +23,6 @@ namespace bp = boost::python;
 namespace bn = boost::numpy;
 
 namespace ndhist {
-
-struct ndhist;
-
 namespace detail {
 
 struct AxisData;
@@ -33,6 +30,7 @@ struct AxisData;
 struct Axis
 {
     boost::function<intptr_t (boost::shared_ptr<AxisData>, char *)> get_bin_index_fct;
+    boost::function<bn::ndarray (boost::shared_ptr<AxisData>)> get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;
 };
 

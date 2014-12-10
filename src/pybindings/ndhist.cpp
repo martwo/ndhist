@@ -42,15 +42,16 @@ void register_ndhist()
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
-        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return()
-            , (bp::arg("self")))
+        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents.")
-/*
-        .def("get_bin_edges", bp::make_function(&ndhist::GetEdgesArray, bn::ndarray_accessor_return()
-            , (bp::arg("self"), bp::arg("axis")=0))
+
+        .add_property("nd", &ndhist::get_nd
+            , "The dimensionality of the histogram.")
+
+        .def("get_bin_edges", &ndhist::get_edges_ndarray
+            , (bp::arg("self"), bp::arg("axis")=0)
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
-*/
         .def("fill", &ndhist::Fill
              , (bp::arg("ndvalue"), bp::arg("weight"))
              , "Fills")

@@ -42,6 +42,8 @@ h3 = ndhist.ndhist(np.array([10]),
                   [np.array([0,1,2,3,4,5,6,7,8,9,10], dtype=np.dtype(np.float64))],
                   dtype=np.dtype(Value),
                   bc_class=Value)
+print("edges h3=", h3.get_bin_edges())
+print("h3.nd=", h3.nd)
 
 values = np.array([1,2,3,4,5,6,7,8,9,10,9,8,7,6,5,4,3,2,1,0])
 vs = values.astype(np.dtype(np.float64))

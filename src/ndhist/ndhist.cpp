@@ -16,8 +16,8 @@
 #include <boost/numpy/indexed_iterator.hpp>
 #include <boost/numpy/dstream.hpp>
 
-#include <ndhist/detail/generic_axis.hpp>
 #include <ndhist/ndhist.hpp>
+#include <ndhist/detail/generic_axis.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -393,10 +393,10 @@ GetBinContentArray()
 {
     return bc_->ConstructNDArray();
 }
-/*
+
 bn::ndarray
 ndhist::
-GetEdgesArray(int axis)
+get_edges_ndarray(intptr_t axis) const
 {
     // Count axis from the back if axis is negative.
     if(axis < 0) {
@@ -412,10 +412,8 @@ GetEdgesArray(int axis)
         throw IndexError(ss.str());
     }
 
-    return axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data);
+    return axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data_);
 }
-*/
-
 
 void
 ndhist::

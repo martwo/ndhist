@@ -17,6 +17,7 @@
 
 #include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
+#include <ndhist/ndhist.hpp>
 
 namespace ndhist {
 namespace detail {
@@ -36,7 +37,10 @@ struct GenericAxis
 {
     GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
     {
-        get_bin_index_fct = &GenericAxis::get_bin_index;
+        // Set up the axis's function pointers.
+        get_bin_index_fct     = &GenericAxis<AxisValueType>::get_bin_index;
+        get_edges_ndarray_fct = &GenericAxis<AxisValueType>::get_edges_ndarray;
+
         data_ = boost::shared_ptr< GenericAxisData<AxisValueType> >(new GenericAxisData<AxisValueType>());
         GenericAxisData<AxisValueType> & ddata = *static_cast<GenericAxisData<AxisValueType>*>(data_.get());
         intptr_t const nbins = edges.get_size();
@@ -62,9 +66,8 @@ struct GenericAxis
     intptr_t
     get_bin_index(boost::shared_ptr<AxisData> axisdata, char * value_ptr)
     {
-        AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
-
         GenericAxisData<AxisValueType> & data = *static_cast< GenericAxisData<AxisValueType> *>(axisdata.get());
+        AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
 
         // We know that edges is 1-dimensional by construction and the edges are
         // ordered ascedently. Also we know that the value type of the edges is
@@ -82,6 +85,15 @@ struct GenericAxis
 
         return -2;
     }
+
+    static
+    bn::ndarray
+    get_edges_ndarray(boost::shared_ptr<AxisData> axisdata)
+    {
+        GenericAxisData<AxisValueType> & data = *static_cast< GenericAxisData<AxisValueType> *>(axisdata.get());
+        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
+        return edges_arr.copy();
+    }
 };
 
 // Specialization for object axis types.
@@ -91,7 +103,10 @@ struct GenericAxis<bp::object>
 {
     GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
     {
-        get_bin_index_fct = &GenericAxis::get_bin_index;
+        // Set up the axis's function pointers.
+        get_bin_index_fct     = &GenericAxis<bp::object>::get_bin_index;
+        get_edges_ndarray_fct = &GenericAxis<bp::object>::get_edges_ndarray;
+
         data_ = boost::shared_ptr<GenericAxisData<bp::object> >(new GenericAxisData<bp::object>());
         GenericAxisData<bp::object> & ddata = *static_cast<GenericAxisData<bp::object>*>(data_.get());
         intptr_t const nbins = edges.get_size();
@@ -151,6 +166,15 @@ struct GenericAxis<bp::object>
 
         std::cout << "index = " << -2 << std::endl;
         return -2;
+    }
+
+    static
+    bn::ndarray
+    get_edges_ndarray(boost::shared_ptr<AxisData> axisdata)
+    {
+        GenericAxisData<bp::object> & data = *static_cast< GenericAxisData<bp::object> *>(axisdata.get());
+        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
+        return edges_arr.copy();
     }
 };
 
