@@ -17,6 +17,7 @@
 #include <boost/numpy/dstream.hpp>
 
 #include <ndhist/ndhist.hpp>
+#include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/generic_axis.hpp>
 
 namespace bp = boost::python;
@@ -25,6 +26,55 @@ namespace bn = boost::numpy;
 namespace ndhist {
 
 namespace detail {
+
+template <typename AxisValueType>
+struct axis_traits
+{
+    static
+    boost::shared_ptr<Axis>
+    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    {
+        // Check if the edges have a constant bin width,
+        // thus the axis is linear.
+        bool has_const_bin_width = true;
+        bn::flat_iterator<AxisValueType> edges_iter(const_cast<bn::ndarray &>(edges));
+        bn::flat_iterator<AxisValueType> edges_iter_end;
+        AxisValueType & prev_value = *edges_iter;
+        ++edges_iter;
+        bool is_first_dist = true;
+        AxisValueType first_dist;
+        for(; edges_iter != edges_iter_end; ++edges_iter)
+        {
+            AxisValueType & this_value = *edges_iter;
+            AxisValueType this_dist = this_value - prev_value;
+            if(is_first_dist)
+            {
+                prev_value = this_value;
+                first_dist = this_dist;
+                is_first_dist = false;
+            }
+            else
+            {
+                if(this_dist == first_dist)
+                {
+                    prev_value = this_value;
+                }
+                else
+                {
+                    has_const_bin_width = false;
+                    break;
+                }
+            }
+        }
+        if(has_const_bin_width)
+        {
+            std::cout << "+++++++++++++ Detected const bin width of " << first_dist << std::endl;
+        }
+
+        return boost::shared_ptr<detail::GenericAxis<double> >(new detail::GenericAxis<double>(self, edges, front_capacity, back_capacity));
+    }
+
+};
 
 template <typename BCValueType>
 struct fill_traits
@@ -327,6 +377,7 @@ ndhist(
     for(size_t i=0; i<nd; ++i)
     {
         const intptr_t n_bin_dim = bp::extract<intptr_t>(shape.get_item<bp::object>(i));
+
         bn::ndarray arr = bp::extract<bn::ndarray>(edges[i]);
         if(arr.get_nd() != 1)
         {
@@ -348,7 +399,7 @@ ndhist(
         if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<double>()))
         {
             std::cout << "Found double equiv. edge type." << std::endl;
-            axes_.push_back(boost::shared_ptr<detail::GenericAxis<double> >(new detail::GenericAxis<double>(this, arr, 0, 0)));
+            axes_.push_back(detail::axis_traits<double>::construct_axis(this, arr, 0, 0));
         }
         else if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
         {

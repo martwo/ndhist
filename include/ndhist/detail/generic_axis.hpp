@@ -12,6 +12,9 @@
 #ifndef NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED
 #define NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED 1
 
+#include <boost/python.hpp>
+#include <boost/shared_ptr.hpp>
+
 #include <boost/numpy/ndarray.hpp>
 #include <boost/numpy/flat_iterator.hpp>
 
@@ -143,26 +146,22 @@ struct GenericAxis<bp::object>
         for(intptr_t i=0; data.iter_ != data.iter_end_; ++data.iter_, ++i)
         {
             bp::object lower_edge = *data.iter_;
-            PyTypeObject* lower_edge_type = (PyTypeObject*)PyObject_Type(lower_edge.ptr());
-            if(! PyObject_TypeCheck(value.ptr(), lower_edge_type))
+            bp::object lower_edge_type(bp::handle<>(bp::borrowed(bp::downcast<PyTypeObject>(PyObject_Type(lower_edge.ptr())))));
+            if(! PyObject_TypeCheck(value.ptr(), (PyTypeObject*)lower_edge_type.ptr()))
             {
-                Py_DECREF(lower_edge_type);
                 std::stringstream ss;
-                ss << "The value for axis " << i+1 << " must be a subclass of the "
-                << "edges objects of axis "<< i+1 << " of the same type! "
-                << "Otherwise comparison operators might be ill-defined.";
+                ss << "The value for axis " << i+1 << " must be a subclass of "
+                   << "the edges objects of axis "<< i+1 << " of the same type! "
+                   << "Otherwise comparison operators might be ill-defined.";
                 throw TypeError(ss.str());
             }
-            Py_DECREF(lower_edge_type);
 
             if(lower_edge > value)
             {
-                std::cout << "index = " << i-1 << std::endl;
                 return i-1;
             }
         }
 
-        std::cout << "index = " << -2 << std::endl;
         return -2;
     }
 };
