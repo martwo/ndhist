@@ -31,18 +31,23 @@ struct GenericAxisData : AxisData
     bn::flat_iterator<AxisValueType> iter_end_;
 };
 
-template <typename AxisValueType>
-struct GenericAxis
+template <class Derived, class DerivedData>
+struct GenericAxisBase
   : Axis
 {
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    GenericAxisBase(
+        ::ndhist::ndhist * h
+      , bn::ndarray const & edges
+      , intptr_t front_capacity=0
+      , intptr_t back_capacity=0
+    )
     {
         // Set up the axis's function pointers.
-        get_bin_index_fct     = &GenericAxis<AxisValueType>::get_bin_index;
-        get_edges_ndarray_fct = &GenericAxis<AxisValueType>::get_edges_ndarray;
+        get_bin_index_fct     = &Derived::get_bin_index;
+        get_edges_ndarray_fct = &Derived::get_edges_ndarray;
 
-        data_ = boost::shared_ptr< GenericAxisData<AxisValueType> >(new GenericAxisData<AxisValueType>());
-        GenericAxisData<AxisValueType> & ddata = *static_cast<GenericAxisData<AxisValueType>*>(data_.get());
+        data_ = boost::shared_ptr< DerivedData >(new DerivedData());
+        DerivedData & ddata = *static_cast<DerivedData*>(data_.get());
         intptr_t const nbins = edges.get_size();
         std::vector<intptr_t> shape(1, nbins);
         std::vector<intptr_t> front_capacity_vec(1, front_capacity);
@@ -59,8 +64,30 @@ struct GenericAxis
             throw MemoryError("Could not copy edge array into internal storage!");
         }
         // Initialize a flat iterator over the axis edges.
-        ddata.iter_ = bn::flat_iterator<AxisValueType>(arr);
+        ddata.iter_ = bn::flat_iterator<typename Derived::axis_value_type>(arr);
     }
+
+    static
+    bn::ndarray
+    get_edges_ndarray(boost::shared_ptr<AxisData> axisdata)
+    {
+        DerivedData & data = *static_cast<DerivedData*>(axisdata.get());
+        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
+        return edges_arr.copy();
+    }
+};
+
+template <typename AxisValueType>
+struct GenericAxis
+  : GenericAxisBase< GenericAxis<AxisValueType>, GenericAxisData<AxisValueType> >
+{
+    typedef GenericAxisBase< GenericAxis<AxisValueType>, GenericAxisData<AxisValueType> >
+            base_t;
+    typedef AxisValueType axis_value_type;
+
+    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+      : base_t(h, edges, front_capacity, back_capacity)
+    {}
 
     static
     intptr_t
@@ -85,49 +112,20 @@ struct GenericAxis
 
         return -2;
     }
-
-    static
-    bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<AxisData> axisdata)
-    {
-        GenericAxisData<AxisValueType> & data = *static_cast< GenericAxisData<AxisValueType> *>(axisdata.get());
-        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
-        return edges_arr.copy();
-    }
 };
 
 // Specialization for object axis types.
 template <>
 struct GenericAxis<bp::object>
-  : Axis
+  : GenericAxisBase< GenericAxis<bp::object>, GenericAxisData<bp::object> >
 {
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
-    {
-        // Set up the axis's function pointers.
-        get_bin_index_fct     = &GenericAxis<bp::object>::get_bin_index;
-        get_edges_ndarray_fct = &GenericAxis<bp::object>::get_edges_ndarray;
+    typedef GenericAxisBase< GenericAxis<bp::object>, GenericAxisData<bp::object> >
+            base_t;
+    typedef bp::object axis_value_type;
 
-        data_ = boost::shared_ptr<GenericAxisData<bp::object> >(new GenericAxisData<bp::object>());
-        GenericAxisData<bp::object> & ddata = *static_cast<GenericAxisData<bp::object>*>(data_.get());
-        intptr_t const nbins = edges.get_size();
-        std::vector<intptr_t> shape(1, nbins);
-        std::vector<intptr_t> front_capacity_vec(1, front_capacity);
-        std::vector<intptr_t> back_capacity_vec(1, back_capacity);
-        ddata.storage_ = boost::shared_ptr<detail::ndarray_storage>(
-            new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
-        // Copy the data from the user provided edge array to the storage array.
-        bp::object owner(bp::ptr(h));
-        ddata.arr_ = ddata.storage_->ConstructNDArray(&owner);
-        bn::ndarray & arr = *static_cast<bn::ndarray*>(&ddata.arr_);
-        if(!bn::copy_into(arr, edges))
-        {
-            // TODO: Get the error string from the already set BP error.
-            throw MemoryError(
-               "Could not copy edge array into internal storage!");
-        }
-        // Initialize a flat iterator over the axis edges.
-        ddata.iter_ = bn::flat_iterator<bp::object>(arr);
-    }
+    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+      : base_t(h, edges, front_capacity, back_capacity)
+    {}
 
     static
     intptr_t
@@ -167,18 +165,7 @@ struct GenericAxis<bp::object>
         std::cout << "index = " << -2 << std::endl;
         return -2;
     }
-
-    static
-    bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<AxisData> axisdata)
-    {
-        GenericAxisData<bp::object> & data = *static_cast< GenericAxisData<bp::object> *>(axisdata.get());
-        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
-        return edges_arr.copy();
-    }
 };
-
-
 
 }//namespace detail
 }//namespace ndhist
