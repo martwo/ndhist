@@ -19,6 +19,7 @@
 #include <ndhist/ndhist.hpp>
 #include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/generic_axis.hpp>
+#include <ndhist/detail/constant_bin_width_axis.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -31,21 +32,20 @@ template <typename AxisValueType>
 struct axis_traits
 {
     static
-    boost::shared_ptr<Axis>
-    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    bool
+    has_constant_bin_width(bn::ndarray const & edges)
     {
-        // Check if the edges have a constant bin width,
-        // thus the axis is linear.
-        bool has_const_bin_width = true;
-        bn::flat_iterator<AxisValueType> edges_iter(const_cast<bn::ndarray &>(edges));
+        bn::flat_iterator<AxisValueType> edges_iter(edges);
         bn::flat_iterator<AxisValueType> edges_iter_end;
-        AxisValueType & prev_value = *edges_iter;
+        AxisValueType prev_value = *edges_iter;
+        //std::cout << "prev_value" << prev_value << std::endl;
         ++edges_iter;
         bool is_first_dist = true;
         AxisValueType first_dist;
         for(; edges_iter != edges_iter_end; ++edges_iter)
         {
             AxisValueType & this_value = *edges_iter;
+            //std::cout << "this_value" << this_value << std::endl;
             AxisValueType this_dist = this_value - prev_value;
             if(is_first_dist)
             {
@@ -61,17 +61,28 @@ struct axis_traits
                 }
                 else
                 {
-                    has_const_bin_width = false;
-                    break;
+                    return false;
                 }
             }
         }
-        if(has_const_bin_width)
+
+        return true;
+    }
+
+    static
+    boost::shared_ptr<Axis>
+    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    {
+        // Check if the edges have a constant bin width,
+        // thus the axis is linear.
+        if(has_constant_bin_width(edges))
         {
-            std::cout << "+++++++++++++ Detected const bin width of " << first_dist << std::endl;
+            std::cout << "+++++++++++++ Detected const bin width of "  << std::endl;
+            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges));
+
         }
 
-        return boost::shared_ptr<detail::GenericAxis<double> >(new detail::GenericAxis<double>(self, edges, front_capacity, back_capacity));
+        return boost::shared_ptr<detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges, front_capacity, back_capacity));
     }
 
 };

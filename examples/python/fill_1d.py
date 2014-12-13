@@ -1,5 +1,6 @@
 import numpy as np
 import ndhist
+import sys
 
 # Construct a histogram with 2 bins of type int64 having edges at 0, 1, and 2,
 # which are also of type int64
@@ -15,19 +16,19 @@ class Value(object):
         self._v += rhs._v
         return self
 
-h = ndhist.ndhist(np.array([10]),
-                  [np.array([0,1,2,3,4,5,6,7,8,9,10], dtype=np.dtype(np.float64))],
-                  #[np.array([Value(0),Value(1),Value(2)], dtype=np.dtype(object))],
+h1 = ndhist.ndhist(np.array([10]),
+                  [np.array([-1, 0,1,2,3,4,5,6,7,8,9], dtype=np.dtype(np.float64))],
                   dtype=np.dtype(np.float64))
 
-vs = np.random.uniform(0, 5, size=1000)
+vs = np.random.uniform(-3, 11, size=100)
 vs = vs.astype(np.dtype(np.float64))
 vs = np.reshape(vs, (vs.shape[0],1))
 
-h.fill(vs, 1)
+h1.fill(vs, 1)
 
-print(h.bc)
-
+print("h1.get_bin_edges(0) = ", h1.get_bin_edges(0))
+print("h1.bc =", h1.bc)
+sys.exit()
 h2 = ndhist.ndhist(np.array([9]),
                   [np.array([0,1,2,3,4,5,6,7,8,9], dtype=np.dtype(np.float64))],
                   dtype=np.dtype(np.float64))
