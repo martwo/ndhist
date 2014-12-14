@@ -484,4 +484,43 @@ Fill(bp::object const & ndvalue_obj, bp::object const & weight_obj)
     fill_fct_(*this, ndvalue_obj, weight_obj);
 }
 
+void
+ndhist::
+handle_struct_array(bp::object const & arr_obj)
+{
+    bn::ndarray arr = bn::from_object(arr_obj, 0, 1, bn::ndarray::ALIGNED);
+    bn::dtype arr_dt = arr.get_dtype();
+    std::cout << "arr.nd = " << arr.get_nd() << std::endl;
+    std::cout << "arr_dt.is_flexible() = " << arr_dt.is_flexible() << std::endl;
+    std::cout << "arr_dt.has_fields() = " << arr_dt.has_fields() << std::endl;
+
+    bp::list field_names = arr_dt.get_field_names();
+    size_t n = bp::len(field_names);
+    for(size_t i=0; i<n; ++i)
+    {
+        bp::object field_name = field_names[i];
+        std::string name = bp::extract<std::string>(field_name);
+        std::cout << "field ["<<i<<"] = " << name << std::endl;
+        bp::str field_name_str(field_name);
+        bn::dtype field_dt = arr_dt.get_field_dtype(field_name_str);
+        std::cout << "field_dt.is_flexible() = " << field_dt.is_flexible() << std::endl;
+        std::cout << "field_dt.has_fields() = " << field_dt.has_fields() << std::endl;
+        std::cout << "field_dt.is_array() = " << field_dt.is_array() << std::endl;
+        if(field_dt.is_array())
+        {
+            bn::dtype field_dt_subdtype(field_dt.get_subdtype());
+            std::vector<intptr_t> field_dt_shape = field_dt.get_shape_vector();
+            std::cout << "field_dt_subdtype.is_flexible() = " << field_dt_subdtype.is_flexible() << std::endl;
+            std::cout << "field_dt_subdtype.has_fields() = " << field_dt_subdtype.has_fields() << std::endl;
+            std::cout << "field_dt_subdtype.is_array() = " << field_dt_subdtype.is_array() << std::endl;
+            std::cout << "field_dt_subdtype shape = [";
+            for(size_t j=0; j<field_dt_shape.size(); ++j)
+            {
+                std::cout << field_dt_shape[j] << ",";
+            }
+            std::cout << "]"<< std::endl;
+        }
+    }
+}
+
 }//namespace ndhist

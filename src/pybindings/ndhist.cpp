@@ -55,7 +55,10 @@ void register_ndhist()
         .def("fill", &ndhist::Fill
              , (bp::arg("ndvalue"), bp::arg("weight"))
              , "Fills")
-
+        .def("handle_struct_array", &ndhist::handle_struct_array
+            , (bp::arg("arr"))
+            , "Test for handling a struct array."
+        )
     ;
 }
 

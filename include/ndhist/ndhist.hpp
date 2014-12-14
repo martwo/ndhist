@@ -79,6 +79,8 @@ class ndhist
      */
     void Fill(bp::object const & ndvalue_obj, bp::object const & weight_obj);
 
+    void handle_struct_array(bp::object const & arr_obj);
+
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
     GetAxes()
