@@ -9,6 +9,8 @@
  * (See LICENSE file).
  *
  */
+#if !BOOST_PP_IS_ITERATING
+
 #ifndef NDHIST_NDHIST_HPP_INCLUDED
 #define NDHIST_NDHIST_HPP_INCLUDED 1
 
@@ -18,6 +20,9 @@
 #include <vector>
 #include <iostream>
 
+#include <boost/preprocessor/punctuation/comma_if.hpp>
+#include <boost/preprocessor/iterate.hpp>
+#include <boost/preprocessor/repetition/repeat.hpp>
 #include <boost/python.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -26,6 +31,7 @@
 
 #include <ndhist/error.hpp>
 #include <ndhist/detail/axis.hpp>
+#include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
 
 namespace bp = boost::python;
@@ -59,6 +65,17 @@ class ndhist
     );
 
     virtual ~ndhist() {}
+
+    /**
+     * @brief Returns the maximal dimensionality of the histogram object, which
+     *        is still supported for filling with a tuple of arrays as ndvalue
+     *        function argument. Otherwise a structured array needs to be used
+     *        as ndvalue argument.
+     */
+    intptr_t get_max_tuple_fill_nd() const
+    {
+        return NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND;
+    }
 
     /**
      * @brief Constructs the bin content ndarray for releasing it to Python.
@@ -149,3 +166,192 @@ class ndhist
 }// namespace ndhist
 
 #endif // !NDHIST_NDHIST_HPP_INCLUDED
+#else
+
+#if BOOST_PP_ITERATION_FLAGS() == 1
+
+#define ND BOOST_PP_ITERATION()
+
+template <>
+struct nd_traits<ND>
+{
+    template<typename BCValueType>
+    struct fill_traits
+    {
+        static
+        void
+        fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
+        {
+            std::cout << "nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
+            if(! PyTuple_Check(ndvalues_obj.ptr()))
+            {
+                // The input ndvalues object is not a tuple, so we assume it's a
+                // structured array, which will be handled by the
+                // generic_nd_traits.
+                generic_nd_traits::fill_traits<BCValueType>::fill(self, ndvalues_obj, weight_obj);
+                return;
+            }
+
+            bp::tuple ndvalues_tuple(ndvalues_obj);
+
+            if(bp::len(ndvalues_tuple) != ND)
+            {
+                std::stringstream ss;
+                ss << "The number of elements (" << bp::len(ndvalues_tuple)
+                    << ") in the ndvalues tuple must match "
+                    << "the dimensionality (" << BOOST_PP_STRINGIZE(ND)
+                    << ") of the histogram.";
+                throw ValueError(ss.str());
+            }
+
+            // Extract the ndarrays from the tuple for the different axes.
+            #define NDHIST_IN_NDARRAY(z, n, data) \
+                bn::ndarray BOOST_PP_CAT(ndvalue_arr,n) = bn::from_object(ndvalues_tuple[n], self.get_axes()[n]->get_dtype(), 0, 0, bn::ndarray::ALIGNED);
+            BOOST_PP_REPEAT(ND, NDHIST_IN_NDARRAY, ~)
+            #undef NDHIST_IN_NDARRAY
+            bn::ndarray weight_arr = bn::from_object(weight_obj, bn::dtype::get_builtin<BCValueType>(), 0, 0, bn::ndarray::ALIGNED);
+
+            typedef bn::dstream::mapping::detail::core_shape<0>::shape<>
+                    ndvalue_core_shape_t;
+            typedef bn::dstream::mapping::detail::core_shape<0>::shape<>
+                    weight_core_shape_t;
+            typedef bn::dstream::array_definition<ndvalue_core_shape_t, void>
+                    ndvalue_arr_def;
+            typedef bn::dstream::array_definition<weight_core_shape_t, BCValueType>
+                    weight_arr_def;
+            #define NDHIST_DEF(z, n, data) BOOST_PP_COMMA_IF(n) data
+            typedef bn::dstream::detail::loop_service_arity<ND+1>::loop_service<BOOST_PP_REPEAT(ND, NDHIST_DEF, ndvalue_arr_def) , weight_arr_def>
+                    loop_service_t;
+            #undef NDHIST_DEF
+            #define NDHIST_IN_ARR_SERVICE(z, n, data) \
+                bn::dstream::detail::input_array_service<ndvalue_arr_def> BOOST_PP_CAT(ndvalue_arr_service,n)(BOOST_PP_CAT(ndvalue_arr,n));
+            BOOST_PP_REPEAT(ND, NDHIST_IN_ARR_SERVICE, ~)
+            #undef NDHIST_IN_ARR_SERVICE
+            bn::dstream::detail::input_array_service<weight_arr_def> weight_arr_service(weight_arr);
+            #define NDHIST_DEF(z, n, data) \
+                BOOST_PP_COMMA_IF(n) BOOST_PP_CAT(ndvalue_arr_service,n)
+            loop_service_t loop_service(BOOST_PP_REPEAT(ND, NDHIST_DEF, ~), weight_arr_service);
+            #undef NDHIST_DEF
+            #define NDHIST_DEF(z, n, data) \
+                bn::detail::iter_operand BOOST_PP_CAT(ndvalue_arr_iter_op,n)( BOOST_PP_CAT(ndvalue_arr_service,n).get_arr(), bn::detail::iter_operand::flags::READONLY::value, BOOST_PP_CAT(ndvalue_arr_service,n).get_arr_bcr_data() );
+            BOOST_PP_REPEAT(ND, NDHIST_DEF, ~)
+            #undef NDHIST_DEF
+            bn::detail::iter_operand weight_arr_iter_op( weight_arr_service.get_arr(), bn::detail::iter_operand::flags::READONLY::value, weight_arr_service.get_arr_bcr_data() );
+
+            bn::detail::iter_flags_t iter_flags =
+                bn::detail::iter::flags::REFS_OK::value // This is needed for the
+                                                        // weight, which can be bp::object.
+              | bn::detail::iter::flags::EXTERNAL_LOOP::value;
+            bn::order_t order = bn::KEEPORDER;
+            bn::casting_t casting = bn::NO_CASTING;
+            intptr_t buffersize = 0;
+
+            #define NDHIST_DEF(z, n, data) \
+                , BOOST_PP_CAT(ndvalue_arr_iter_op,n)
+            bn::detail::iter iter(
+                  iter_flags
+                , order
+                , casting
+                , loop_service.get_loop_nd()
+                , loop_service.get_loop_shape_data()
+                , buffersize
+                BOOST_PP_REPEAT(ND, NDHIST_DEF, ~)
+                , weight_arr_iter_op
+            );
+            #undef NDHIST_DEF
+            iter.init_full_iteration();
+
+            // Create an indexed iterator for the bin content array.
+            bn::ndarray & bc_arr = self.GetBCArray();
+            bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+
+            // Do the iteration.
+            std::vector<intptr_t> indices(ND);
+            do {
+                intptr_t size = iter.get_inner_loop_size();
+                while(size--)
+                {
+                    // Fill the scalar into the bin content array.
+                    // Get the coordinate of the current ndvalue.
+                    bool is_overflown = false;
+                    for(size_t i=0; i<ND; ++i)
+                    {
+                        std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
+                        boost::shared_ptr<detail::Axis> & axis = self.get_axes()[i];
+                        char * ndvalue_ptr = iter.get_data(i);
+                        intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr);
+                        if(axis_idx >= 0)
+                        {
+                            indices[i] = axis_idx;
+                        }
+                        else
+                        {
+                            // The current value is out of the axis bounds.
+                            // Just ignore it for now.
+                            // TODO: Introduce an under- and overflow bin for each
+                            //       each axis. Or resize the axis.
+                            is_overflown = true;
+                            break;
+                        }
+                    }
+
+                    // Increase the bin content if the bin exists.
+                    if(!is_overflown)
+                    {
+                        increment_bin_content<BCValueType>(iter, ND, bc_iter, indices);
+                    }
+
+                    // Jump to the next fill iteration.
+                    iter.add_inner_loop_strides_to_data_ptrs();
+                }
+            } while(iter.next());
+        }
+    };
+};
+
+#undef ND
+#else
+#if BOOST_PP_ITERATION_FLAGS() == 2
+
+#define ND BOOST_PP_ITERATION()
+
+#define NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(BCDTYPE)                          \
+    if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<BCDTYPE>()))     \
+    {                                                                          \
+        if(bc_dtype_supported) {                                               \
+            std::stringstream ss;                                              \
+            ss << "The bin content data type is supported by more than one "   \
+               << "possible C++ data type! This is an internal error!";        \
+            throw TypeError(ss.str());                                         \
+        }                                                                      \
+        std::cout << "Found " << BOOST_PP_STRINGIZE(BCDTYPE) << " equiv. "     \
+                  << "bc data type." << std::endl;                             \
+        fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;        \
+        bc_dtype_supported = true;                                             \
+    }
+
+#if ND > 1
+else
+#endif
+if(nd == ND)
+{
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(bool)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(int16_t)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(uint16_t)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(int32_t)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(uint32_t)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(int64_t)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(uint64_t)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(float)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(double)
+    NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(bp::object)
+}
+
+#undef NDHIST_BC_DATA_TYPE_SUPPORT
+
+#undef ND
+
+#endif // BOOST_PP_ITERATION_FLAGS() == 2
+#endif // BOOST_PP_ITERATION_FLAGS() == 1
+
+#endif // BOOST_PP_IS_ITERATING

@@ -56,6 +56,12 @@ void register_ndhist()
               "ndarray.view method in order to get a view on a MxN array to "
               "fill it into a N-dimensional histgram with M entries.")
 
+        .add_property("max_tuple_fill_nd", &ndhist::get_max_tuple_fill_nd
+            , "The maximal dimensionality of the histogram, which "
+              "is still supported for filling with a tuple of arrays as "
+              "ndvalue function argument. Otherwise a structured array needs "
+              "to be used as ndvalue argument.")
+
         .def("get_bin_edges", &ndhist::get_edges_ndarray
             , (bp::arg("self"), bp::arg("axis")=0)
             , "Gets the ndarray holding the bin edges for the given axis. "

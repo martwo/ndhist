@@ -5,7 +5,7 @@ h = ndhist.ndhist( np.array([2,2])
                  , [np.array([0,1,2], dtype=np.dtype(np.int64)),
                     np.array([0,1,2], dtype=np.dtype(np.float64))]
                  , dtype=np.dtype(np.float64))
-
+print("h.max_tuple_fill_nd = %d"%(h.max_tuple_fill_nd))
 
 a0 = np.array([0,1,2], dtype=np.dtype(np.int64))
 a1 = np.array([0.1, 0.2, 0.3], dtype=np.dtype(np.float64))
