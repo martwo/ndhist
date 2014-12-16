@@ -60,8 +60,12 @@ class ndhist
 
     virtual ~ndhist() {}
 
-    bn::ndarray
-    GetBinContentArray();
+    /**
+     * @brief Constructs the bin content ndarray for releasing it to Python.
+     *        The lifetime of this new object and this ndhist object will be
+     *        managed through the BoostNumpy ndarray_accessor_return() policy.
+     */
+    bn::ndarray py_construct_bin_content_ndarray();
 
     /**
      * \brief Returns the ndarray holding the bin edges of the given axis.
@@ -83,7 +87,7 @@ class ndhist
 
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
-    GetAxes()
+    get_axes()
     {
         return axes_;
     }
@@ -108,8 +112,16 @@ class ndhist
         return GetBCArray().get_nd();
     }
 
+    inline
+    bn::dtype get_ndvalues_dtype() const
+    {
+        return ndvalues_dt_;
+    }
+
   private:
-    ndhist() {};
+    ndhist()
+      : ndvalues_dt_(bn::dtype::new_builtin<void>())
+    {};
 
     /** Constructs a ndarray_storage object for the bin contents. The extra
      *  front and back capacity will be set to zero.
@@ -124,6 +136,12 @@ class ndhist
     boost::python::object bc_arr_;
 
     std::vector< boost::shared_ptr<detail::Axis> > axes_;
+
+    /** The dtype object describing the ndvalues structure. It describes a
+     *  structured ndarray which fields named "a0", "a1", "a2", ... for each
+     *  axis of the histogram.
+     */
+    bn::dtype ndvalues_dt_;
 
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 };

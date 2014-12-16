@@ -18,7 +18,8 @@ namespace ndhist {
 namespace detail {
 
 template<typename AxisValueType>
-struct ConstantBinWidthAxisData : AxisData
+struct ConstantBinWidthAxisData
+  : AxisData
 {
     intptr_t      n_bins_;
     AxisValueType bin_width_;
@@ -32,6 +33,7 @@ struct ConstantBinWidthAxisBase
     ConstantBinWidthAxisBase(
         bn::ndarray const & edges
     )
+      : Axis(edges.get_dtype())
     {
         typedef typename Derived::axis_value_type
                 axis_value_type;
@@ -45,10 +47,20 @@ struct ConstantBinWidthAxisBase
         ddata.n_bins_ = edges.shape(0) - 1;
         bn::flat_iterator<axis_value_type> edges_iter(edges);
         bn::flat_iterator<axis_value_type> edges_iter_end;
+
+        for(;edges_iter != edges_iter_end; ++edges_iter)
+        {
+            std::cout << *edges_iter << ";";
+        }
+        edges_iter.reset();
+        
         ddata.min_ = *edges_iter;
         ++edges_iter;
-        ddata.bin_width_ = *edges_iter - ddata.min_;
-        //std::cout << "ddata.bin_width_ = " << ddata.bin_width_ << std::endl;
+        axis_value_type const & value = *edges_iter;
+        ddata.bin_width_ = value - ddata.min_;
+        std::cout << "ddata.bin_width_ = " << ddata.bin_width_ << std::endl;
+        std::cout << "ddata.min_ = " << ddata.min_ << std::endl;
+        std::cout << "ddata.n_bins_ = " << ddata.n_bins_ << std::endl;
     }
 
     static
@@ -78,8 +90,10 @@ struct ConstantBinWidthAxis
 {
     typedef ConstantBinWidthAxisBase< ConstantBinWidthAxis<AxisValueType> >
             base_t;
-    typedef AxisValueType axis_value_type;
-    typedef ConstantBinWidthAxisData<AxisValueType> axis_data_type;
+    typedef AxisValueType
+            axis_value_type;
+    typedef ConstantBinWidthAxisData<AxisValueType>
+            axis_data_type;
 
     ConstantBinWidthAxis(bn::ndarray const & edges)
       : base_t(edges)
@@ -91,18 +105,21 @@ struct ConstantBinWidthAxis
     {
         axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
         AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
+
+
+        std::cout << "Got value: " << value << std::endl;
         if(value - data.min_ < 0)
         {
-            //std::cout << "underflow: " << value << ", min = "<< data.min_ << std::endl;
+            std::cout << "underflow: " << value << ", min = "<< data.min_ << std::endl;
             return -1;
         }
         intptr_t const idx = (value - data.min_)/data.bin_width_;
         if(idx >= data.n_bins_)
         {
-            //std::cout << "overflow: " << value << ", idx = "<< idx << std::endl;
+            std::cout << "overflow: " << value << ", idx = "<< idx << std::endl;
             return -2;
         }
-        //std::cout << "value " << value << " at " << idx << std::endl;
+        std::cout << "value " << value << " at " << idx << std::endl;
         return idx;
     }
 };

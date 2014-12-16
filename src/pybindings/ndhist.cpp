@@ -42,11 +42,19 @@ void register_ndhist()
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
-        .add_property("bc", bp::make_function(&ndhist::GetBinContentArray, bn::ndarray_accessor_return())
+        .add_property("bc", bp::make_function(
+              &ndhist::py_construct_bin_content_ndarray
+            , bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents.")
 
         .add_property("nd", &ndhist::get_nd
             , "The dimensionality of the histogram.")
+
+        .add_property("ndvalues_dtype", &ndhist::get_ndvalues_dtype
+            , "The dtype object describing the ndvalues array needed for "
+              "filling the histogram. This property can be used in the "
+              "ndarray.view method in order to get a view on a MxN array to "
+              "fill it into a N-dimensional histgram with M entries.")
 
         .def("get_bin_edges", &ndhist::get_edges_ndarray
             , (bp::arg("self"), bp::arg("axis")=0)

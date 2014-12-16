@@ -44,6 +44,7 @@ struct GenericAxisBase
       , intptr_t front_capacity=0
       , intptr_t back_capacity=0
     )
+      : Axis(edges.get_dtype())
     {
         // Set up the axis's function pointers.
         get_bin_index_fct     = &Derived::get_bin_index;

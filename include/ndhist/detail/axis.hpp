@@ -29,6 +29,17 @@ struct AxisData;
 
 struct Axis
 {
+    Axis()
+      : dt_(bn::dtype::get_builtin<void>())
+    {}
+
+    Axis(bn::dtype const & dt)
+      : dt_(dt)
+    {}
+
+    bn::dtype & get_dtype() { return dt_; }
+
+    bn::dtype dt_;
     boost::function<intptr_t (boost::shared_ptr<AxisData>, char *)> get_bin_index_fct;
     boost::function<bn::ndarray (boost::shared_ptr<AxisData>)> get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;

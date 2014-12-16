@@ -28,7 +28,7 @@ h1.fill(vs, 1)
 
 print("h1.get_bin_edges(0) = ", h1.get_bin_edges(0))
 print("h1.bc =", h1.bc)
-sys.exit()
+
 h2 = ndhist.ndhist(np.array([9]),
                   [np.array([0,1,2,3,4,5,6,7,8,9], dtype=np.dtype(np.float64))],
                   dtype=np.dtype(np.float64))

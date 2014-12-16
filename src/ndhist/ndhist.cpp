@@ -87,21 +87,63 @@ struct axis_traits
 
 };
 
+
+// The implementation to increment the bin content by a weight based on the type
+// of the bin content value.
+template <typename BCValueType>
+void increment_bin_content(
+    bn::detail::iter & in_iter
+  , int weight_arr_op_idx
+  , bn::indexed_iterator<BCValueType> & bc_iter
+  , std::vector<intptr_t> const & indices
+)
+{
+    // Get the weight value from the input iterator.
+    BCValueType & weight = *reinterpret_cast<BCValueType*>(in_iter.get_data(weight_arr_op_idx));
+    // Jump to the location of the requested bin content.
+    bc_iter.jump_to(indices);
+    // Get a reference to the bin content's value.
+    BCValueType & bc_value = *bc_iter;
+    bc_value += weight;
+}
+
+template <>
+void increment_bin_content<bp::object>(
+    bn::detail::iter & in_iter
+  , int weight_arr_op_idx
+  , bn::indexed_iterator<bp::object> & bc_iter
+  , std::vector<intptr_t> const & indices
+)
+{
+    // Get the weight value from the input iterator.
+    uintptr_t * weight_ptr = reinterpret_cast<uintptr_t*>(in_iter.get_data(weight_arr_op_idx));
+    bp::object weight(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*weight_ptr)));
+
+    // Jump to the location of the requested bin content.
+    bc_iter.jump_to(indices);
+
+    bp::object bc_value = *bc_iter;
+    // Use the bp::object operator+= implementation, which will
+    // call the appropriate Python function of the object.
+    bc_value += weight;
+}
+
 template <typename BCValueType>
 struct fill_traits
 {
     static
     void
-    fill(ndhist & self, bp::object const & ndvalue_obj, bp::object const & weight_obj)
+    fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
     {
-        bn::ndarray ndvalue_arr = bn::from_object(ndvalue_obj, 0, 2, bn::ndarray::ALIGNED);
-        bn::ndarray weight_arr = bn::from_object(weight_obj, bn::dtype::get_builtin<BCValueType>(), 0, 1, bn::ndarray::ALIGNED);
+
+        bn::ndarray ndvalue_arr = bn::from_object(ndvalues_obj, self.get_ndvalues_dtype(), 0, 0, bn::ndarray::ALIGNED);
+        bn::ndarray weight_arr = bn::from_object(weight_obj, bn::dtype::get_builtin<BCValueType>(), 0, 0, bn::ndarray::ALIGNED);
 
         // Construct an iterator for the input arrays. We use the loop service
         // of BoostNumpy that determines the number of loop
         // dimensions automatically and provides generalized universal
         // functions.
-        typedef bn::dstream::mapping::detail::core_shape<1>::shape<-1>
+        typedef bn::dstream::mapping::detail::core_shape<0>::shape<>
                 core_shape_t0;
         typedef bn::dstream::array_definition< core_shape_t0, void>
                 in_arr_def0;
@@ -111,6 +153,7 @@ struct fill_traits
                 in_arr_def1;
         typedef bn::dstream::detail::loop_service_arity<2>::loop_service<in_arr_def0, in_arr_def1>
                 loop_service_t;
+
         bn::dstream::detail::input_array_service<in_arr_def0> in_arr_service0(ndvalue_arr);
         bn::dstream::detail::input_array_service<in_arr_def1> in_arr_service1(weight_arr);
         loop_service_t loop_service(in_arr_service0, in_arr_service1);
@@ -122,7 +165,8 @@ struct fill_traits
         bn::detail::iter_operand in_arr_iter_op1( in_arr_service1.get_arr(), in_arr_iter_op_flags1, in_arr_service1.get_arr_bcr_data() );
 
         bn::detail::iter_flags_t iter_flags =
-            bn::detail::iter::flags::REFS_OK::value
+            bn::detail::iter::flags::REFS_OK::value // This is needed for the
+                                                    // weight, which can be bp::object.
           | bn::detail::iter::flags::EXTERNAL_LOOP::value;
         bn::order_t order = bn::KEEPORDER;
         bn::casting_t casting = bn::NO_CASTING;
@@ -145,121 +189,36 @@ struct fill_traits
         bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
         // Do the iteration.
-        int const nd = bc_arr.get_nd();
-        std::vector<intptr_t> indices(nd);
-        std::vector<intptr_t> ndvalue_dim_indices(1);
-        std::vector<intptr_t> const ndvalue_strides = iter.get_operand(0).get_strides_vector();
-        bn::dstream::wiring::detail::iter_data_ptr</*ND=*/1, 0> ndvalue_iter_data_ptr(iter, 0, ndvalue_dim_indices, ndvalue_strides);
-        do {
-            intptr_t size = iter.get_inner_loop_size();
-            while(size--)
+        // Get the byte offsets of the fields and check if the number of fields
+        // match the dimensionality of the histogram.
+        std::vector<intptr_t> ndvalue_byte_offsets = ndvalue_arr.get_dtype().get_fields_byte_offsets();
+        int const nd = self.get_nd();
+        if(ndvalue_byte_offsets.size() == 0)
+        {
+            if(nd == 1)
             {
-                // Fill the scalar into the bin content array.
-                // Get the coordinate of the current ndvalue.
-                bool is_overflown = false;
-                for(size_t i=0; i<nd; ++i)
-                {
-                    ndvalue_dim_indices[0] = i; // Point to the next ndvalue.
-                    boost::shared_ptr<detail::Axis> & axis = self.GetAxes()[i];
-                    intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_iter_data_ptr());
-                    if(axis_idx >= 0)
-                    {
-                        indices[i] = axis_idx;
-                    }
-                    else
-                    {
-                        // The current value is out of the axis bounds.
-                        // Just ignore it for now.
-                        // TODO: Introduce an under- and overflow bin for each
-                        //       each axis. Or resize the axis.
-                        is_overflown = true;
-                        break;
-                    }
-                }
-
-                // Increase the bin content if the bin exists.
-                if(!is_overflown)
-                {
-                    // Get the weight value for this fill iteration.
-                    BCValueType & weight = *reinterpret_cast<BCValueType*>(iter.get_data(1));
-                    // Jump to the location of the requested bin content.
-                    bc_iter.jump_to(indices);
-                    // Get a reference to the bin content's value.
-                    BCValueType & bc_value = *bc_iter;
-                    bc_value += weight;
-                }
-
-                // Jump to the next fill iteration.
-                iter.add_inner_loop_strides_to_data_ptrs();
+                ndvalue_byte_offsets.push_back(0);
             }
-        } while(iter.next());
-    }
-};
-
-template <>
-struct fill_traits<bp::object>
-{
-    static
-    void
-    fill(ndhist & self, bp::object const & ndvalue_obj, bp::object const & weight_obj)
-    {
-        bn::ndarray ndvalue_arr = bn::from_object(ndvalue_obj, 0, 2, bn::ndarray::ALIGNED);
-        bn::ndarray weight_arr = bn::from_object(weight_obj, bn::dtype::get_builtin<bp::object>(), 0, 1, bn::ndarray::ALIGNED);
-
-        // Construct an iterator for the input arrays. We use the loop service
-        // of BoostNumpy that determines the number of loop
-        // dimensions automatically and provides generalized universal
-        // functions.
-        typedef bn::dstream::mapping::detail::core_shape<1>::shape<-1>
-                core_shape_t0;
-        typedef bn::dstream::array_definition< core_shape_t0, void>
-                in_arr_def0;
-        typedef bn::dstream::mapping::detail::core_shape<0>::shape<>
-                core_shape_t1;
-        typedef bn::dstream::array_definition< core_shape_t1, bp::object>
-                in_arr_def1;
-        typedef bn::dstream::detail::loop_service_arity<2>::loop_service<in_arr_def0, in_arr_def1>
-                loop_service_t;
-
-        bn::dstream::detail::input_array_service<in_arr_def0> in_arr_service0(ndvalue_arr);
-        bn::dstream::detail::input_array_service<in_arr_def1> in_arr_service1(weight_arr);
-        loop_service_t loop_service(in_arr_service0, in_arr_service1);
-
-        bn::detail::iter_operand_flags_t in_arr_iter_op_flags0 = bn::detail::iter_operand::flags::READONLY::value;
-        bn::detail::iter_operand_flags_t in_arr_iter_op_flags1 = bn::detail::iter_operand::flags::READONLY::value;
-
-        bn::detail::iter_operand in_arr_iter_op0( in_arr_service0.get_arr(), in_arr_iter_op_flags0, in_arr_service0.get_arr_bcr_data() );
-        bn::detail::iter_operand in_arr_iter_op1( in_arr_service1.get_arr(), in_arr_iter_op_flags1, in_arr_service1.get_arr_bcr_data() );
-
-        bn::detail::iter_flags_t iter_flags =
-            bn::detail::iter::flags::EXTERNAL_LOOP::value
-          | bn::detail::iter::flags::REFS_OK::value;
-        bn::order_t order = bn::KEEPORDER;
-        bn::casting_t casting = bn::NO_CASTING;
-        intptr_t buffersize = 0;
-
-        bn::detail::iter iter(
-              iter_flags
-            , order
-            , casting
-            , loop_service.get_loop_nd()
-            , loop_service.get_loop_shape_data()
-            , buffersize
-            , in_arr_iter_op0
-            , in_arr_iter_op1
-        );
-        iter.init_full_iteration();
-
-        // Create an indexed iterator for the bin content array.
-        bn::ndarray & bc_arr = self.GetBCArray();
-        bn::indexed_iterator<bp::object> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+            else
+            {
+                std::stringstream ss;
+                ss << "The dimensionality of the histogram is " << nd
+                   << ", i.e. greater than 1, so the value ndarray must be a "
+                   << "structured ndarray!";
+                throw ValueError(ss.str());
+            }
+        }
+        else if(ndvalue_byte_offsets.size() != nd)
+        {
+            std::stringstream ss;
+            ss << "The value ndarray must contain " << nd << " fields, one for "
+               << "each dimension! Right now it has "
+               << ndvalue_byte_offsets.size() << " fields!";
+            throw ValueError(ss.str());
+        }
 
         // Do the iteration.
-        int const nd = bc_arr.get_nd();
         std::vector<intptr_t> indices(nd);
-        std::vector<intptr_t> ndvalue_dim_indices(1);
-        std::vector<intptr_t> const ndvalue_strides = iter.get_operand(0).get_strides_vector();
-        bn::dstream::wiring::detail::iter_data_ptr</*ND=*/1, 0> ndvalue_iter_data_ptr(iter, 0, ndvalue_dim_indices, ndvalue_strides);
         do {
             intptr_t size = iter.get_inner_loop_size();
             while(size--)
@@ -269,9 +228,10 @@ struct fill_traits<bp::object>
                 bool is_overflown = false;
                 for(size_t i=0; i<nd; ++i)
                 {
-                    ndvalue_dim_indices[0] = i; // Point to the next ndvalue.
-                    boost::shared_ptr<detail::Axis> & axis = self.GetAxes()[i];
-                    intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_iter_data_ptr());
+                    std::cout << "Get bin idx of axis " << i << " of " << nd << std::endl;
+                    boost::shared_ptr<detail::Axis> & axis = self.get_axes()[i];
+                    char * ndvalue_ptr = iter.get_data(0) + ndvalue_byte_offsets[i];
+                    intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr);
                     if(axis_idx >= 0)
                     {
                         indices[i] = axis_idx;
@@ -290,17 +250,7 @@ struct fill_traits<bp::object>
                 // Increase the bin content if the bin exists.
                 if(!is_overflown)
                 {
-                    // Get the weight value for this fill iteration.
-                    uintptr_t * weight_ptr = reinterpret_cast<uintptr_t*>(iter.get_data(1));
-                    bp::object weight(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*weight_ptr)));
-
-                    // Jump to the location of the requested bin content.
-                    bc_iter.jump_to(indices);
-
-                    bp::object bc_value = *bc_iter;
-                    // Use the bp::object operator+= implementation, which will
-                    // call the appropriate Python function of the object.
-                    bc_value += weight;
+                    increment_bin_content<BCValueType>(iter, 1, bc_iter, indices);
                 }
 
                 // Jump to the next fill iteration.
@@ -320,6 +270,7 @@ ndhist(
   , bp::object const & bc_class
 )
   : bc_(ConstructBinContentStorage(shape, dt))
+  , ndvalues_dt_(bn::dtype::new_builtin<void>())
 {
     // Create a ndarray for the bin content.
     bp::object self(bp::ptr(this));
@@ -406,25 +357,38 @@ ndhist(
         }
 
         // Check the type of the edge values for the current axis.
+        bool axis_dtype_supported = false;
         bn::dtype axis_dtype = arr.get_dtype();
-        if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<double>()))
-        {
-            std::cout << "Found double equiv. edge type." << std::endl;
-            axes_.push_back(detail::axis_traits<double>::construct_axis(this, arr, 0, 0));
-        }
-        else if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<bp::object>()))
-        {
-            std::cout << "Found bp::object equiv. edge type." << std::endl;
-            axes_.push_back(boost::shared_ptr<detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(this, arr, 0, 0)));
-
-        }
-        else
+        #define NDHIST_AXIS_DATA_TYPE_SUPPORT(AXISDTYPE)                            \
+            if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<AXISDTYPE>()))\
+            {                                                                       \
+                if(axis_dtype_supported) {                                          \
+                    std::stringstream ss;                                           \
+                    ss << "The bin content data type is supported by more than one "\
+                       << "possible C++ data type! This is an internal error!";     \
+                    throw TypeError(ss.str());                                      \
+                }                                                                   \
+                std::cout << "Found " << BOOST_PP_STRINGIZE(AXISDTYPE) << " equiv. "\
+                          << "axis data type." << std::endl;                        \
+                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, arr, 0, 0));\
+                axis_dtype_supported = true;                                        \
+            }
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int64_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint64_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(double)
+        //NDHIST_AXIS_DATA_TYPE_SUPPORT(bp::object)
+        if(!axis_dtype_supported)
         {
             std::stringstream ss;
-            ss << "The data type of the edges of axis "<< i+1<< " is not "
+            ss << "The data type of the edges of axis "<< i<< " is not "
                << "supported.";
             throw TypeError(ss.str());
         }
+        #undef NDHIST_AXIS_DATA_TYPE_SUPPORT
+
+        // Add the axis field to the ndvalues dtype object.
+        std::stringstream field_name; field_name << "a" << i;
+        ndvalues_dt_.add_field(field_name.str(), axes_[i]->get_dtype());
     }
 }
 
@@ -451,7 +415,7 @@ ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt)
 
 bn::ndarray
 ndhist::
-GetBinContentArray()
+py_construct_bin_content_ndarray()
 {
     return bc_->ConstructNDArray();
 }
@@ -488,20 +452,47 @@ void
 ndhist::
 handle_struct_array(bp::object const & arr_obj)
 {
+    bn::dtype dt = bn::dtype::new_builtin<void>();
+
+    std::cout << "dt.itemsize = " << dt.get_itemsize() << std::endl;
+    std::cout << "dt.char = " << dt.get_char() << std::endl;
+    std::cout << "dt.num = " << dt.get_type_num() << std::endl;
+    dt.add_field("x", bn::dtype::get_builtin<double>());
+    std::cout << "dt.has_fields() = " << dt.has_fields() << std::endl;
+    bp::tuple field_names = dt.get_field_names();
+    size_t n = bp::len(field_names);
+    for(size_t i=0; i<n; ++i)
+    {
+        bp::object field_name = field_names[i];
+        bp::str field_name_str(field_name);
+        std::string name = bp::extract<std::string>(field_name);
+        std::cout << "field ["<<i<<"] = " << name << std::endl;
+    }
+    std::cout << "dt.itemsize = " << dt.get_itemsize() << std::endl;
+
+    /*
     bn::ndarray arr = bn::from_object(arr_obj, 0, 1, bn::ndarray::ALIGNED);
     bn::dtype arr_dt = arr.get_dtype();
     std::cout << "arr.nd = " << arr.get_nd() << std::endl;
     std::cout << "arr_dt.is_flexible() = " << arr_dt.is_flexible() << std::endl;
     std::cout << "arr_dt.has_fields() = " << arr_dt.has_fields() << std::endl;
+    std::cout << "arr.get_strides = [";
+    std::vector<intptr_t> arr_strides = arr.get_strides_vector();
+    for(size_t j=0; j<arr_strides.size(); ++j)
+    {
+        std::cout << arr_strides[j] << ",";
+    }
+    std::cout << "]"<< std::endl;
 
     bp::list field_names = arr_dt.get_field_names();
     size_t n = bp::len(field_names);
     for(size_t i=0; i<n; ++i)
     {
         bp::object field_name = field_names[i];
+        bp::str field_name_str(field_name);
         std::string name = bp::extract<std::string>(field_name);
         std::cout << "field ["<<i<<"] = " << name << std::endl;
-        bp::str field_name_str(field_name);
+        std::cout << "field byte offset = " << arr_dt.get_field_byte_offset(field_name_str) << std::endl;
         bn::dtype field_dt = arr_dt.get_field_dtype(field_name_str);
         std::cout << "field_dt.is_flexible() = " << field_dt.is_flexible() << std::endl;
         std::cout << "field_dt.has_fields() = " << field_dt.has_fields() << std::endl;
@@ -520,7 +511,61 @@ handle_struct_array(bp::object const & arr_obj)
             }
             std::cout << "]"<< std::endl;
         }
+        else
+        {
+            if(! field_dt.has_fields() && name == "x")
+            {
+                // The field is a bare data type. So we could iterate over the
+                // elements.
+                // First we get a ndarray slice for the field and then we
+                // iterate over this slice using flat_iterator.
+                bn::ndarray field_arr = arr[field_name_str];
+
+                std::vector<intptr_t> strides = field_arr.get_strides_vector();
+                std::cout << "x_field_arr.get_strides = [";
+                for(size_t j=0; j<strides.size(); ++j)
+                {
+                    std::cout << strides[j] << ",";
+                }
+                std::cout << "]"<< std::endl;
+
+
+                bn::flat_iterator<float> field_arr_iter(field_arr);
+                std::cout << "x_field_arr = [";
+                for(;field_arr_iter != field_arr_iter.end; ++field_arr_iter)
+                {
+                    std::cout << *field_arr_iter << ",";
+                }
+                std::cout << "]"<< std::endl;
+            }
+            if(! field_dt.has_fields() && name == "y")
+            {
+                // The field is a bare data type. So we could iterate over the
+                // elements.
+                // First we get a ndarray slice for the field and then we
+                // iterate over this slice using flat_iterator.
+                bn::ndarray field_arr = arr[field_name_str];
+
+                std::vector<intptr_t> strides = field_arr.get_strides_vector();
+                std::cout << "y_field_arr.get_strides = [";
+                for(size_t j=0; j<strides.size(); ++j)
+                {
+                    std::cout << strides[j] << ",";
+                }
+                std::cout << "]"<< std::endl;
+                std::cout << "sizeof(float) = " << sizeof(float) << std::endl;
+                std::cout << "y_field_arr.get_dtype.get_itemsize() = " << field_arr.get_dtype().get_itemsize() << std::endl;
+                bn::flat_iterator<double> field_arr_iter(field_arr);
+                std::cout << "y_field_arr = [";
+                for(;field_arr_iter != field_arr_iter.end; ++field_arr_iter)
+                {
+                    std::cout << *field_arr_iter << ",";
+                }
+                std::cout << "]"<< std::endl;
+            }
+        }
     }
+    */
 }
 
 }//namespace ndhist
