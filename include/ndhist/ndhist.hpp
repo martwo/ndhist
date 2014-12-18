@@ -98,7 +98,8 @@ class ndhist
      *  hold values of different types. The order of these types must match the
      *  types of the bin edges vector.
      */
-    void Fill(bp::object const & ndvalue_obj, bp::object const & weight_obj);
+    void
+    fill(bp::object const & ndvalue_obj, bp::object weight_obj);
 
     void handle_struct_array(bp::object const & arr_obj);
 
@@ -135,6 +136,12 @@ class ndhist
         return ndvalues_dt_;
     }
 
+    inline
+    bp::object get_one() const
+    {
+        return bc_one_;
+    }
+
   private:
     ndhist()
       : ndvalues_dt_(bn::dtype::new_builtin<void>())
@@ -150,7 +157,12 @@ class ndhist
     /** The bin contents.
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
-    boost::python::object bc_arr_;
+    bp::object bc_arr_;
+
+    /** The Python object scalar representation of 1 which will be used for
+     *  filling when no weights are specified.
+     */
+    bp::object bc_one_;
 
     std::vector< boost::shared_ptr<detail::Axis> > axes_;
 

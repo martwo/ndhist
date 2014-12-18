@@ -12,6 +12,8 @@
 #ifndef NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED
 #define NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED 1
 
+#include <algorithm>
+
 #include <boost/python.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -69,6 +71,7 @@ struct GenericAxisBase
         }
         // Initialize a flat iterator over the axis edges.
         ddata.iter_ = bn::flat_iterator<typename Derived::axis_value_type>(arr);
+        ddata.iter_end_ = bn::flat_iterator<typename Derived::axis_value_type>(ddata.iter_.end());
     }
 
     static
@@ -102,19 +105,22 @@ struct GenericAxis
 
         // We know that edges is 1-dimensional by construction and the edges are
         // ordered ascedently. Also we know that the value type of the edges is
-        // AxisValueType. So we can just iterate over the edges values and
-        // compare the values.
+        // AxisValueType. So we can use the std::upper_bound binary search for
+        // getting the upper edge for the given value.
         data.iter_.reset();
-        for(intptr_t i=0; data.iter_ != data.iter_end_; ++data.iter_, ++i)
+        bn::flat_iterator<AxisValueType> ub = std::upper_bound(data.iter_, data.iter_end_, value);
+        if(ub == data.iter_end_)
         {
-            AxisValueType & lower_edge = *data.iter_;
-            if(lower_edge > value)
-            {
-                return i-1;
-            }
+            // Overlow.
+            return -2;
         }
-
-        return -2;
+        intptr_t const idx = ub.get_iter_index();
+        if(idx == 0)
+        {
+            // Underflow. ub points to the first element.
+            return -1;
+        }
+        return idx - 1;
     }
 };
 
@@ -132,9 +138,26 @@ struct GenericAxis<bp::object>
     {}
 
     static
+    bool
+    edge_value_compare(bp::object const & value, bp::object const & edge)
+    {
+        bp::object edge_type(bp::handle<>(bp::borrowed(bp::downcast<PyTypeObject>(PyObject_Type(edge.ptr())))));
+        if(! PyObject_TypeCheck(value.ptr(), (PyTypeObject*)edge_type.ptr()))
+        {
+            std::stringstream ss;
+            ss << "The type of the value for an axis must be the same as the "
+               << "type of the edges objects of that axis! "
+               << "Otherwise comparison operators might be ill-defined.";
+            throw TypeError(ss.str());
+        }
+        return (value < edge);
+    }
+
+    static
     intptr_t
     get_bin_index(boost::shared_ptr<AxisData> axisdata, char * obj_ptr)
     {
+        std::cout << "GenericAxis<bp::object>::get_bin_index" << std::endl;
         GenericAxisData<bp::object> & data = *static_cast<GenericAxisData<bp::object> *>(axisdata.get());
         uintptr_t * obj_ptr_data = reinterpret_cast<uintptr_t*>(obj_ptr);
         bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*obj_ptr_data)));
@@ -144,26 +167,19 @@ struct GenericAxis<bp::object>
         // AxisValueType. So we can just iterate over the edges values and
         // compare the values.
         data.iter_.reset();
-        for(intptr_t i=0; data.iter_ != data.iter_end_; ++data.iter_, ++i)
+        bn::flat_iterator<bp::object> ub = std::upper_bound(data.iter_, data.iter_end_, value, &edge_value_compare);
+        if(ub == data.iter_end_)
         {
-            bp::object lower_edge = *data.iter_;
-            bp::object lower_edge_type(bp::handle<>(bp::borrowed(bp::downcast<PyTypeObject>(PyObject_Type(lower_edge.ptr())))));
-            if(! PyObject_TypeCheck(value.ptr(), (PyTypeObject*)lower_edge_type.ptr()))
-            {
-                std::stringstream ss;
-                ss << "The value for axis " << i+1 << " must be a subclass of "
-                   << "the edges objects of axis "<< i+1 << " of the same type! "
-                   << "Otherwise comparison operators might be ill-defined.";
-                throw TypeError(ss.str());
-            }
-
-            if(lower_edge > value)
-            {
-                return i-1;
-            }
+            // Overlow.
+            return -2;
         }
-
-        return -2;
+        intptr_t const idx = ub.get_iter_index();
+        if(idx == 0)
+        {
+            // Underflow. ub points to the first element.
+            return -1;
+        }
+        return idx - 1;
     }
 };
 

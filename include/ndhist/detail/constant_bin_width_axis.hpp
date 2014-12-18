@@ -46,21 +46,12 @@ struct ConstantBinWidthAxisBase
         typename Derived::axis_data_type & ddata = *static_cast<typename Derived::axis_data_type*>(data_.get());
         ddata.n_bins_ = edges.shape(0) - 1;
         bn::flat_iterator<axis_value_type> edges_iter(edges);
-        bn::flat_iterator<axis_value_type> edges_iter_end;
+        bn::flat_iterator<axis_value_type> edges_iter_end(edges_iter.end());
 
-        for(;edges_iter != edges_iter_end; ++edges_iter)
-        {
-            std::cout << *edges_iter << ";";
-        }
-        edges_iter.reset();
-        
         ddata.min_ = *edges_iter;
         ++edges_iter;
-        axis_value_type const & value = *edges_iter;
+        axis_value_type const value = *edges_iter;
         ddata.bin_width_ = value - ddata.min_;
-        std::cout << "ddata.bin_width_ = " << ddata.bin_width_ << std::endl;
-        std::cout << "ddata.min_ = " << ddata.min_ << std::endl;
-        std::cout << "ddata.n_bins_ = " << ddata.n_bins_ << std::endl;
     }
 
     static
@@ -75,9 +66,10 @@ struct ConstantBinWidthAxisBase
         shape[0] = data.n_bins_ + 1;
         bn::ndarray edges = bn::empty(1, shape, bn::dtype::get_builtin<axis_value_type>());
         bn::flat_iterator<axis_value_type> iter(edges);
-        for(intptr_t idx = 0; iter != iter.end; ++idx, ++iter)
+        bn::flat_iterator<axis_value_type> iter_end(iter.end());
+        for(intptr_t idx = 0; iter != iter_end; ++idx, ++iter)
         {
-            axis_value_type & value = *iter;
+            axis_value_type value = *iter;
             value = data.min_ + idx*data.bin_width_;
         }
         return edges;
@@ -104,8 +96,7 @@ struct ConstantBinWidthAxis
     get_bin_index(boost::shared_ptr<AxisData> axisdata, char * value_ptr)
     {
         axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
-        AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
-
+        AxisValueType const value = *reinterpret_cast<AxisValueType*>(value_ptr);
 
         std::cout << "Got value: " << value << std::endl;
         if(value - data.min_ < 0)
@@ -123,8 +114,6 @@ struct ConstantBinWidthAxis
         return idx;
     }
 };
-
-//FIXME: Have specialization for bool and bp::object.
 
 }//namespace detail
 }//namespace ndhist

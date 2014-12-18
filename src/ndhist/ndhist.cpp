@@ -11,6 +11,8 @@
  */
 #include <sstream>
 
+#include <boost/type_traits/is_same.hpp>
+
 #include <boost/python/refcount.hpp>
 #include <boost/numpy/limits.hpp>
 #include <boost/numpy/ndarray.hpp>
@@ -33,21 +35,18 @@ namespace detail {
 template <typename AxisValueType>
 struct axis_traits
 {
-    static
-    bool
+    static bool
     has_constant_bin_width(bn::ndarray const & edges)
     {
         bn::flat_iterator<AxisValueType> edges_iter(edges);
-        bn::flat_iterator<AxisValueType> edges_iter_end;
+        bn::flat_iterator<AxisValueType> const edges_iter_end(edges_iter.end());
         AxisValueType prev_value = *edges_iter;
-        //std::cout << "prev_value" << prev_value << std::endl;
         ++edges_iter;
         bool is_first_dist = true;
         AxisValueType first_dist;
         for(; edges_iter != edges_iter_end; ++edges_iter)
         {
-            AxisValueType & this_value = *edges_iter;
-            //std::cout << "this_value" << this_value << std::endl;
+            AxisValueType this_value = *edges_iter;
             AxisValueType this_dist = this_value - prev_value;
             if(is_first_dist)
             {
@@ -84,11 +83,24 @@ struct axis_traits
 
         }
 
-        return boost::shared_ptr<detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges, front_capacity, back_capacity));
+        return boost::shared_ptr< detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges, front_capacity, back_capacity));
     }
 
 };
 
+template <>
+struct axis_traits<bp::object>
+{
+    static
+    boost::shared_ptr<Axis>
+    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    {
+        // In case we have an object value typed axis, we use the
+        // GenericAxis, because it requires only a the < comparison
+        // operator.
+        return boost::shared_ptr< detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(self, edges, front_capacity, back_capacity));
+    }
+};
 
 // The implementation to increment the bin content by a weight based on the type
 // of the bin content value.
@@ -140,8 +152,31 @@ struct generic_nd_traits
         fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
         {
             // The ndvalues_obj object is supposed to be a structured ndarray.
-            // So threat it accordingly.
-            bn::ndarray ndvalue_arr = bn::from_object(ndvalues_obj, self.get_ndvalues_dtype(), 0, 0, bn::ndarray::ALIGNED);
+            // But in case of 1-dimensional histogram we accept also a
+            // simple array, which can also be a normal Python list.
+
+            int const nd = self.get_nd();
+            bp::object ndvalues_arr_obj;
+            try
+            {
+                ndvalues_arr_obj = bn::from_object(ndvalues_obj, self.get_ndvalues_dtype(), 0, 0, bn::ndarray::ALIGNED);
+            }
+            catch (const bp::error_already_set &)
+            {
+                if(nd == 1)
+                {
+                    ndvalues_arr_obj = bn::from_object(ndvalues_obj, self.get_axes()[0]->get_dtype(), 0, 0, bn::ndarray::ALIGNED);
+                }
+                else
+                {
+                    std::stringstream ss;
+                    ss << "The ndvalues parameter must either be a tuple of "
+                       << nd << " one-dimensional arrays or one structured "
+                       << "ndarray!";
+                    throw TypeError(ss.str());
+                }
+            }
+            bn::ndarray ndvalue_arr = *static_cast<bn::ndarray*>(&ndvalues_arr_obj);
             bn::ndarray weight_arr = bn::from_object(weight_obj, bn::dtype::get_builtin<BCValueType>(), 0, 0, bn::ndarray::ALIGNED);
 
             // Construct an iterator for the input arrays. We use the loop service
@@ -197,7 +232,7 @@ struct generic_nd_traits
             // Get the byte offsets of the fields and check if the number of fields
             // match the dimensionality of the histogram.
             std::vector<intptr_t> ndvalue_byte_offsets = ndvalue_arr.get_dtype().get_fields_byte_offsets();
-            int const nd = self.get_nd();
+
             if(ndvalue_byte_offsets.size() == 0)
             {
                 if(nd == 1)
@@ -285,7 +320,8 @@ ndhist(
   : bc_(ConstructBinContentStorage(shape, dt))
   , ndvalues_dt_(bn::dtype::new_builtin<void>())
 {
-    //TODO: Probably the shape should be deterimed from the edges arrays.
+    //TODO: Probably the shape should be determined automatically from the
+    //      edges arrays.
 
     // Create a ndarray for the bin content.
     bp::object self(bp::ptr(this));
@@ -335,19 +371,25 @@ ndhist(
         throw TypeError(ss.str());
     }
 
-
     // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
     {
         bn::flat_iterator<bp::object> bc_iter(GetBCArray());
-        bn::flat_iterator<bp::object> bc_iter_end;
+        bn::flat_iterator<bp::object> bc_iter_end(bc_iter.end());
         for(; bc_iter != bc_iter_end; ++bc_iter)
         {
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
             bp::object obj = bc_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
         }
+
+        bc_one_ = bc_class(1);
+    }
+    else
+    {
+        bp::object one(1);
+        bc_one_ = bn::from_object(one, GetBCArray().get_dtype(), 0, 1, bn::ndarray::ALIGNED).scalarize();
     }
 
     if(bp::len(edges) != nd)
@@ -396,10 +438,15 @@ ndhist(
                 axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, arr, 0, 0));\
                 axis_dtype_supported = true;                                        \
             }
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint16_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int32_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint32_t)
         NDHIST_AXIS_DATA_TYPE_SUPPORT(int64_t)
         NDHIST_AXIS_DATA_TYPE_SUPPORT(uint64_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(float)
         NDHIST_AXIS_DATA_TYPE_SUPPORT(double)
-        //NDHIST_AXIS_DATA_TYPE_SUPPORT(bp::object)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(bp::object)
         if(!axis_dtype_supported)
         {
             std::stringstream ss;
@@ -466,8 +513,13 @@ get_edges_ndarray(intptr_t axis) const
 
 void
 ndhist::
-Fill(bp::object const & ndvalue_obj, bp::object const & weight_obj)
+fill(bp::object const & ndvalue_obj, bp::object weight_obj)
 {
+    // In case None is given as weight, we will use one.
+    if(weight_obj == bp::object())
+    {
+        weight_obj = this->get_one();
+    }
     fill_fct_(*this, ndvalue_obj, weight_obj);
 }
 

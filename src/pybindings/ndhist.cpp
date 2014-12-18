@@ -66,9 +66,11 @@ void register_ndhist()
             , (bp::arg("self"), bp::arg("axis")=0)
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
-        .def("fill", &ndhist::Fill
-             , (bp::arg("ndvalue"), bp::arg("weight"))
-             , "Fills")
+        .def("fill", &ndhist::fill
+             , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
+             , "Fills the histogram with the given n-dimensional numbers, "
+               "weighted by the given weights. If no weights are specified, "
+               "``1`` will be used for each entry.")
         .def("handle_struct_array", &ndhist::handle_struct_array
             , (bp::arg("arr"))
             , "Test for handling a struct array."
