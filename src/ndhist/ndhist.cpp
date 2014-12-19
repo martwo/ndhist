@@ -74,18 +74,17 @@ struct axis_traits
 
     static
     boost::shared_ptr<Axis>
-    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t autoscale_fcap=0, intptr_t autoscale_bcap=0)
     {
         // Check if the edges have a constant bin width,
         // thus the axis is linear.
         if(has_constant_bin_width(edges))
         {
             std::cout << "+++++++++++++ Detected const bin width of "  << std::endl;
-            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges));
-
+            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges, autoscale_fcap, autoscale_bcap));
         }
 
-        return boost::shared_ptr< detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges, front_capacity, back_capacity));
+        return boost::shared_ptr< detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges));
     }
 
 };
@@ -95,12 +94,12 @@ struct axis_traits<bp::object>
 {
     static
     boost::shared_ptr<Axis>
-    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
+    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t autoscale_fcap=0, intptr_t autoscale_bcap=0)
     {
         // In case we have an object value typed axis, we use the
-        // GenericAxis, because it requires only a the < comparison
+        // GenericAxis, because it requires only the < comparison
         // operator.
-        return boost::shared_ptr< detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(self, edges, front_capacity, back_capacity));
+        return boost::shared_ptr< detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(self, edges));
     }
 };
 
@@ -438,9 +437,18 @@ ndhist(
         // Add the shape information for this axis.
         shape[i] = n_bin_dim;
 
-        // Set the extra front and back capacity for this axis.
-        front_capacity[i] = bp::extract<intptr_t>(fcap_obj);
-        back_capacity[i]  = bp::extract<intptr_t>(bcap_obj);
+        // Set the extra front and back capacity for this axis if the axis has
+        // an autoscale.
+        if(axes_[i]->has_autoscale())
+        {
+            front_capacity[i] = bp::extract<intptr_t>(fcap_obj);
+            back_capacity[i]  = bp::extract<intptr_t>(bcap_obj);
+        }
+        else
+        {
+            front_capacity[i] = 0;
+            back_capacity[i]  = 0;
+        }
     }
 
     // Create a ndarray for the bin content.

@@ -31,15 +31,31 @@ struct Axis
 {
     Axis()
       : dt_(bn::dtype::get_builtin<void>())
+      , autoscale_fcap_(0)
+      , autoscale_bcap_(0)
     {}
 
-    Axis(bn::dtype const & dt)
+    Axis(
+        bn::dtype const & dt
+      , intptr_t autoscale_fcap=0
+      , intptr_t autoscale_bcap=0
+    )
       : dt_(dt)
+      , autoscale_fcap_(autoscale_fcap)
+      , autoscale_bcap_(autoscale_bcap)
     {}
 
     bn::dtype & get_dtype() { return dt_; }
 
+    bool has_autoscale() const
+    {
+        return ((autoscale_fcap_ > 0 && autoscale_bcap_ >= 0) ||
+                (autoscale_bcap_ > 0 && autoscale_fcap_ >= 0));
+    }
+
     bn::dtype dt_;
+    intptr_t autoscale_fcap_;
+    intptr_t autoscale_bcap_;
     boost::function<intptr_t (boost::shared_ptr<AxisData>, char *)> get_bin_index_fct;
     boost::function<bn::ndarray (boost::shared_ptr<AxisData>)> get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;

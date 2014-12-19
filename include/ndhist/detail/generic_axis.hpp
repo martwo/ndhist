@@ -43,8 +43,6 @@ struct GenericAxisBase
     GenericAxisBase(
         ::ndhist::ndhist * h
       , bn::ndarray const & edges
-      , intptr_t front_capacity=0
-      , intptr_t back_capacity=0
     )
       : Axis(edges.get_dtype())
     {
@@ -56,8 +54,10 @@ struct GenericAxisBase
         DerivedData & ddata = *static_cast<DerivedData*>(data_.get());
         intptr_t const nbins = edges.get_size();
         std::vector<intptr_t> shape(1, nbins);
-        std::vector<intptr_t> front_capacity_vec(1, front_capacity);
-        std::vector<intptr_t> back_capacity_vec(1, back_capacity);
+        // With a generic axis, i.e. with a non-constant bin width, autoscaling
+        // is not possible. So no need for extra front and back capacity.
+        std::vector<intptr_t> front_capacity_vec(1, 0);
+        std::vector<intptr_t> back_capacity_vec(1, 0);
         ddata.storage_ = boost::shared_ptr<detail::ndarray_storage>(
             new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
         // Copy the data from the user provided edge array to the storage array.
@@ -92,8 +92,8 @@ struct GenericAxis
             base_t;
     typedef AxisValueType axis_value_type;
 
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
-      : base_t(h, edges, front_capacity, back_capacity)
+    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges)
+      : base_t(h, edges)
     {}
 
     static
@@ -133,8 +133,8 @@ struct GenericAxis<bp::object>
             base_t;
     typedef bp::object axis_value_type;
 
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges, intptr_t front_capacity=0, intptr_t back_capacity=0)
-      : base_t(h, edges, front_capacity, back_capacity)
+    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges)
+      : base_t(h, edges)
     {}
 
     static
