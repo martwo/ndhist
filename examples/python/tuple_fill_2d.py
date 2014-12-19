@@ -1,11 +1,11 @@
 import numpy as np
 import ndhist
 
-h = ndhist.ndhist( np.array([2,2])
-                 , [np.array([0,1,2], dtype=np.dtype(np.int64)),
-                    np.array([0,1,2], dtype=np.dtype(np.float64))]
-                 , dtype=np.dtype(np.float64))
-#h.fill((1, 1.2), 1)
+h = ndhist.ndhist(((np.array([0,1,2], dtype=np.dtype(np.int64)),   "x", 10, 10),
+                   (np.array([0,1,2], dtype=np.dtype(np.float64)), "y")
+                  )
+                  , dtype=np.dtype(np.float64))
+print(h.ndvalues_dtype)
 print(h.bc)
 
 a1 = np.array(np.linspace(0,2, num=100), dtype=np.dtype(np.int64))

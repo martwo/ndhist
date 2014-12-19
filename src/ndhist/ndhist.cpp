@@ -14,6 +14,8 @@
 #include <boost/type_traits/is_same.hpp>
 
 #include <boost/python/refcount.hpp>
+#include <boost/python/str.hpp>
+#include <boost/python/tuple.hpp>
 #include <boost/numpy/limits.hpp>
 #include <boost/numpy/ndarray.hpp>
 #include <boost/numpy/indexed_iterator.hpp>
@@ -207,7 +209,7 @@ struct generic_nd_traits
             bn::detail::iter_flags_t iter_flags =
                 bn::detail::iter::flags::REFS_OK::value // This is needed for the
                                                         // weight, which can be bp::object.
-            | bn::detail::iter::flags::EXTERNAL_LOOP::value;
+              | bn::detail::iter::flags::EXTERNAL_LOOP::value;
             bn::order_t order = bn::KEEPORDER;
             bn::casting_t casting = bn::NO_CASTING;
             intptr_t buffersize = 0;
@@ -312,22 +314,139 @@ struct nd_traits;
 
 ndhist::
 ndhist(
-    bn::ndarray const & shape
-  , bp::list const & edges
+    bp::tuple const & axes
   , bn::dtype const & dt
   , bp::object const & bc_class
 )
-  : bc_(ConstructBinContentStorage(shape, dt))
-  , ndvalues_dt_(bn::dtype::new_builtin<void>())
+  : ndvalues_dt_(bn::dtype::new_builtin<void>())
 {
-    //TODO: Probably the shape should be determined automatically from the
-    //      edges arrays.
+    int const nd = bp::len(axes);
+    std::vector<intptr_t> shape(nd);
+    std::vector<intptr_t> front_capacity(nd);
+    std::vector<intptr_t> back_capacity(nd);
+
+    // Construct the axes of the histogram.
+    for(size_t i=0; i<nd; ++i)
+    {
+        // Each axes element can be a single ndarray or a tuple of the form
+        // (edges_ndarry[, axis_name[, front_capacity, back_capacity]])
+        bp::object axis = axes[i];
+        bp::object edges_arr_obj;
+        bp::object axis_name_obj;
+        bp::object fcap_obj;
+        bp::object bcap_obj;
+        if(PyTuple_Check(axis.ptr()))
+        {
+            size_t const tuple_len = bp::len(axis);
+            if(tuple_len == 0)
+            {
+                std::stringstream ss;
+                ss << "The "<<i<<"th axis tuple is empty!";
+                throw ValueError(ss.str());
+            }
+            else if(tuple_len == 1)
+            {
+                edges_arr_obj = axis[0];
+                std::stringstream axis_name;
+                axis_name << "a" << i;
+                axis_name_obj = bp::str(axis_name.str());
+                fcap_obj = bp::object(0);
+                bcap_obj = bp::object(0);
+            }
+            else if(tuple_len == 2)
+            {
+                edges_arr_obj = axis[0];
+                axis_name_obj = axis[1];
+                fcap_obj = bp::object(0);
+                bcap_obj = bp::object(0);
+            }
+            else if(tuple_len == 4)
+            {
+                edges_arr_obj = axis[0];
+                axis_name_obj = axis[1];
+                fcap_obj      = axis[2];
+                bcap_obj      = axis[3];
+            }
+            else
+            {
+                std::stringstream ss;
+                ss << "The "<<i<<"th axis tuple must have a length of "
+                   << "either 1, 2, or 4!";
+                throw ValueError(ss.str());
+            }
+        }
+        else
+        {
+            // Only the edges array is given.
+            edges_arr_obj = axis;
+            std::stringstream axis_name;
+            axis_name << "a" << i;
+            axis_name_obj = bp::str(axis_name.str());
+            fcap_obj = bp::object(0);
+            bcap_obj = bp::object(0);
+        }
+
+        bn::ndarray edges_arr = bn::from_object(edges_arr_obj, 0, 1, bn::ndarray::ALIGNED);
+        if(edges_arr.get_nd() != 1)
+        {
+            std::stringstream ss;
+            ss << "The dimension of the edges array for the " << i+1 << "th "
+               << "dimension of this histogram must be 1!";
+            throw ValueError(ss.str());
+        }
+        const intptr_t n_bin_dim = edges_arr.get_size();
+
+        // Check the type of the edge values for the current axis.
+        bool axis_dtype_supported = false;
+        bn::dtype axis_dtype = edges_arr.get_dtype();
+        #define NDHIST_AXIS_DATA_TYPE_SUPPORT(AXISDTYPE)                            \
+            if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<AXISDTYPE>()))\
+            {                                                                       \
+                if(axis_dtype_supported) {                                          \
+                    std::stringstream ss;                                           \
+                    ss << "The bin content data type is supported by more than one "\
+                       << "possible C++ data type! This is an internal error!";     \
+                    throw TypeError(ss.str());                                      \
+                }                                                                   \
+                std::cout << "Found " << BOOST_PP_STRINGIZE(AXISDTYPE) << " equiv. "\
+                          << "axis data type." << std::endl;                        \
+                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, 0, 0));\
+                axis_dtype_supported = true;                                        \
+            }
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint16_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int32_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint32_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int64_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint64_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(float)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(double)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(bp::object)
+        if(!axis_dtype_supported)
+        {
+            std::stringstream ss;
+            ss << "The data type of the edges of axis "<< i << " is not "
+               << "supported.";
+            throw TypeError(ss.str());
+        }
+        #undef NDHIST_AXIS_DATA_TYPE_SUPPORT
+
+        // Add the axis field to the ndvalues dtype object.
+        std::string field_name = bp::extract<std::string>(axis_name_obj);
+        ndvalues_dt_.add_field(field_name, axes_[i]->get_dtype());
+
+        // Add the shape information for this axis.
+        shape[i] = n_bin_dim;
+
+        // Set the extra front and back capacity for this axis.
+        front_capacity[i] = bp::extract<intptr_t>(fcap_obj);
+        back_capacity[i]  = bp::extract<intptr_t>(bcap_obj);
+    }
 
     // Create a ndarray for the bin content.
+    bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, front_capacity, back_capacity, dt));
     bp::object self(bp::ptr(this));
     bc_arr_ = bc_->ConstructNDArray(&self);
-
-    int const nd = get_nd();
 
     // Set the fill function based on the bin content data type.
     bn::dtype bc_dtype = GetBCArray().get_dtype();
@@ -391,96 +510,6 @@ ndhist(
         bp::object one(1);
         bc_one_ = bn::from_object(one, GetBCArray().get_dtype(), 0, 1, bn::ndarray::ALIGNED).scalarize();
     }
-
-    if(bp::len(edges) != nd)
-    {
-        std::stringstream ss;
-        ss << "The size of the shape array (" << nd << ") and the length of "
-           << "the edges list (" << bp::len(edges) << ") must be equal!";
-        throw ValueError(ss.str());
-    }
-
-    // Construct the axes of the histogram.
-    for(size_t i=0; i<nd; ++i)
-    {
-        const intptr_t n_bin_dim = bp::extract<intptr_t>(shape.get_item<bp::object>(i));
-
-        bn::ndarray arr = bp::extract<bn::ndarray>(edges[i]);
-        if(arr.get_nd() != 1)
-        {
-            std::stringstream ss;
-            ss << "The dimension of the edges array for the " << i << "th "
-               << "dimension of this histogram must be 1!";
-            throw ValueError(ss.str());
-        }
-        if(arr.get_size() != n_bin_dim+1)
-        {
-            std::stringstream ss;
-            ss << "The number of edges for the " << i+1 << "th dimension of this "
-               << "histogram must be " << n_bin_dim+1 << "!";
-            throw ValueError(ss.str());
-        }
-
-        // Check the type of the edge values for the current axis.
-        bool axis_dtype_supported = false;
-        bn::dtype axis_dtype = arr.get_dtype();
-        #define NDHIST_AXIS_DATA_TYPE_SUPPORT(AXISDTYPE)                            \
-            if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<AXISDTYPE>()))\
-            {                                                                       \
-                if(axis_dtype_supported) {                                          \
-                    std::stringstream ss;                                           \
-                    ss << "The bin content data type is supported by more than one "\
-                       << "possible C++ data type! This is an internal error!";     \
-                    throw TypeError(ss.str());                                      \
-                }                                                                   \
-                std::cout << "Found " << BOOST_PP_STRINGIZE(AXISDTYPE) << " equiv. "\
-                          << "axis data type." << std::endl;                        \
-                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, arr, 0, 0));\
-                axis_dtype_supported = true;                                        \
-            }
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint16_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int32_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint32_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int64_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint64_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(float)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(double)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(bp::object)
-        if(!axis_dtype_supported)
-        {
-            std::stringstream ss;
-            ss << "The data type of the edges of axis "<< i<< " is not "
-               << "supported.";
-            throw TypeError(ss.str());
-        }
-        #undef NDHIST_AXIS_DATA_TYPE_SUPPORT
-
-        // Add the axis field to the ndvalues dtype object.
-        std::stringstream field_name; field_name << "a" << i;
-        ndvalues_dt_.add_field(field_name.str(), axes_[i]->get_dtype());
-    }
-}
-
-boost::shared_ptr<detail::ndarray_storage>
-ndhist::
-ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt)
-{
-    if(shape.get_nd() != 1)
-    {
-        throw ValueError(
-            "The shape array must be 1-dimensional!");
-    }
-
-    std::vector<intptr_t> shape_vec = shape.as_vector<intptr_t>();
-
-    // This function does not allow to specify extra front and back
-    // capacity, so we set it to zero for all dimensions.
-    std::vector<intptr_t> front_capacity(shape.get_size(), 0);
-    std::vector<intptr_t> back_capacity(shape.get_size(), 0);
-
-    return boost::shared_ptr<detail::ndarray_storage>(
-        new detail::ndarray_storage(shape_vec, front_capacity, back_capacity, dt));
 }
 
 bn::ndarray

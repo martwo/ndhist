@@ -43,23 +43,43 @@ class ndhist
 {
   public:
 
-    /** Constructor for specifying a specific shape and bins (with (non-equal)
-     *  sized widths).
+    /** Constructor for creating a generic shaped histogram with equal or
+     *  non-equal sized bins. The shape of the histogram is determined
+     *  automatically from the length of the edges (minus 1) arrays.
      *
-     *  The shape ndarray holds must be 1-dim. with ND
-     *  integer elements, specifying the number of bins for each dimension.
+     *  The axes tuple specifies the different dimensions of the histogram.
+     *  - Each tuple entry can either be a single ndarray specifying the bin
+     *    edges, or a tuple of the form
      *
-     *  The edges list must contain ND 1-dim. ndarray objects with shape[i]+1
-     *  elements in ascending order, beeing the bin edges. The different
-     *  dimensions can have different edge types, e.g. integer or float, or any
-     *  other Python type, even entire objects.
+     *    (edges_ndarry[, axis_name[, autoscale_front_capacity, autoscale_back_capacity]]).
+     *
+     *    * The edges_ndarry must be a one-dimensional ndarray objects with N+1
+     *      elements in ascending order, beeing the bin edges, where N is the number
+     *      of bins for this dimension. The axis_name, if given, must be a str
+     *      object specifying the name of the axis. The default name of an axis is
+     *      "a{I}", where {I} is the index of the axis starting at zero.
+     *    * The extra front and back capacities specify the number of extra
+     *      bins in the front and at the back of the axis, respectively.
+     *      The default is zero. If one of both values is set to a positive
+     *      non-zero value and the bins have equal widths, the the number of
+     *      bins of the axis will automatically be scaled, when values are
+     *      filled outside the current axis range.
+     *      Whenever bins need to be added to an axis, the memory of the bin
+     *      content array needs to get reallocated. By having some
+     *      extra capacity, the number of reallocations can be reduced.
+     *      Thus, the performance does not deterioate as havely as without it.
+     *  - The different dimensions can have different edge types, e.g. integer
+     *    or float, or any other Python type, i.e. objects.
      *
      *  The dt dtype object defines the data type for the bin contents. For a
      *  histogram this is usually an integer or float type.
+     *
+     *  In case the bin contents are generic Python objects, the bc_class
+     *  argument defines this Python object class and is used to initialize the
+     *  bin content array with zeros.
      */
     ndhist(
-        bn::ndarray const & shape
-      , bp::list const & edges
+        bp::tuple const & axes
       , bn::dtype const & dt
       , bp::object const & bc_class = bp::object()
     );
@@ -85,7 +105,7 @@ class ndhist
     bn::ndarray py_construct_bin_content_ndarray();
 
     /**
-     * \brief Returns the ndarray holding the bin edges of the given axis.
+     * @brief Returns the ndarray holding the bin edges of the given axis.
      *        Note, that this is always a copy, since the edges are supposed
      *        to be readonly, because a re-edging of an already filled histogram
      *        does not make sense.
@@ -147,12 +167,14 @@ class ndhist
       : ndvalues_dt_(bn::dtype::new_builtin<void>())
     {};
 
-    /** Constructs a ndarray_storage object for the bin contents. The extra
-     *  front and back capacity will be set to zero.
+    /** The dtype object describing the ndvalues structure. It describes a
+     *  structured ndarray with field names, one for each axis of the histogram.
      */
-    static
-    boost::shared_ptr<detail::ndarray_storage>
-    ConstructBinContentStorage(bn::ndarray const & shape, bn::dtype const & dt);
+    bn::dtype ndvalues_dt_;
+
+    /** The list of pointers to the Axis object for each dimension.
+     */
+    std::vector< boost::shared_ptr<detail::Axis> > axes_;
 
     /** The bin contents.
      */
@@ -163,14 +185,6 @@ class ndhist
      *  filling when no weights are specified.
      */
     bp::object bc_one_;
-
-    std::vector< boost::shared_ptr<detail::Axis> > axes_;
-
-    /** The dtype object describing the ndvalues structure. It describes a
-     *  structured ndarray which fields named "a0", "a1", "a2", ... for each
-     *  axis of the histogram.
-     */
-    bn::dtype ndvalues_dt_;
 
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 };

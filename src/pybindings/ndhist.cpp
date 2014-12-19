@@ -27,13 +27,11 @@ void register_ndhist()
     bp::class_<ndhist, boost::shared_ptr<ndhist> >("ndhist"
         , "The ndhist class provides a multi-dimensional histogram class."
         , bp::init<
-            bn::ndarray const &
-          , bp::list const &
+            bp::tuple const &
           , bn::dtype const &
           , bp::object
           >(
-          ( bp::arg("nbins")
-          , bp::arg("edges")
+          ( bp::arg("axes")
           , bp::arg("dtype")
           , bp::arg("bc_class")=bp::object()
           )
