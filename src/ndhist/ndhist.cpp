@@ -438,8 +438,8 @@ ndhist(
         std::string field_name = bp::extract<std::string>(axis_name_obj);
         ndvalues_dt_.add_field(field_name, axes_[i]->get_dtype());
 
-        // Add the shape information for this axis.
-        shape[i] = n_bin_dim;
+        // Add the bin content shape information for this axis.
+        shape[i] = n_bin_dim - 1;
 
         // Set the extra front and back capacity for this axis if the axis has
         // an autoscale.
@@ -656,11 +656,13 @@ extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins)
                 }
                 std::cout << "iteridx = " << iteridx << std::endl<<std::flush;
                 bc_iter.jump_to_iter_index(iteridx);
+                std::cout << "jump done" << std::endl<<std::flush;
 
                 uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
                 bp::object obj = bc_one_ - bc_one_;
                 *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
 
+                if(i == n_iters-1) break;
                 // Move the index pointer to the next outer-axis if the index
                 // of the current axis has reached its maximum. Then increase
                 // the index and reset all indices to the right of this
@@ -679,6 +681,14 @@ extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins)
                     if(p == axis) ++p;
                     indices[p] = 0;
                 }
+
+                std::cout << "p = "<<p<<std::endl;
+                std::cout << "indices = ";
+                for(intptr_t j=0; j<nd; ++j)
+                {
+                    std::cout << indices[j] << ",";
+                }
+                std::cout << std::endl;
             }
         }
     }

@@ -47,6 +47,7 @@ CalcDataStrides() const
 {
     const int itemsize = dt_.get_itemsize();
     std::vector<intptr_t> strides(shape_.size(), itemsize);
+    std::cout << "strides["<<strides.size()-1<<"] = " << strides[strides.size()-1] << std::endl;
     for(int i=strides.size()-2; i>=0; --i)
     {
         strides[i] = ((front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
@@ -69,6 +70,7 @@ void
 ndarray_storage::
 extend_axis(intptr_t axis, intptr_t n_elements)
 {
+    std::cout << "extend axis " << axis << "by " << n_elements << std::endl;
     if(n_elements == 0) return;
     if(n_elements < 0)
     {
@@ -78,6 +80,7 @@ extend_axis(intptr_t axis, intptr_t n_elements)
         {
             // The capacity is still sufficient for the extention. No need for
             // memory reallocation.
+            std::cout << "Increment shape[axis] "<< shape_[axis] << "by "<<n_elements<<std::endl;
             shape_[axis] += n_elements;
             front_capacity_[axis] -= n_elements;
         }

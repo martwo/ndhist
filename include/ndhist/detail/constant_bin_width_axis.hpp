@@ -48,6 +48,7 @@ struct ConstantBinWidthAxis
         get_bin_index_fct     = &get_bin_index;
         autoscale_fct         = &autoscale;
         get_edges_ndarray_fct = &get_edges_ndarray;
+        get_n_bins_fct        = &get_n_bins;
 
         data_ = boost::shared_ptr< axis_data_type >(new axis_data_type());
         axis_data_type & ddata = *static_cast<axis_data_type*>(data_.get());
@@ -59,6 +60,14 @@ struct ConstantBinWidthAxis
         ++edges_iter;
         axis_value_type const value = *edges_iter;
         ddata.bin_width_ = value - ddata.min_;
+    }
+
+    static
+    intptr_t
+    get_n_bins(boost::shared_ptr<AxisData> axisdata)
+    {
+        axis_data_type & data = *static_cast<axis_data_type*>(axisdata.get());
+        return data.n_bins_;
     }
 
     static

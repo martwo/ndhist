@@ -290,7 +290,7 @@ struct nd_traits<ND>
             iter.init_full_iteration();
 
             // Create an indexed iterator for the bin content array.
-            bn::ndarray & bc_arr = self.GetBCArray();
+            bn::ndarray bc_arr = self.GetBCArray();
             bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
             // Do the iteration.
@@ -322,6 +322,10 @@ struct nd_traits<ND>
                                 self.extend_bin_content_array_axis(i, n_extra_bins);
                                 bc_arr = self.GetBCArray();
                                 bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                                if(oor == axis::OOR_UNDERFLOW)
+                                    indices[i] = 0;
+                                else // oor == axis::OOR_OVERFLOW
+                                    indices[i] = axis->get_n_bins_fct(axis->data_)-1;
                             }
                             else
                             {

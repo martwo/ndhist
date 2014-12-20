@@ -73,6 +73,7 @@ struct Axis
     intptr_t autoscale_bcap_;
     boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t *)> get_bin_index_fct;
     boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t)> autoscale_fct;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>)> get_n_bins_fct;
     boost::function<bn::ndarray (boost::shared_ptr<AxisData>)> get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;
 };
