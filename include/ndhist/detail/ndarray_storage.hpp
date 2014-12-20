@@ -15,10 +15,15 @@
 #include <iostream>
 #include <vector>
 
+#include <boost/python.hpp>
+
 #include <boost/numpy/dtype.hpp>
 #include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/error.hpp>
+
+namespace bp = boost::python;
+namespace bn = boost::numpy;
 
 namespace ndhist {
 namespace detail {
@@ -94,8 +99,9 @@ class ndarray_storage
     void
     extend_axes(
         std::vector<intptr_t> const & n_elements_vec
-      , std::vector<intptr_t> const & min_fcap_vec
-      , std::vector<intptr_t> const & min_bcap_vec
+      , std::vector<intptr_t> const & max_fcap_vec
+      , std::vector<intptr_t> const & max_bcap_vec
+      , bp::object const * data_owner
     );
 
     /** Allocates capacity*elsize number of bytes of new memory, initialized to

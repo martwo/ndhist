@@ -22,19 +22,20 @@ class V(object):
     def __str__(self):
         return str(self._v)
 
-h = ndhist.ndhist(((np.array([0,1,2], dtype=np.dtype(np.int64)),   "x", 10, 10),
+h = ndhist.ndhist(((np.array([0,1,2], dtype=np.dtype(np.int64)),   "x", 1, 1),
                    (np.array([0,1,2], dtype=np.dtype(np.float64)), "y")
                   )
                   , dtype=np.dtype(object)
                   , bc_class=V)
 print(h.ndvalues_dtype)
-print(h.bc)
+print("bc org shape:", h.bc.shape)
 
-a1 = np.array([-1, 0, 1, 2], dtype=np.dtype(np.int64))
-a2 = np.array([0.1, 1.1, 1.2, 1.8], dtype=np.dtype(np.float64))
+a1 = np.array([-2, -2, 0, 1, 2], dtype=np.dtype(np.int64))
+a2 = np.array([0.1, 0.2, 1.1, 1.2, 1.8], dtype=np.dtype(np.float64))
 print(a1, a2)
 h.fill((a1, a2), V(1))
-#print(h.bc)
+
+print("bc new shape", h.bc.shape)
 bc = h.bc
 for x in range(0, bc.shape[0]):
     for y in range(0, bc.shape[1]):

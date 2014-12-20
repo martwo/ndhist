@@ -687,10 +687,12 @@ ndhist::
 extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec)
 {
     std::cout << "extend_bin_content_array" << std::endl;
-    bc_->extend_axes(n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_);
+    bp::object self(bp::ptr(this));
+
+    // Extend the bin content array. This might cause a reallocation of memory.
+    bc_->extend_axes(n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, &self);
 
     // Recreate the bin content ndarray.
-    bp::object self(bp::ptr(this));
     bc_arr_ = bc_->ConstructNDArray(&self);
 
     // We need to initialize the new bin content values, if the data type

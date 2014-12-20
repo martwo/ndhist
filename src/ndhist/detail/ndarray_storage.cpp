@@ -70,8 +70,9 @@ void
 ndarray_storage::
 extend_axes(
     std::vector<intptr_t> const & n_elements_vec
-  , std::vector<intptr_t> const & min_fcap_vec
-  , std::vector<intptr_t> const & min_bcap_vec
+  , std::vector<intptr_t> const & max_fcap_vec
+  , std::vector<intptr_t> const & max_bcap_vec
+  , bp::object const * data_owner
 )
 {
     int const nd = this->get_nd();
@@ -98,7 +99,7 @@ extend_axes(
             shape_[axis] -= n_elements;
             front_capacity_[axis] += n_elements;
         }
-        else // // n_elements > 0
+        else // n_elements > 0
         {
             if(back_capacity_[axis] - n_elements < 0)
             {
@@ -106,8 +107,6 @@ extend_axes(
             }
             shape_[axis] += n_elements;
             back_capacity_[axis] -= n_elements;
-
-
         }
     }
 
@@ -115,9 +114,94 @@ extend_axes(
 
     if(reallocate)
     {
-        // The negative values in front_capacity_ and back_capacity_ specify
-        // the number of extra elements required to allocate for each axis.
-        throw MemoryError("The reallocation (front & back) is not implemented yet.");
+        std::vector<intptr_t> old_shape = shape_;
+        std::vector<intptr_t> old_fcap = front_capacity_;
+        std::vector<intptr_t> old_bcap = back_capacity_;
+        std::vector<intptr_t> f_diffs(nd, 0);
+        std::vector<intptr_t> b_diffs(nd, 0);
+        for(int i=0; i<nd; ++i)
+        {
+            intptr_t const n_elements = n_elements_vec[i];
+            if(n_elements < 0)
+            {
+                old_shape[i] += n_elements;
+                old_fcap[i] -= n_elements;
+                f_diffs[i] = -n_elements;
+                front_capacity_[i] = max_fcap_vec[i];
+            }
+            else if(n_elements > 0)
+            {
+                old_shape[i] -= n_elements;
+                old_bcap[i] += n_elements;
+                b_diffs[i] = n_elements;
+                back_capacity_[i] = max_bcap_vec[i];
+            }
+        }
+
+        std::cout << "ndarray_storage::extend_axes: reallocate ++++++++++++++++" <<std::endl<<std::flush;
+        // At this point shape_, front_capacity_ and back_capacity_ have the
+        // right numbers for the new array.
+        // Allocate the new array memory.
+        char * new_data = create_array_data(shape_, front_capacity_, back_capacity_, dt_);
+
+        // Copy the data from the old memory to the new one. We do this by
+        // creating two ndarrays having the same layout. The first is the old
+        // array layout on the new memory and the second is the old array on the
+        // old memory. Then we just use the copy_into function to copy the data.
+        // We assume that the numpy people implemented the PyArray_CopyInto
+        // C-API function efficient enough ;)
+        const int itemsize = dt_.get_itemsize();
+
+        // Calculate data offset of the old array inside the new memory.
+        intptr_t new_offset = front_capacity_[nd-1] + f_diffs[nd-1];
+        intptr_t new_dim_offsets = 1;
+        for(int i=nd-2; i>=0; --i)
+        {
+            new_dim_offsets *= (front_capacity_[i+1]+f_diffs[i+1] + old_shape[i+1] + back_capacity_[i+1]+b_diffs[i+1]);
+            new_offset += (front_capacity_[i]+f_diffs[i])*new_dim_offsets;
+        }
+        new_offset *= itemsize;
+
+        // Calculate the strides of the old array inside the new memory.
+        std::vector<intptr_t> new_strides(nd, itemsize);
+        for(int i=nd-2; i>=0; --i)
+        {
+            new_strides[i] = ((front_capacity_[i+1]+f_diffs[i+1] + old_shape[i+1] + back_capacity_[i+1]+b_diffs[i+1]) * new_strides[i+1]/itemsize)*itemsize;
+        }
+
+        // Create the old array from the new memory.
+        bn::ndarray new_data_arr = bn::from_data(new_data+new_offset, dt_, old_shape, new_strides, data_owner);
+
+        // Calculate the data offset of the old array inside the old memory.
+        intptr_t old_offset = old_fcap[nd-1];
+        intptr_t old_dim_offsets = 1;
+        for(int i=nd-2; i>=0; --i)
+        {
+            old_dim_offsets *= (old_fcap[i+1] + old_shape[i+1] + old_bcap[i+1]);
+            old_offset += (old_fcap[i])*old_dim_offsets;
+        }
+        old_offset *= itemsize;
+
+        // Calculate the data strides of the old array inside the old memory.
+        std::vector<intptr_t> old_strides(nd, itemsize);
+        for(int i=nd-2; i>=0; --i)
+        {
+            old_strides[i] = ((old_fcap[i+1] + old_shape[i+1] + old_bcap[i+1]) * old_strides[i+1]/itemsize)*itemsize;
+        }
+
+        // Create the old array from the old memory.
+        bn::ndarray old_data_arr = bn::from_data(data_+old_offset, dt_, old_shape, old_strides, data_owner);
+
+        // Now we just copy the old data to the new data.
+        if(! bn::copy_into(new_data_arr, old_data_arr))
+        {
+            throw MemoryError("Unable to copy the old data from the old memory "
+                              "into the new memory!");
+        }
+
+        // Deallocate the old data and assign the new data to this storage.
+        free_data(data_);
+        data_ = new_data;
     }
 }
 
