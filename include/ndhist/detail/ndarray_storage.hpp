@@ -48,33 +48,7 @@ class ndarray_storage
       , dt_(dt)
       , data_(NULL)
     {
-        const size_t nd = shape_.size();
-        if(! (front_capacity_.size() == nd &&
-              back_capacity_.size()  == nd)
-          )
-        {
-            throw ValueError(
-                "The lengthes of shape, front_capacity and "
-                "back_capacity must be equal!");
-        }
-        if(nd == 0)
-        {
-            throw ValueError(
-                "The array must be at least 1-dimensional, i.e. "
-                "len(shape) > 0!");
-        }
-        size_t capacity = 1;
-        for(size_t i=0; i<nd; ++i)
-        {
-            const size_t cap_i = front_capacity_[i] + shape_[i] + back_capacity_[i];
-            capacity *= cap_i;
-        }
-        if(! (capacity > 0))
-        {
-            throw AssertionError(
-                "The capacity is less or equal 0!");
-        }
-        Calloc(capacity, dt_.get_itemsize());
+        data_ = create_array_data(shape_, front_capacity_, back_capacity_, dt_);
     }
 
     virtual
@@ -83,7 +57,8 @@ class ndarray_storage
         std::cout << "Destructing ndarray_storage" << std::endl;
         if(data_)
         {
-            Free();
+            free_data(data_);
+            data_ = NULL;
         }
     }
 
@@ -123,19 +98,34 @@ class ndarray_storage
       , std::vector<intptr_t> const & min_bcap_vec
     );
 
-  protected:
     /** Allocates capacity*elsize number of bytes of new memory, initialized to
-     *  zero. It returns "true" after success and "false" otherwise. It uses the
+     *  zero. It returns the pointer to the new allocated memory after success
+     *  and NULL otherwise. It uses the
      *  calloc C function, which is faster than malloc + memset for large chunks
      *  of memory allocation, due to OS specific memory management.
      *  (cf. http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc)
      */
-    void Calloc(size_t capacity, size_t elsize);
+    static
+    char *
+    calloc_data(size_t capacity, size_t elsize);
 
-    /** Calls free on data_ and sets data_ to NULL.
+    /** Calls free on the given data.
      */
-    void Free();
+    static
+    void free_data(char * data);
 
+  protected:
+    /** Creates (i.e. allocates) data for the given array layout. It returns
+     *  the pointer to the new allocated memory.
+     */
+    static
+    char *
+    create_array_data(
+        std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
+      , boost::numpy::dtype   const & dt
+    );
 
   private:
     /** The shape defines the number of dimensions and how many elements each
@@ -155,7 +145,7 @@ class ndarray_storage
 
     /** The pointer to the actual data storage.
      */
-    char* data_;
+    char * data_;
 };
 
 }// namespace detail

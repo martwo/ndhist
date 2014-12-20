@@ -122,25 +122,68 @@ extend_axes(
 }
 
 //______________________________________________________________________________
-void
+char *
 ndarray_storage::
-Calloc(size_t capacity, size_t elsize)
+calloc_data(size_t capacity, size_t elsize)
 {
     std::cout << "Calloc " << capacity << " elements of size " << elsize << std::endl;
-    data_ = (char*)calloc(capacity, elsize);
-    if(data_ == NULL)
+    char * data = (char*)calloc(capacity, elsize);
+    if(data == NULL)
     {
-        throw MemoryError("Unable to allocate memory!");
+        std::stringstream ss;
+        ss << "Unable to allocate " << capacity << " elements of size "
+           << elsize <<" of memory!";
+        throw MemoryError(ss.str());
     }
+    return data;
 }
 
 //______________________________________________________________________________
 void
 ndarray_storage::
-Free()
+free_data(char * data)
 {
-    free(data_);
-    data_ = NULL;
+    free(data);
+}
+
+//______________________________________________________________________________
+char *
+ndarray_storage::
+create_array_data(
+    std::vector<intptr_t> const & shape
+  , std::vector<intptr_t> const & front_capacity
+  , std::vector<intptr_t> const & back_capacity
+  , boost::numpy::dtype   const & dt
+)
+{
+    size_t const nd = shape.size();
+    if(nd == 0)
+    {
+        throw ValueError(
+            "The array must be at least 1-dimensional, i.e. "
+            "len(shape) > 0!");
+    }
+    if(front_capacity.size() != nd ||
+       back_capacity.size()  != nd
+      )
+    {
+        throw ValueError(
+            "The lengthes of shape, front_capacity and "
+            "back_capacity must be equal!");
+    }
+
+    size_t capacity = 1;
+    for(size_t i=0; i<nd; ++i)
+    {
+        const size_t cap_i = front_capacity[i] + shape[i] + back_capacity[i];
+        capacity *= cap_i;
+    }
+    if(! (capacity > 0))
+    {
+        throw AssertionError(
+            "The capacity is less or equal 0!");
+    }
+    return calloc_data(capacity, dt.get_itemsize());
 }
 
 }// namespace detail
