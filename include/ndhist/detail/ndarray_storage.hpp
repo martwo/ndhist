@@ -87,6 +87,8 @@ class ndarray_storage
         }
     }
 
+    int get_nd() const { return shape_.size(); }
+
     /** Calculates the offset of the data pointer needed for a ndarray wrapping
      *  this ndarray storage.
      */
@@ -102,13 +104,24 @@ class ndarray_storage
     boost::numpy::ndarray
     ConstructNDArray(boost::python::object const * data_owner=NULL);
 
-    /** Extends the memory of the given axis by the number of given elements to
-     *  the left (negative n_elements number) or to the right (positive
-     *  n_elements number). In case n_elements is greater than the still
-     *  available front or back capacity of the given axis, a new array memory
-     *  is allocated.
+
+    /** Extends the memory of this ndarray storage by at least the given number
+     *  of elements for each axis. The n_elements_vec argument must hold the
+     *  number of extra elements (can be zero) for each axis. Negative numbers
+     *  indicate an extension to the left and positive numbers to the right of
+     *  the axis. If all the axes
+     *  have still enough capacity to hold the new elements, no reallocation of
+     *  memory is performed. Otherwise a complete new junk of memory is
+     *  allocated that can fit the extended array plus the specified extra font
+     *  and back capacity. The data from the old array is copied to the new
+     *  array.
      */
-    void extend_axis(intptr_t axis, intptr_t n_elements);
+    void
+    extend_axes(
+        std::vector<intptr_t> const & n_elements_vec
+      , std::vector<intptr_t> const & min_fcap_vec
+      , std::vector<intptr_t> const & min_bcap_vec
+    );
 
   protected:
     /** Allocates capacity*elsize number of bytes of new memory, initialized to

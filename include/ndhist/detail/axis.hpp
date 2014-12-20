@@ -44,37 +44,43 @@ struct Axis
 {
     Axis()
       : dt_(bn::dtype::get_builtin<void>())
-      , autoscale_fcap_(0)
-      , autoscale_bcap_(0)
+      , extension_max_fcap_(0)
+      , extension_max_bcap_(0)
     {}
 
     Axis(
         bn::dtype const & dt
-      , intptr_t autoscale_fcap=0
-      , intptr_t autoscale_bcap=0
+      , intptr_t extension_max_fcap=0
+      , intptr_t extension_max_bcap=0
     )
       : dt_(dt)
-      , autoscale_fcap_(autoscale_fcap)
-      , autoscale_bcap_(autoscale_bcap)
+      , extension_max_fcap_(extension_max_fcap)
+      , extension_max_bcap_(extension_max_bcap)
     {}
 
     bn::dtype & get_dtype() { return dt_; }
 
-    bool has_autoscale() const
+    bool is_extendable() const
     {
-        std::cout << " autoscale_fcap_ = "<< autoscale_fcap_
-                  << " autoscale_bcap_ = "<< autoscale_bcap_<<std::endl;
-        return ((autoscale_fcap_ > 0 && autoscale_bcap_ >= 0) ||
-                (autoscale_bcap_ > 0 && autoscale_fcap_ >= 0));
+        std::cout << " extension_max_fcap_ = "<< extension_max_fcap_
+                  << " extension_max_bcap_ = "<< extension_max_bcap_<<std::endl;
+        return ((extension_max_fcap_ > 0 && extension_max_bcap_ >= 0) ||
+                (extension_max_bcap_ > 0 && extension_max_fcap_ >= 0));
     }
 
     bn::dtype dt_;
-    intptr_t autoscale_fcap_;
-    intptr_t autoscale_bcap_;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t *)> get_bin_index_fct;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t)> autoscale_fct;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>)> get_n_bins_fct;
-    boost::function<bn::ndarray (boost::shared_ptr<AxisData>)> get_edges_ndarray_fct;
+    intptr_t extension_max_fcap_;
+    intptr_t extension_max_bcap_;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t *)>
+        get_bin_index_fct;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t)>
+        request_extension_fct;
+    boost::function<void (boost::shared_ptr<AxisData>, intptr_t)>
+        extend_fct;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>)>
+        get_n_bins_fct;
+    boost::function<bn::ndarray (boost::shared_ptr<AxisData>)>
+        get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;
 };
 

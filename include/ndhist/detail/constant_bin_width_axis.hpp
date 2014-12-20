@@ -46,7 +46,8 @@ struct ConstantBinWidthAxis
     {
         // Set up the axis's function pointers.
         get_bin_index_fct     = &get_bin_index;
-        autoscale_fct         = &autoscale;
+        request_extension_fct = &request_extension;
+        extend_fct            = &extend;
         get_edges_ndarray_fct = &get_edges_ndarray;
         get_n_bins_fct        = &get_n_bins;
 
@@ -114,12 +115,12 @@ struct ConstantBinWidthAxis
         return idx;
     }
 
-    // Autoscales the axis range so that the given value just fits into the
-    // new range. The returned integer values specifies how many bins have been
-    // added to the left or to the right of the range.
+    // Determines the number of extra bins needed to the left (negative number
+    // returned) or to the right (positive number returned) of the current axis
+    // range.
     static
     intptr_t
-    autoscale(boost::shared_ptr<AxisData> axisdata, char * value_ptr, axis::out_of_range_t oor)
+    request_extension(boost::shared_ptr<AxisData> axisdata, char * value_ptr, axis::out_of_range_t oor)
     {
         axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
         axis_value_type const value = *reinterpret_cast<axis_value_type*>(value_ptr);
@@ -127,24 +128,43 @@ struct ConstantBinWidthAxis
         if(oor == axis::OOR_UNDERFLOW)
         {
             intptr_t const n_extra_bins = std::ceil((std::abs(value - data.min_) / data.bin_width_));
-            data.n_bins_ += n_extra_bins;
-            data.min_    -= n_extra_bins * data.bin_width_;
-            std::cout << "autoscaling requires " << n_extra_bins << " extra bins." << std::endl<< std::flush;
-            std::cout << "    new n_bins_ = "<< data.n_bins_ << std::endl<< std::flush;
-            std::cout << "    new min_ = "<< data.min_ << std::endl<< std::flush;
+            std::cout << "request_autoscale (underflow): " << n_extra_bins << " extra bins." << std::endl<< std::flush;
             return -n_extra_bins;
         }
         else if(oor == axis::OOR_OVERFLOW)
         {
             intptr_t const n_extra_bins = intptr_t((value - data.min_)/data.bin_width_) - (data.n_bins_-1);
-            data.n_bins_ += n_extra_bins;
-            std::cout << "autoscaling requires " << n_extra_bins << " extra bins." << std::endl<< std::flush;
-            std::cout << "    new n_bins_ = "<< data.n_bins_ << std::endl<< std::flush;
-            std::cout << "    new min_ = "<< data.min_ << std::endl<< std::flush;
+            std::cout << "request_autoscale (overflow): " << n_extra_bins << " extra bins." << std::endl<< std::flush;
             return n_extra_bins;
         }
 
         return 0;
+    }
+
+    // Autoscales the axis range so that the given value just fits into the
+    // new range. The returned integer values specifies how many bins have been
+    // added to the left or to the right of the range.
+    static
+    void
+    extend(boost::shared_ptr<AxisData> axisdata, intptr_t n_extra_bins)
+    {
+        if(n_extra_bins == 0) return;
+
+        axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
+
+        if(n_extra_bins < 0)
+        {
+            data.n_bins_ -= n_extra_bins;
+            data.min_    += n_extra_bins * data.bin_width_;
+        }
+        else // n_extra_bins > 0
+        {
+            data.n_bins_ += n_extra_bins;
+        }
+
+        std::cout << "extend: " << n_extra_bins << " extra bins." << std::endl<< std::flush;
+        std::cout << "    new n_bins_ = "<< data.n_bins_ << std::endl<< std::flush;
+        std::cout << "    new min_ = "<< data.min_ << std::endl<< std::flush;
     }
 };
 

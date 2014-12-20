@@ -68,46 +68,56 @@ ConstructNDArray(bp::object const * data_owner)
 //______________________________________________________________________________
 void
 ndarray_storage::
-extend_axis(intptr_t axis, intptr_t n_elements)
+extend_axes(
+    std::vector<intptr_t> const & n_elements_vec
+  , std::vector<intptr_t> const & min_fcap_vec
+  , std::vector<intptr_t> const & min_bcap_vec
+)
 {
-    std::cout << "extend axis " << axis << "by " << n_elements << std::endl;
-    if(n_elements == 0) return;
-    if(n_elements < 0)
+    int const nd = this->get_nd();
+    if(n_elements_vec.size() != nd)
     {
-        n_elements = -n_elements;
-
-        if(front_capacity_[axis] - n_elements >= 0)
-        {
-            // The capacity is still sufficient for the extention. No need for
-            // memory reallocation.
-            std::cout << "Increment shape[axis] "<< shape_[axis] << "by "<<n_elements<<std::endl;
-            shape_[axis] += n_elements;
-            front_capacity_[axis] -= n_elements;
-        }
-        else
-        {
-            // The capacity is not sufficient. Reallocate the memory with a
-            // bigger size.
-            // FIXME
-            throw MemoryError("The reallocation (front) is not implemented yet.");
-        }
+        std::stringstream ss;
+        ss << "The vector holding the number of new elements is "
+           << n_elements_vec.size() <<", but must be " << nd << "!";
+        throw AssertionError(ss.str());
     }
-    else // n_elements > 0
+
+    // First check if a memory reallocation is actually required.
+    bool reallocate = false;
+    for(int axis=0; axis<=nd; ++axis)
     {
-        if(back_capacity_[axis] - n_elements >= 0)
+        intptr_t const n_elements = n_elements_vec[axis];
+        if(n_elements == 0) continue;
+        if(n_elements < 0)
         {
-            // The capacity is still sufficient for the extention. No need for
-            // memory reallocation.
+            if(front_capacity_[axis] + n_elements < 0)
+            {
+                reallocate = true;
+            }
+            shape_[axis] -= n_elements;
+            front_capacity_[axis] += n_elements;
+        }
+        else // // n_elements > 0
+        {
+            if(back_capacity_[axis] - n_elements < 0)
+            {
+                reallocate = true;
+            }
             shape_[axis] += n_elements;
             back_capacity_[axis] -= n_elements;
+
+
         }
-        else
-        {
-            // The capacity is not sufficient. Reallocate the memory with a
-            // bigger size.
-            // FIXME
-            throw MemoryError("The reallocation (back) is not implemented yet.");
-        }
+    }
+
+    std::cout << "ndarray_storage::extend_axes" <<std::endl<<std::flush;
+
+    if(reallocate)
+    {
+        // The negative values in front_capacity_ and back_capacity_ specify
+        // the number of extra elements required to allocate for each axis.
+        throw MemoryError("The reallocation (front & back) is not implemented yet.");
     }
 }
 

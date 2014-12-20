@@ -322,8 +322,8 @@ ndhist(
 {
     int const nd = bp::len(axes);
     std::vector<intptr_t> shape(nd);
-    std::vector<intptr_t> front_capacity(nd);
-    std::vector<intptr_t> back_capacity(nd);
+    axes_extension_max_fcap_vec_.resize(nd);
+    axes_extension_max_bcap_vec_.resize(nd);
 
     // Construct the axes of the histogram.
     for(size_t i=0; i<nd; ++i)
@@ -443,20 +443,20 @@ ndhist(
 
         // Set the extra front and back capacity for this axis if the axis has
         // an autoscale.
-        if(axes_[i]->has_autoscale())
+        if(axes_[i]->is_extendable())
         {
-            front_capacity[i] = autoscale_fcap;
-            back_capacity[i]  = autoscale_bcap;
+            axes_extension_max_fcap_vec_[i] = autoscale_fcap;
+            axes_extension_max_bcap_vec_[i] = autoscale_bcap;
         }
         else
         {
-            front_capacity[i] = 0;
-            back_capacity[i]  = 0;
+            axes_extension_max_fcap_vec_[i] = 0;
+            axes_extension_max_bcap_vec_[i] = 0;
         }
     }
 
     // Create a ndarray for the bin content.
-    bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, front_capacity, back_capacity, dt));
+    bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, dt));
     bp::object self(bp::ptr(this));
     bc_arr_ = bc_->ConstructNDArray(&self);
 
@@ -567,24 +567,11 @@ fill(bp::object const & ndvalue_obj, bp::object weight_obj)
 
 void
 ndhist::
-extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins)
+initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins)
 {
-    if(n_extra_bins == 0)
-        return;
-    std::vector<intptr_t> old_shape = GetBCArray().get_shape_vector();
+    if(n_extra_bins == 0) return;
 
-    bc_->extend_axis(axis, n_extra_bins);
-    // Recreate the bin content ndarray.
-    bp::object self(bp::ptr(this));
-    bc_arr_ = bc_->ConstructNDArray(&self);
     bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&bc_arr_);
-    bn::dtype bc_dtype = bc_arr.get_dtype();
-    // We need to initialize the new bin content values, if the data type
-    // is object.
-    if(! bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
-        return;
-
-    int const nd = bc_arr.get_nd();
     std::vector<intptr_t> const shape = bc_arr.get_shape_vector();
 
     intptr_t axis_idx_range_min = 0;
@@ -596,16 +583,17 @@ extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins)
     }
     else // n_extra_bins > 0
     {
-        axis_idx_range_min = old_shape[axis];
+        axis_idx_range_min = shape[axis] - n_extra_bins;
         axis_idx_range_max = shape[axis] - 1;
     }
 
     bn::flat_iterator<bp::object> bc_iter(bc_arr);
+    int const nd = bc_arr.get_nd();
     if(nd == 1)
     {
         // We can just use the flat iterator directly.
         intptr_t axis_idx=axis_idx_range_min;
-        bc_iter.advance(axis_idx);
+        bc_iter.jump_to_iter_index(axis_idx);
         for(; axis_idx <= axis_idx_range_max; ++axis_idx)
         {
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
@@ -691,6 +679,44 @@ extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins)
                 std::cout << std::endl;
             }
         }
+    }
+}
+
+void
+ndhist::
+extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec)
+{
+    std::cout << "extend_bin_content_array" << std::endl;
+    bc_->extend_axes(n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_);
+
+    // Recreate the bin content ndarray.
+    bp::object self(bp::ptr(this));
+    bc_arr_ = bc_->ConstructNDArray(&self);
+
+    // We need to initialize the new bin content values, if the data type
+    // is object.
+    bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&bc_arr_);
+    bn::dtype bc_dtype = bc_arr.get_dtype();
+    if(! bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
+        return;
+
+    int const nd = this->get_nd();
+    for(int axis=0; axis<nd; ++axis)
+    {
+        this->initialize_extended_bin_content_axis(axis, n_extra_bins_vec[axis]);
+    }
+}
+
+void
+ndhist::
+extend_axes(std::vector<intptr_t> const & n_extra_bins_vec)
+{
+    int const nd = this->get_nd();
+    for(int i=0; i<nd; ++i)
+    {
+        intptr_t const n_extra_bins = n_extra_bins_vec[i];
+        boost::shared_ptr<detail::Axis> & axis = this->axes_[i];
+        axis->extend_fct(axis->data_, n_extra_bins);
     }
 }
 

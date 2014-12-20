@@ -14,11 +14,12 @@
 #ifndef NDHIST_NDHIST_HPP_INCLUDED
 #define NDHIST_NDHIST_HPP_INCLUDED 1
 
+
 #include <iostream>
 #include <stdint.h>
 
+#include <cstring>
 #include <vector>
-#include <iostream>
 
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/iterate.hpp>
@@ -162,7 +163,9 @@ class ndhist
         return bc_one_;
     }
 
-    void extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins);
+    void extend_axes(std::vector<intptr_t> const & n_extra_bins_vec);
+    void extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec);
+    void initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins);
 
   private:
     ndhist()
@@ -177,6 +180,9 @@ class ndhist
     /** The list of pointers to the Axis object for each dimension.
      */
     std::vector< boost::shared_ptr<detail::Axis> > axes_;
+
+    std::vector<intptr_t> axes_extension_max_fcap_vec_;
+    std::vector<intptr_t> axes_extension_max_bcap_vec_;
 
     /** The bin contents.
      */
@@ -295,13 +301,19 @@ struct nd_traits<ND>
 
             // Do the iteration.
             std::vector<intptr_t> indices(ND);
+            std::vector<intptr_t> n_extra_bins_vec(ND);
+            bool is_overflown;
+            bool extend_axes;
             do {
                 intptr_t size = iter.get_inner_loop_size();
                 while(size--)
                 {
                     // Fill the scalar into the bin content array.
+                    memset(&n_extra_bins_vec.front(), 0, ND);
+
                     // Get the coordinate of the current ndvalue.
-                    bool is_overflown = false;
+                    is_overflown = false;
+                    extend_axes = false;
                     for(size_t i=0; i<ND; ++i)
                     {
                         std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
@@ -315,17 +327,18 @@ struct nd_traits<ND>
                         }
                         else
                         {
-                            if(axis->has_autoscale())
+                            if(axis->is_extendable())
                             {
                                 std::cout << "axis has autoscale" << std::endl;
-                                intptr_t const n_extra_bins = axis->autoscale_fct(axis->data_, ndvalue_ptr, oor);
-                                self.extend_bin_content_array_axis(i, n_extra_bins);
-                                bc_arr = self.GetBCArray();
-                                bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
-                                if(oor == axis::OOR_UNDERFLOW)
+                                intptr_t const n_extra_bins = axis->request_extension_fct(axis->data_, ndvalue_ptr, oor);
+                                if(oor == axis::OOR_UNDERFLOW) {
                                     indices[i] = 0;
-                                else // oor == axis::OOR_OVERFLOW
-                                    indices[i] = axis->get_n_bins_fct(axis->data_)-1;
+                                }
+                                else { // oor == axis::OOR_OVERFLOW
+                                    indices[i] = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
+                                }
+                                n_extra_bins_vec[i] = n_extra_bins;
+                                extend_axes = true;
                             }
                             else
                             {
@@ -338,6 +351,16 @@ struct nd_traits<ND>
                                 break;
                             }
                         }
+                    }
+
+                    // Check if we need to extend the axes in order to fit the
+                    // value into the histogram's bin content array.
+                    if(extend_axes)
+                    {
+                        self.extend_axes(n_extra_bins_vec);
+                        self.extend_bin_content_array(n_extra_bins_vec);
+                        bc_arr = self.GetBCArray();
+                        bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
                     }
 
                     // Increase the bin content if the bin exists.
