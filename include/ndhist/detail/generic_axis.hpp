@@ -98,7 +98,7 @@ struct GenericAxis
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> axisdata, char * value_ptr)
+    get_bin_index(boost::shared_ptr<AxisData> axisdata, char * value_ptr, axis::out_of_range_t * oor_ptr)
     {
         GenericAxisData<AxisValueType> & data = *static_cast< GenericAxisData<AxisValueType> *>(axisdata.get());
         AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
@@ -112,14 +112,17 @@ struct GenericAxis
         if(ub == data.iter_end_)
         {
             // Overlow.
+            *oor_ptr = axis::OOR_OVERFLOW;
             return -2;
         }
         intptr_t const idx = ub.get_iter_index();
         if(idx == 0)
         {
             // Underflow. ub points to the first element.
+            *oor_ptr = axis::OOR_UNDERFLOW;
             return -1;
         }
+        *oor_ptr = axis::OOR_NONE;
         return idx - 1;
     }
 };
@@ -155,7 +158,7 @@ struct GenericAxis<bp::object>
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> axisdata, char * obj_ptr)
+    get_bin_index(boost::shared_ptr<AxisData> axisdata, char * obj_ptr, axis::out_of_range_t * oor_ptr)
     {
         std::cout << "GenericAxis<bp::object>::get_bin_index" << std::endl;
         GenericAxisData<bp::object> & data = *static_cast<GenericAxisData<bp::object> *>(axisdata.get());
@@ -171,14 +174,17 @@ struct GenericAxis<bp::object>
         if(ub == data.iter_end_)
         {
             // Overlow.
+            *oor_ptr = axis::OOR_OVERFLOW;
             return -2;
         }
         intptr_t const idx = ub.get_iter_index();
         if(idx == 0)
         {
             // Underflow. ub points to the first element.
+            *oor_ptr = axis::OOR_UNDERFLOW;
             return -1;
         }
+        *oor_ptr = axis::OOR_NONE;
         return idx - 1;
     }
 };

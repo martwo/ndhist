@@ -67,6 +67,50 @@ ConstructNDArray(bp::object const * data_owner)
 //______________________________________________________________________________
 void
 ndarray_storage::
+extend_axis(intptr_t axis, intptr_t n_elements)
+{
+    if(n_elements == 0) return;
+    if(n_elements < 0)
+    {
+        n_elements = -n_elements;
+
+        if(front_capacity_[axis] - n_elements >= 0)
+        {
+            // The capacity is still sufficient for the extention. No need for
+            // memory reallocation.
+            shape_[axis] += n_elements;
+            front_capacity_[axis] -= n_elements;
+        }
+        else
+        {
+            // The capacity is not sufficient. Reallocate the memory with a
+            // bigger size.
+            // FIXME
+            throw MemoryError("The reallocation (front) is not implemented yet.");
+        }
+    }
+    else // n_elements > 0
+    {
+        if(back_capacity_[axis] - n_elements >= 0)
+        {
+            // The capacity is still sufficient for the extention. No need for
+            // memory reallocation.
+            shape_[axis] += n_elements;
+            back_capacity_[axis] -= n_elements;
+        }
+        else
+        {
+            // The capacity is not sufficient. Reallocate the memory with a
+            // bigger size.
+            // FIXME
+            throw MemoryError("The reallocation (back) is not implemented yet.");
+        }
+    }
+}
+
+//______________________________________________________________________________
+void
+ndarray_storage::
 Calloc(size_t capacity, size_t elsize)
 {
     std::cout << "Calloc " << capacity << " elements of size " << elsize << std::endl;

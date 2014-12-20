@@ -162,6 +162,8 @@ class ndhist
         return bc_one_;
     }
 
+    void extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins);
+
   private:
     ndhist()
       : ndvalues_dt_(bn::dtype::new_builtin<void>())
@@ -305,19 +307,32 @@ struct nd_traits<ND>
                         std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
                         boost::shared_ptr<detail::Axis> & axis = self.get_axes()[i];
                         char * ndvalue_ptr = iter.get_data(i);
-                        intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr);
-                        if(axis_idx >= 0)
+                        axis::out_of_range_t oor;
+                        intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr, &oor);
+                        if(oor == axis::OOR_NONE)
                         {
                             indices[i] = axis_idx;
                         }
                         else
                         {
-                            // The current value is out of the axis bounds.
-                            // Just ignore it for now.
-                            // TODO: Introduce an under- and overflow bin for each
-                            //       each axis. Or resize the axis.
-                            is_overflown = true;
-                            break;
+                            if(axis->has_autoscale())
+                            {
+                                std::cout << "axis has autoscale" << std::endl;
+                                intptr_t const n_extra_bins = axis->autoscale_fct(axis->data_, ndvalue_ptr, oor);
+                                self.extend_bin_content_array_axis(i, n_extra_bins);
+                                bc_arr = self.GetBCArray();
+                                bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                            }
+                            else
+                            {
+                                std::cout << "axis has NO autoscale" << std::endl;
+                                // The current value is out of the axis bounds.
+                                // Just ignore it for now.
+                                // TODO: Introduce an under- and overflow bin for each
+                                //       each axis. Or resize the axis.
+                                is_overflown = true;
+                                break;
+                            }
                         }
                     }
 

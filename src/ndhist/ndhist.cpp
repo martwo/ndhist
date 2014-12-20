@@ -272,8 +272,9 @@ struct generic_nd_traits
                         std::cout << "Get bin idx of axis " << i << " of " << nd << std::endl;
                         boost::shared_ptr<detail::Axis> & axis = self.get_axes()[i];
                         char * ndvalue_ptr = iter.get_data(0) + ndvalue_byte_offsets[i];
-                        intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr);
-                        if(axis_idx >= 0)
+                        axis::out_of_range_t oor;
+                        intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr, &oor);
+                        if(oor == axis::OOR_NONE)
                         {
                             indices[i] = axis_idx;
                         }
@@ -395,6 +396,9 @@ ndhist(
         }
         const intptr_t n_bin_dim = edges_arr.get_size();
 
+        intptr_t const autoscale_fcap = bp::extract<intptr_t>(fcap_obj);
+        intptr_t const autoscale_bcap = bp::extract<intptr_t>(bcap_obj);
+
         // Check the type of the edge values for the current axis.
         bool axis_dtype_supported = false;
         bn::dtype axis_dtype = edges_arr.get_dtype();
@@ -409,7 +413,7 @@ ndhist(
                 }                                                                   \
                 std::cout << "Found " << BOOST_PP_STRINGIZE(AXISDTYPE) << " equiv. "\
                           << "axis data type." << std::endl;                        \
-                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, 0, 0));\
+                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, autoscale_fcap, autoscale_bcap));\
                 axis_dtype_supported = true;                                        \
             }
         NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
@@ -441,8 +445,8 @@ ndhist(
         // an autoscale.
         if(axes_[i]->has_autoscale())
         {
-            front_capacity[i] = bp::extract<intptr_t>(fcap_obj);
-            back_capacity[i]  = bp::extract<intptr_t>(bcap_obj);
+            front_capacity[i] = autoscale_fcap;
+            back_capacity[i]  = autoscale_bcap;
         }
         else
         {
@@ -506,6 +510,7 @@ ndhist(
         bn::flat_iterator<bp::object> bc_iter_end(bc_iter.end());
         for(; bc_iter != bc_iter_end; ++bc_iter)
         {
+            bool isnone = (bc_class == bp::object());
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
             bp::object obj = bc_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
@@ -558,6 +563,125 @@ fill(bp::object const & ndvalue_obj, bp::object weight_obj)
         weight_obj = this->get_one();
     }
     fill_fct_(*this, ndvalue_obj, weight_obj);
+}
+
+void
+ndhist::
+extend_bin_content_array_axis(intptr_t axis, intptr_t n_extra_bins)
+{
+    if(n_extra_bins == 0)
+        return;
+    std::vector<intptr_t> old_shape = GetBCArray().get_shape_vector();
+
+    bc_->extend_axis(axis, n_extra_bins);
+    // Recreate the bin content ndarray.
+    bp::object self(bp::ptr(this));
+    bc_arr_ = bc_->ConstructNDArray(&self);
+    bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&bc_arr_);
+    bn::dtype bc_dtype = bc_arr.get_dtype();
+    // We need to initialize the new bin content values, if the data type
+    // is object.
+    if(! bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
+        return;
+
+    int const nd = bc_arr.get_nd();
+    std::vector<intptr_t> const shape = bc_arr.get_shape_vector();
+
+    intptr_t axis_idx_range_min = 0;
+    intptr_t axis_idx_range_max = 0;
+    if(n_extra_bins < 0)
+    {
+        axis_idx_range_min = 0;
+        axis_idx_range_max = -n_extra_bins - 1;
+    }
+    else // n_extra_bins > 0
+    {
+        axis_idx_range_min = old_shape[axis];
+        axis_idx_range_max = shape[axis] - 1;
+    }
+
+    bn::flat_iterator<bp::object> bc_iter(bc_arr);
+    if(nd == 1)
+    {
+        // We can just use the flat iterator directly.
+        intptr_t axis_idx=axis_idx_range_min;
+        bc_iter.advance(axis_idx);
+        for(; axis_idx <= axis_idx_range_max; ++axis_idx)
+        {
+            uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
+            bp::object obj = bc_one_ - bc_one_;
+            *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+        }
+    }
+    else
+    {
+        // Create a strides vector for the iteration.
+        std::vector<intptr_t> T(nd);
+        T[nd-1] = 1;
+        for(intptr_t i=nd-2; i>=0; --i)
+        {
+            T[i] = shape[i+1]*T[i+1];
+        }
+
+        // Calculate the number of iterations (without the iteration axis).
+        std::cout << "shape = ";
+        intptr_t n_iters = 1;
+        for(size_t i=0; i<nd; ++i)
+        {
+            std::cout << shape[i] << ",";
+            if(i != axis) {
+                n_iters *= shape[i];
+            }
+        }
+        std::cout << std::endl;
+        std::cout << "n_iters = " << n_iters << std::endl<<std::flush;
+
+        intptr_t const last_axis = (nd - 1 == axis ? nd - 2 : nd - 1);
+        std::cout << "last_axis = "<< last_axis << std::endl<<std::flush;
+        for(intptr_t axis_idx=axis_idx_range_min; axis_idx <= axis_idx_range_max; ++axis_idx)
+        {
+            std::vector<intptr_t> indices(nd, 0);
+            indices[axis] = axis_idx;
+            // The iteration follows a matrix. The index pointer p indicates
+            // index that needs to be incremented.
+            // We need to start from the innermost dimension, unless it is the
+            // iteration axis.
+            intptr_t p = last_axis;
+            for(intptr_t i=0; i<n_iters; ++i)
+            {
+                intptr_t iteridx = 0;
+                for(intptr_t j=nd-1; j>=0; --j)
+                {
+                    iteridx += indices[j]*T[j];
+                }
+                std::cout << "iteridx = " << iteridx << std::endl<<std::flush;
+                bc_iter.jump_to_iter_index(iteridx);
+
+                uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
+                bp::object obj = bc_one_ - bc_one_;
+                *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+
+                // Move the index pointer to the next outer-axis if the index
+                // of the current axis has reached its maximum. Then increase
+                // the index and reset all indices to the right of this
+                // increased index to zero. After this operation, the index
+                // pointer points to the inner-most axis (excluding the
+                // iteration axis).
+                while(indices[p] == shape[p]-1)
+                {
+                    --p;
+                    if(p == axis) --p;
+                }
+                indices[p]++;
+                while(p < last_axis)
+                {
+                    ++p;
+                    if(p == axis) ++p;
+                    indices[p] = 0;
+                }
+            }
+        }
+    }
 }
 
 void

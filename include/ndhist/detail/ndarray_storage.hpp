@@ -102,6 +102,14 @@ class ndarray_storage
     boost::numpy::ndarray
     ConstructNDArray(boost::python::object const * data_owner=NULL);
 
+    /** Extends the memory of the given axis by the number of given elements to
+     *  the left (negative n_elements number) or to the right (positive
+     *  n_elements number). In case n_elements is greater than the still
+     *  available front or back capacity of the given axis, a new array memory
+     *  is allocated.
+     */
+    void extend_axis(intptr_t axis, intptr_t n_elements);
+
   protected:
     /** Allocates capacity*elsize number of bytes of new memory, initialized to
      *  zero. It returns "true" after success and "false" otherwise. It uses the

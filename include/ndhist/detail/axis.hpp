@@ -25,6 +25,19 @@ namespace bn = boost::numpy;
 namespace ndhist {
 namespace detail {
 
+namespace axis {
+
+/** The enum type for describing the type of an out of range event.
+ */
+enum out_of_range_t
+{
+    OOR_NONE      =  0,
+    OOR_UNDERFLOW = -1,
+    OOR_OVERFLOW  = -2
+};
+
+}// namespace axis
+
 struct AxisData;
 
 struct Axis
@@ -49,6 +62,8 @@ struct Axis
 
     bool has_autoscale() const
     {
+        std::cout << " autoscale_fcap_ = "<< autoscale_fcap_
+                  << " autoscale_bcap_ = "<< autoscale_bcap_<<std::endl;
         return ((autoscale_fcap_ > 0 && autoscale_bcap_ >= 0) ||
                 (autoscale_bcap_ > 0 && autoscale_fcap_ >= 0));
     }
@@ -56,7 +71,8 @@ struct Axis
     bn::dtype dt_;
     intptr_t autoscale_fcap_;
     intptr_t autoscale_bcap_;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *)> get_bin_index_fct;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t *)> get_bin_index_fct;
+    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t)> autoscale_fct;
     boost::function<bn::ndarray (boost::shared_ptr<AxisData>)> get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;
 };
