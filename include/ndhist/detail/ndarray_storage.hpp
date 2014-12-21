@@ -98,7 +98,8 @@ class ndarray_storage
      */
     void
     extend_axes(
-        std::vector<intptr_t> const & n_elements_vec
+        std::vector<intptr_t> const & f_n_elements_vec
+      , std::vector<intptr_t> const & b_n_elements_vec
       , std::vector<intptr_t> const & max_fcap_vec
       , std::vector<intptr_t> const & max_bcap_vec
       , bp::object const * data_owner

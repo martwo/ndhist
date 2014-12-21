@@ -69,18 +69,22 @@ ConstructNDArray(bp::object const * data_owner)
 void
 ndarray_storage::
 extend_axes(
-    std::vector<intptr_t> const & n_elements_vec
+    std::vector<intptr_t> const & f_n_elements_vec
+  , std::vector<intptr_t> const & b_n_elements_vec
   , std::vector<intptr_t> const & max_fcap_vec
   , std::vector<intptr_t> const & max_bcap_vec
   , bp::object const * data_owner
 )
 {
     int const nd = this->get_nd();
-    if(n_elements_vec.size() != nd)
+    if(f_n_elements_vec.size() != nd ||
+       b_n_elements_vec.size() != nd
+      )
     {
         std::stringstream ss;
-        ss << "The vector holding the number of new elements is "
-           << n_elements_vec.size() <<", but must be " << nd << "!";
+        ss << "The vector holding the number of new elements in front is "
+           << f_n_elements_vec.size() <<" and the one for the back is "
+           << b_n_elements_vec.size() <<", but both must be " << nd << "!";
         throw AssertionError(ss.str());
     }
 
@@ -88,25 +92,25 @@ extend_axes(
     bool reallocate = false;
     for(int axis=0; axis<=nd; ++axis)
     {
-        intptr_t const n_elements = n_elements_vec[axis];
-        if(n_elements == 0) continue;
-        if(n_elements < 0)
+        intptr_t const f_n_elements = f_n_elements_vec[axis];
+        intptr_t const b_n_elements = b_n_elements_vec[axis];
+        if(f_n_elements > 0)
         {
-            if(front_capacity_[axis] + n_elements < 0)
+            if(front_capacity_[axis] - f_n_elements < 0)
             {
                 reallocate = true;
             }
-            shape_[axis] -= n_elements;
-            front_capacity_[axis] += n_elements;
+            shape_[axis] += f_n_elements;
+            front_capacity_[axis] -= f_n_elements;
         }
-        else // n_elements > 0
+        if(b_n_elements > 0)
         {
-            if(back_capacity_[axis] - n_elements < 0)
+            if(back_capacity_[axis] - b_n_elements < 0)
             {
                 reallocate = true;
             }
-            shape_[axis] += n_elements;
-            back_capacity_[axis] -= n_elements;
+            shape_[axis] += b_n_elements;
+            back_capacity_[axis] -= b_n_elements;
         }
     }
 
@@ -117,23 +121,26 @@ extend_axes(
         std::vector<intptr_t> old_shape = shape_;
         std::vector<intptr_t> old_fcap = front_capacity_;
         std::vector<intptr_t> old_bcap = back_capacity_;
+        // TODO: f_diffs is f_n_elements_vec and b_diffs is b_n_elements_vec.
+        //       Get rid of f_diffs and b_diffs.
         std::vector<intptr_t> f_diffs(nd, 0);
         std::vector<intptr_t> b_diffs(nd, 0);
         for(int i=0; i<nd; ++i)
         {
-            intptr_t const n_elements = n_elements_vec[i];
-            if(n_elements < 0)
+            intptr_t const f_n_elements = f_n_elements_vec[i];
+            intptr_t const b_n_elements = b_n_elements_vec[i];
+            if(f_n_elements > 0)
             {
-                old_shape[i] += n_elements;
-                old_fcap[i] -= n_elements;
-                f_diffs[i] = -n_elements;
+                old_shape[i] -= f_n_elements;
+                old_fcap[i] += f_n_elements;
+                f_diffs[i] = f_n_elements;
                 front_capacity_[i] = max_fcap_vec[i];
             }
-            else if(n_elements > 0)
+            if(b_n_elements > 0)
             {
-                old_shape[i] -= n_elements;
-                old_bcap[i] += n_elements;
-                b_diffs[i] = n_elements;
+                old_shape[i] -= b_n_elements;
+                old_bcap[i] += b_n_elements;
+                b_diffs[i] = b_n_elements;
                 back_capacity_[i] = max_bcap_vec[i];
             }
         }

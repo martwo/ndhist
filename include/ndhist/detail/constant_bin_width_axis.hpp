@@ -115,9 +115,8 @@ struct ConstantBinWidthAxis
         return idx;
     }
 
-    // Determines the number of extra bins needed to the left (negative number
-    // returned) or to the right (positive number returned) of the current axis
-    // range.
+    // Determines the number of extra bins needed to the left or to the right
+    // of the current axis range.
     static
     intptr_t
     request_extension(boost::shared_ptr<AxisData> axisdata, char * value_ptr, axis::out_of_range_t oor)
@@ -129,7 +128,7 @@ struct ConstantBinWidthAxis
         {
             intptr_t const n_extra_bins = std::ceil((std::abs(value - data.min_) / data.bin_width_));
             std::cout << "request_autoscale (underflow): " << n_extra_bins << " extra bins." << std::endl<< std::flush;
-            return -n_extra_bins;
+            return n_extra_bins;
         }
         else if(oor == axis::OOR_OVERFLOW)
         {
@@ -146,23 +145,21 @@ struct ConstantBinWidthAxis
     // added to the left or to the right of the range.
     static
     void
-    extend(boost::shared_ptr<AxisData> axisdata, intptr_t n_extra_bins)
+    extend(boost::shared_ptr<AxisData> axisdata, intptr_t f_n_extra_bins, intptr_t b_n_extra_bins)
     {
-        if(n_extra_bins == 0) return;
-
         axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
 
-        if(n_extra_bins < 0)
+        if(f_n_extra_bins > 0)
         {
-            data.n_bins_ -= n_extra_bins;
-            data.min_    += n_extra_bins * data.bin_width_;
+            data.n_bins_ += f_n_extra_bins;
+            data.min_    -= f_n_extra_bins * data.bin_width_;
         }
-        else // n_extra_bins > 0
+        if(b_n_extra_bins > 0)
         {
-            data.n_bins_ += n_extra_bins;
+            data.n_bins_ += b_n_extra_bins;
         }
 
-        std::cout << "extend: " << n_extra_bins << " extra bins." << std::endl<< std::flush;
+        std::cout << "extend: " << f_n_extra_bins << " extra front bins, "<<b_n_extra_bins<<" extra back bins." << std::endl<< std::flush;
         std::cout << "    new n_bins_ = "<< data.n_bins_ << std::endl<< std::flush;
         std::cout << "    new min_ = "<< data.min_ << std::endl<< std::flush;
     }

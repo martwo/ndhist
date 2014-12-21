@@ -75,7 +75,7 @@ struct Axis
         get_bin_index_fct;
     boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t)>
         request_extension_fct;
-    boost::function<void (boost::shared_ptr<AxisData>, intptr_t)>
+    boost::function<void (boost::shared_ptr<AxisData>, intptr_t, intptr_t)>
         extend_fct;
     boost::function<intptr_t (boost::shared_ptr<AxisData>)>
         get_n_bins_fct;

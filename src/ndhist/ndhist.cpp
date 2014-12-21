@@ -9,6 +9,8 @@
  * (See LICENSE file).
  *
  */
+#include <algorithm>
+#include <cstring>
 #include <sstream>
 
 #include <boost/type_traits/is_same.hpp>
@@ -568,26 +570,111 @@ fill(bp::object const & ndvalue_obj, bp::object weight_obj)
     fill_fct_(*this, ndvalue_obj, weight_obj);
 }
 
+static
+void
+initialize_extended_bin_content_axis_range(
+    bn::flat_iterator<bp::object> & iter
+  , intptr_t axis
+  , std::vector<intptr_t> const & shape
+  , std::vector<intptr_t> const & strides
+  , intptr_t n_iters
+  , intptr_t axis_idx_range_min
+  , intptr_t axis_idx_range_max
+  , bp::object const one
+)
+{
+    int const nd = strides.size();
+
+    intptr_t const last_axis = (nd - 1 == axis ? nd - 2 : nd - 1);
+    std::cout << "last_axis = "<< last_axis << std::endl<<std::flush;
+    std::vector<intptr_t> indices(nd);
+    for(intptr_t axis_idx=axis_idx_range_min; axis_idx < axis_idx_range_max; ++axis_idx)
+    {
+        std::cout << "Start new axis idx"<<std::endl<<std::flush;
+        memset(&indices.front(), 0, nd*sizeof(intptr_t));
+        indices[axis] = axis_idx;
+        // The iteration follows a matrix. The index pointer p indicates
+        // index that needs to be incremented.
+        // We need to start from the innermost dimension, unless it is the
+        // iteration axis.
+        intptr_t p = last_axis;
+        for(intptr_t i=0; i<n_iters; ++i)
+        {
+            std::cout << "indices = ";
+            for(intptr_t j=0; j<nd; ++j)
+            {
+                std::cout << indices[j] << ",";
+            }
+            std::cout << std::endl;
+
+            intptr_t iteridx = 0;
+            for(intptr_t j=nd-1; j>=0; --j)
+            {
+                iteridx += indices[j]*strides[j];
+            }
+            std::cout << "iteridx = " << iteridx << std::endl<<std::flush;
+            iter.jump_to_iter_index(iteridx);
+            std::cout << "jump done" << std::endl<<std::flush;
+
+            uintptr_t * obj_ptr_ptr = iter.get_object_ptr_ptr();
+            bp::object obj = one - one;
+            std::cout << "Setting pointer data ..."<<std::flush;
+            *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+            std::cout << "done."<<std::endl<<std::flush;
+            if(i == n_iters-1) break;
+            // Move the index pointer to the next outer-axis if the index
+            // of the current axis has reached its maximum. Then increase
+            // the index and reset all indices to the right of this
+            // increased index to zero. After this operation, the index
+            // pointer points to the inner-most axis (excluding the
+            // iteration axis).
+            std::cout << "p1 = "<<p<<std::endl<<std::flush;
+            while(indices[p] == shape[p]-1)
+            {
+                --p;
+                if(p == axis) --p;
+            }
+            std::cout << "p2 = "<<p<<std::endl<<std::flush;
+            indices[p]++;
+            while(p < last_axis)
+            {
+                ++p;
+                if(p == axis) ++p;
+                indices[p] = 0;
+            }
+
+            std::cout << "p3 = "<<p<<std::endl;
+        }
+    }
+}
+
 void
 ndhist::
-initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins)
+initialize_extended_bin_content_axis(
+    intptr_t axis
+  , intptr_t f_n_extra_bins
+  , intptr_t b_n_extra_bins
+)
 {
-    if(n_extra_bins == 0) return;
+    if(f_n_extra_bins == 0 && b_n_extra_bins == 0) return;
 
     bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&bc_arr_);
     std::vector<intptr_t> const shape = bc_arr.get_shape_vector();
 
-    intptr_t axis_idx_range_min = 0;
-    intptr_t axis_idx_range_max = 0;
-    if(n_extra_bins < 0)
+    intptr_t f_axis_idx_range_min = 0;
+    intptr_t f_axis_idx_range_max = 0;
+    if(f_n_extra_bins > 0)
     {
-        axis_idx_range_min = 0;
-        axis_idx_range_max = -n_extra_bins - 1;
+        f_axis_idx_range_min = 0;
+        f_axis_idx_range_max = f_n_extra_bins;
     }
-    else // n_extra_bins > 0
+
+    intptr_t b_axis_idx_range_min = 0;
+    intptr_t b_axis_idx_range_max = 0;
+    if(b_n_extra_bins > 0)
     {
-        axis_idx_range_min = shape[axis] - n_extra_bins;
-        axis_idx_range_max = shape[axis] - 1;
+        b_axis_idx_range_min = shape[axis] - b_n_extra_bins;
+        b_axis_idx_range_max = shape[axis];
     }
 
     bn::flat_iterator<bp::object> bc_iter(bc_arr);
@@ -595,10 +682,20 @@ initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins)
     if(nd == 1)
     {
         // We can just use the flat iterator directly.
-        intptr_t axis_idx=axis_idx_range_min;
-        bc_iter.jump_to_iter_index(axis_idx);
-        for(; axis_idx <= axis_idx_range_max; ++axis_idx)
+
+        // --- for front elements.
+        for(intptr_t axis_idx = f_axis_idx_range_min; axis_idx < f_axis_idx_range_max; ++axis_idx)
         {
+            bc_iter.jump_to_iter_index(axis_idx);
+            uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
+            bp::object obj = bc_one_ - bc_one_;
+            *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+        }
+
+        // --- for back elements.
+        for(intptr_t axis_idx = b_axis_idx_range_min; axis_idx < b_axis_idx_range_max; ++axis_idx)
+        {
+            bc_iter.jump_to_iter_index(axis_idx);
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
             bp::object obj = bc_one_ - bc_one_;
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
@@ -607,11 +704,11 @@ initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins)
     else
     {
         // Create a strides vector for the iteration.
-        std::vector<intptr_t> T(nd);
-        T[nd-1] = 1;
+        std::vector<intptr_t> strides(nd);
+        strides[nd-1] = 1;
         for(intptr_t i=nd-2; i>=0; --i)
         {
-            T[i] = shape[i+1]*T[i+1];
+            strides[i] = shape[i+1]*strides[i+1];
         }
 
         // Calculate the number of iterations (without the iteration axis).
@@ -627,73 +724,25 @@ initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins)
         std::cout << std::endl;
         std::cout << "n_iters = " << n_iters << std::endl<<std::flush;
 
-        intptr_t const last_axis = (nd - 1 == axis ? nd - 2 : nd - 1);
-        std::cout << "last_axis = "<< last_axis << std::endl<<std::flush;
-        for(intptr_t axis_idx=axis_idx_range_min; axis_idx <= axis_idx_range_max; ++axis_idx)
-        {
-            std::vector<intptr_t> indices(nd, 0);
-            indices[axis] = axis_idx;
-            // The iteration follows a matrix. The index pointer p indicates
-            // index that needs to be incremented.
-            // We need to start from the innermost dimension, unless it is the
-            // iteration axis.
-            intptr_t p = last_axis;
-            for(intptr_t i=0; i<n_iters; ++i)
-            {
-                intptr_t iteridx = 0;
-                for(intptr_t j=nd-1; j>=0; --j)
-                {
-                    iteridx += indices[j]*T[j];
-                }
-                std::cout << "iteridx = " << iteridx << std::endl<<std::flush;
-                bc_iter.jump_to_iter_index(iteridx);
-                std::cout << "jump done" << std::endl<<std::flush;
-
-                uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
-                bp::object obj = bc_one_ - bc_one_;
-                *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
-
-                if(i == n_iters-1) break;
-                // Move the index pointer to the next outer-axis if the index
-                // of the current axis has reached its maximum. Then increase
-                // the index and reset all indices to the right of this
-                // increased index to zero. After this operation, the index
-                // pointer points to the inner-most axis (excluding the
-                // iteration axis).
-                while(indices[p] == shape[p]-1)
-                {
-                    --p;
-                    if(p == axis) --p;
-                }
-                indices[p]++;
-                while(p < last_axis)
-                {
-                    ++p;
-                    if(p == axis) ++p;
-                    indices[p] = 0;
-                }
-
-                std::cout << "p = "<<p<<std::endl;
-                std::cout << "indices = ";
-                for(intptr_t j=0; j<nd; ++j)
-                {
-                    std::cout << indices[j] << ",";
-                }
-                std::cout << std::endl;
-            }
-        }
+        // Initialize the front elements.
+        initialize_extended_bin_content_axis_range(bc_iter, axis, shape, strides, n_iters, f_axis_idx_range_min, f_axis_idx_range_max, bc_one_);
+        // Initialize the back elements.
+        initialize_extended_bin_content_axis_range(bc_iter, axis, shape, strides, n_iters, b_axis_idx_range_min, b_axis_idx_range_max, bc_one_);
     }
 }
 
 void
 ndhist::
-extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec)
+extend_bin_content_array(
+    std::vector<intptr_t> const & f_n_extra_bins_vec
+  , std::vector<intptr_t> const & b_n_extra_bins_vec
+)
 {
     std::cout << "extend_bin_content_array" << std::endl;
     bp::object self(bp::ptr(this));
 
     // Extend the bin content array. This might cause a reallocation of memory.
-    bc_->extend_axes(n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, &self);
+    bc_->extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, &self);
 
     // Recreate the bin content ndarray.
     bc_arr_ = bc_->ConstructNDArray(&self);
@@ -708,20 +757,22 @@ extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec)
     int const nd = this->get_nd();
     for(int axis=0; axis<nd; ++axis)
     {
-        this->initialize_extended_bin_content_axis(axis, n_extra_bins_vec[axis]);
+        this->initialize_extended_bin_content_axis(axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
     }
 }
 
 void
 ndhist::
-extend_axes(std::vector<intptr_t> const & n_extra_bins_vec)
+extend_axes(
+    std::vector<intptr_t> const & f_n_extra_bins_vec
+  , std::vector<intptr_t> const & b_n_extra_bins_vec
+)
 {
     int const nd = this->get_nd();
     for(int i=0; i<nd; ++i)
     {
-        intptr_t const n_extra_bins = n_extra_bins_vec[i];
         boost::shared_ptr<detail::Axis> & axis = this->axes_[i];
-        axis->extend_fct(axis->data_, n_extra_bins);
+        axis->extend_fct(axis->data_, f_n_extra_bins_vec[i], b_n_extra_bins_vec[i]);
     }
 }
 

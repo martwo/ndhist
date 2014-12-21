@@ -171,9 +171,24 @@ class ndhist
         return *static_cast< detail::OORFillRecordStack<BCValueType>* >(oor_fill_record_stack_.get());
     }
 
-    void extend_axes(std::vector<intptr_t> const & n_extra_bins_vec);
-    void extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec);
-    void initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins);
+    void
+    extend_axes(
+        std::vector<intptr_t> const & f_n_extra_bins_vec
+      , std::vector<intptr_t> const & b_n_extra_bins_vec
+    );
+
+    void
+    extend_bin_content_array(
+        std::vector<intptr_t> const & f_n_extra_bins_vec
+      , std::vector<intptr_t> const & b_n_extra_bins_vec
+    );
+
+    void
+    initialize_extended_bin_content_axis(
+        intptr_t axis
+      , intptr_t f_n_extra_bins
+      , intptr_t b_n_extra_bins
+    );
 
   private:
     ndhist()
@@ -314,7 +329,9 @@ struct nd_traits<ND>
 
             // Do the iteration.
             std::vector<intptr_t> indices(ND);
-            std::vector<intptr_t> n_extra_bins_vec(ND);
+            std::vector<intptr_t> relative_indices(ND);
+            std::vector<intptr_t> f_n_extra_bins_vec(ND);
+            std::vector<intptr_t> b_n_extra_bins_vec(ND);
             bool is_overflown;
             bool extend_axes;
             do {
@@ -322,7 +339,8 @@ struct nd_traits<ND>
                 while(size--)
                 {
                     // Fill the scalar into the bin content array.
-                    memset(&n_extra_bins_vec.front(), 0, ND);
+                    memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
+                    memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
 
                     // Get the coordinate of the current ndvalue.
                     is_overflown = false;
@@ -337,6 +355,7 @@ struct nd_traits<ND>
                         if(oor == axis::OOR_NONE)
                         {
                             indices[i] = axis_idx;
+                            relative_indices[i] = axis_idx;
                         }
                         else
                         {
@@ -346,11 +365,15 @@ struct nd_traits<ND>
                                 intptr_t const n_extra_bins = axis->request_extension_fct(axis->data_, ndvalue_ptr, oor);
                                 if(oor == axis::OOR_UNDERFLOW) {
                                     indices[i] = 0;
+                                    relative_indices[i] = n_extra_bins;
+                                    f_n_extra_bins_vec[i] = std::max(n_extra_bins, f_n_extra_bins_vec[i]);
                                 }
                                 else { // oor == axis::OOR_OVERFLOW
-                                    indices[i] = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
+                                    indices[i]            = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
+                                    relative_indices[i]   = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
+                                    b_n_extra_bins_vec[i] = std::max(n_extra_bins, b_n_extra_bins_vec[i]);
                                 }
-                                n_extra_bins_vec[i] = n_extra_bins;
+
                                 extend_axes = true;
                             }
                             else
@@ -370,8 +393,8 @@ struct nd_traits<ND>
                     // value into the histogram's bin content array.
                     if(extend_axes)
                     {
-                        self.extend_axes(n_extra_bins_vec);
-                        self.extend_bin_content_array(n_extra_bins_vec);
+                        self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                        self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                         bc_arr = self.GetBCArray();
                         bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
                     }
