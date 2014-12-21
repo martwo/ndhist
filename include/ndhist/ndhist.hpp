@@ -433,6 +433,7 @@ struct nd_traits<ND>
                             {
                                 std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+                                reallocation_upon_extension = false;
                             }
                         }
                         else
