@@ -104,7 +104,29 @@ class ndhist
      *        The lifetime of this new object and this ndhist object will be
      *        managed through the BoostNumpy ndarray_accessor_return() policy.
      */
-    bn::ndarray py_construct_bin_content_ndarray();
+    bn::ndarray
+    py_get_bin_content_ndarray();
+
+    /**
+     * @brief Creates a new ndarray object wrapping the data of the under- and
+     *        overflow bin array. Here we say that we own the data (which is
+     *        not true) but in the python bindings we use the BoostNumpy
+     *        ndarray_accessor_return() call policy which sets the owner to this
+     *        ndhist object and keeps the lifetime of both objects coherent.
+     */
+    bn::ndarray
+    py_get_underflow_ndarray()
+    {
+        bn::ndarray & uf_arr = *static_cast<bn::ndarray *>(&uf_arr_);
+        return bn::from_data(uf_arr.get_data(), uf_arr.get_dtype(), uf_arr.get_shape_vector(), uf_arr.get_strides_vector(), NULL);
+    }
+
+    bn::ndarray
+    py_get_overflow_ndarray()
+    {
+        bn::ndarray & of_arr = *static_cast<bn::ndarray *>(&of_arr_);
+        return bn::from_data(of_arr.get_data(), of_arr.get_dtype(), of_arr.get_shape_vector(), of_arr.get_strides_vector(), NULL);
+    }
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -123,7 +145,7 @@ class ndhist
     void
     fill(bp::object const & ndvalue_obj, bp::object weight_obj);
 
-    void handle_struct_array(bp::object const & arr_obj);
+    //void handle_struct_array(bp::object const & arr_obj);
 
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
@@ -167,20 +189,26 @@ class ndhist
         return *static_cast<bn::ndarray *>(&of_arr_);
     }
 
+
+
+
     inline
-    int get_nd() const
+    int
+    get_nd() const
     {
         return GetBCArray().get_nd();
     }
 
     inline
-    bn::dtype get_ndvalues_dtype() const
+    bn::dtype
+    get_ndvalues_dtype() const
     {
         return ndvalues_dt_;
     }
 
     inline
-    bp::object get_one() const
+    bp::object
+    get_one() const
     {
         return bc_one_;
     }
@@ -363,6 +391,8 @@ struct nd_traits<ND>
             std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
             std::vector<intptr_t> & bc_fcap = self.get_bc_storage().get_front_capacity_vector();
             std::vector<intptr_t> & bc_bcap = self.get_bc_storage().get_back_capacity_vector();
+            bn::flat_iterator<BCValueType> uf_iter(self.get_underflow_ndarray());
+            bn::flat_iterator<BCValueType> of_iter(self.get_overflow_ndarray());
             bool is_oor;
             bool extend_axes;
             bool reallocation_upon_extension = false;
@@ -398,7 +428,8 @@ struct nd_traits<ND>
                             {
                                 std::cout << "axis is extentable" << std::endl;
                                 intptr_t const n_extra_bins = axis->request_extension_fct(axis->data_, ndvalue_ptr, oor);
-                                if(oor == axis::OOR_UNDERFLOW) {
+                                if(oor == axis::OOR_UNDERFLOW)
+                                {
                                     indices[i] = 0;
                                     relative_indices[i] = n_extra_bins;
                                     f_n_extra_bins_vec[i] = std::max(-n_extra_bins, f_n_extra_bins_vec[i]);
@@ -406,7 +437,8 @@ struct nd_traits<ND>
                                         reallocation_upon_extension = true;
                                     }
                                 }
-                                else { // oor == axis::OOR_OVERFLOW
+                                else // oor == axis::OOR_OVERFLOW
+                                {
                                     intptr_t const index = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
                                     indices[i] = index;
                                     relative_indices[i] = index;
@@ -424,9 +456,18 @@ struct nd_traits<ND>
                                 // The current value is out-of-range on the
                                 // current the axis.
                                 // Just ignore it for now.
-                                // TODO: Introduce an under- and overflow bin for each
-                                //       each axis.
-
+                                if(oor == axis::OOR_UNDERFLOW)
+                                {
+                                    uf_iter.jump_to_iter_index(i);
+                                    bc_ref_type uf_value = *uf_iter;
+                                    uf_value += weight;
+                                }
+                                else // oor == axis::OOR_OVERFLOW
+                                {
+                                    of_iter.jump_to_iter_index(i);
+                                    bc_ref_type of_value = *of_iter;
+                                    of_value += weight;
+                                }
                             }
                         }
                     }

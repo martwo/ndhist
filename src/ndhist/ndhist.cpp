@@ -605,7 +605,7 @@ ndhist(
 
 bn::ndarray
 ndhist::
-py_construct_bin_content_ndarray()
+py_get_bin_content_ndarray()
 {
     return bc_->ConstructNDArray();
 }

@@ -40,10 +40,20 @@ void register_ndhist()
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
-        .add_property("bc", bp::make_function(
-              &ndhist::py_construct_bin_content_ndarray
+        .add_property("bincontent", bp::make_function(
+              &ndhist::py_get_bin_content_ndarray
             , bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents.")
+
+        .add_property("uf_arr", bp::make_function(
+              &ndhist::py_get_underflow_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the underflow bins.")
+
+        .add_property("of_arr", bp::make_function(
+              &ndhist::py_get_overflow_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the overflow bins.")
 
         .add_property("nd", &ndhist::get_nd
             , "The dimensionality of the histogram.")
