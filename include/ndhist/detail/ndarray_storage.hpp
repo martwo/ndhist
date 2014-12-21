@@ -84,6 +84,17 @@ class ndarray_storage
     boost::numpy::ndarray
     ConstructNDArray(boost::python::object const * data_owner=NULL);
 
+    std::vector<intptr_t> &
+    get_front_capacity_vector()
+    {
+        return front_capacity_;
+    }
+
+    std::vector<intptr_t> &
+    get_back_capacity_vector()
+    {
+        return back_capacity_;
+    }
 
     /** Extends the memory of this ndarray storage by at least the given number
      *  of elements for each axis. The n_elements_vec argument must hold the

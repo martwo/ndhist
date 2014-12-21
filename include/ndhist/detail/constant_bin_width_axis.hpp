@@ -39,10 +39,10 @@ struct ConstantBinWidthAxis
 
     ConstantBinWidthAxis(
         bn::ndarray const & edges
-      , intptr_t autoscale_fcap
-      , intptr_t autoscale_bcap
+      , intptr_t extension_max_fcap
+      , intptr_t extension_max_bcap
     )
-      : Axis(edges.get_dtype(), autoscale_fcap, autoscale_bcap)
+      : Axis(edges.get_dtype(), extension_max_fcap, extension_max_bcap)
     {
         // Set up the axis's function pointers.
         get_bin_index_fct     = &get_bin_index;
@@ -115,8 +115,9 @@ struct ConstantBinWidthAxis
         return idx;
     }
 
-    // Determines the number of extra bins needed to the left or to the right
-    // of the current axis range.
+    // Determines the number of extra bins needed to the left (negative number
+    // returned) or to the right (positive number returned) of the current axis
+    // range.
     static
     intptr_t
     request_extension(boost::shared_ptr<AxisData> axisdata, char * value_ptr, axis::out_of_range_t oor)
@@ -128,7 +129,7 @@ struct ConstantBinWidthAxis
         {
             intptr_t const n_extra_bins = std::ceil((std::abs(value - data.min_) / data.bin_width_));
             std::cout << "request_autoscale (underflow): " << n_extra_bins << " extra bins." << std::endl<< std::flush;
-            return n_extra_bins;
+            return -n_extra_bins;
         }
         else if(oor == axis::OOR_OVERFLOW)
         {

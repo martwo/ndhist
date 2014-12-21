@@ -133,6 +133,13 @@ class ndhist
     }
 
     inline
+    detail::ndarray_storage &
+    get_bc_storage()
+    {
+        return *bc_;
+    }
+
+    inline
     bn::ndarray &
     GetBCArray()
     {
@@ -334,8 +341,11 @@ struct nd_traits<ND>
             std::vector<intptr_t> relative_indices(ND, 0);
             std::vector<intptr_t> f_n_extra_bins_vec(ND, 0);
             std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
-            bool is_overflown;
+            std::vector<intptr_t> & bc_fcap = self.get_bc_storage().get_front_capacity_vector();
+            std::vector<intptr_t> & bc_bcap = self.get_bc_storage().get_back_capacity_vector();
+            bool is_oor;
             bool extend_axes;
+            bool reallocation_upon_extension = false;
             do {
                 intptr_t size = iter.get_inner_loop_size();
                 while(size--)
@@ -345,7 +355,7 @@ struct nd_traits<ND>
 
                     // Fill the scalar into the bin content array.
                     // Get the coordinate of the current ndvalue.
-                    is_overflown = false;
+                    is_oor = false;
                     extend_axes = false;
                     for(size_t i=0; i<ND; ++i)
                     {
@@ -363,7 +373,7 @@ struct nd_traits<ND>
                         }
                         else
                         {
-                            is_overflown = true;
+                            is_oor = true;
                             if(axis->is_extendable())
                             {
                                 std::cout << "axis is extentable" << std::endl;
@@ -371,12 +381,19 @@ struct nd_traits<ND>
                                 if(oor == axis::OOR_UNDERFLOW) {
                                     indices[i] = 0;
                                     relative_indices[i] = n_extra_bins;
-                                    f_n_extra_bins_vec[i] = std::max(n_extra_bins, f_n_extra_bins_vec[i]);
+                                    f_n_extra_bins_vec[i] = std::max(-n_extra_bins, f_n_extra_bins_vec[i]);
+                                    if(f_n_extra_bins_vec[i] > bc_fcap[i]) {
+                                        reallocation_upon_extension = true;
+                                    }
                                 }
                                 else { // oor == axis::OOR_OVERFLOW
-                                    indices[i]            = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
-                                    relative_indices[i]   = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
+                                    intptr_t const index = axis->get_n_bins_fct(axis->data_) + n_extra_bins - 1;
+                                    indices[i] = index;
+                                    relative_indices[i] = index;
                                     b_n_extra_bins_vec[i] = std::max(n_extra_bins, b_n_extra_bins_vec[i]);
+                                    if(b_n_extra_bins_vec[i] > bc_bcap[i]) {
+                                        reallocation_upon_extension = true;
+                                    }
                                 }
 
                                 extend_axes = true;
@@ -388,7 +405,6 @@ struct nd_traits<ND>
                                 // Just ignore it for now.
                                 // TODO: Introduce an under- and overflow bin for each
                                 //       each axis. Or resize the axis.
-                                break;
                             }
                         }
                     }
@@ -401,24 +417,39 @@ struct nd_traits<ND>
                     // histogram.
                     if(extend_axes)
                     {
-                        // TODO: Check if an actual reallocation is required,
-                        //       if not don't fill the stack and do the axes
-                        //       extension. Note: The changeover from
-                        //       not-required to required happens only once.
                         std::cout << "extend_axes is true, size="<< oorfrstack.get_size() << std::endl<<std::flush;
-                        // The value is out-of-range for any extandable axis.
-                        // Push it into the cache stack. If it returns ``true``
-                        // the stack is full and we need to extent the axes and
-                        // fill the cached values in.
-                        if(oorfrstack.push_back(relative_indices, weight))
+                        // Check if an actual reallocation is required,
+                        // if not don't fill the stack and just do the
+                        // axes extension and mark the value as not
+                        // out-of-range.
+                        if(reallocation_upon_extension)
                         {
-                            std::cout << "push_back returned true" << std::endl<<std::flush;
-                            extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+                            std::cout << "reallocation required upon extension " << std::endl<<std::flush;
+                            // The value is out-of-range for any extandable axis.
+                            // Push it into the cache stack. If it returns ``true``
+                            // the stack is full and we need to extent the axes and
+                            // fill the cached values in.
+                            if(oorfrstack.push_back(relative_indices, weight))
+                            {
+                                std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
+                                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+                            }
+                        }
+                        else
+                        {
+                            std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
+                            self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                            self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                            bc_arr = self.GetBCArray();
+                            bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                            memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
+                            memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
+                            is_oor = false;
                         }
                     }
 
                     // Increase the bin content if the bin exists.
-                    if(!is_overflown)
+                    if(!is_oor)
                     {
                         bc_iter.jump_to(indices);
                         bc_ref_type bc_value = *bc_iter;
@@ -431,7 +462,7 @@ struct nd_traits<ND>
             } while(iter.next());
 
             // Fill the remaining out-of-range values from the stack.
-            if(oorfrstack.get_size())
+            if(oorfrstack.get_size() > 0)
             {
                 extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
             }
