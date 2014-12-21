@@ -121,10 +121,6 @@ extend_axes(
         std::vector<intptr_t> old_shape = shape_;
         std::vector<intptr_t> old_fcap = front_capacity_;
         std::vector<intptr_t> old_bcap = back_capacity_;
-        // TODO: f_diffs is f_n_elements_vec and b_diffs is b_n_elements_vec.
-        //       Get rid of f_diffs and b_diffs.
-        std::vector<intptr_t> f_diffs(nd, 0);
-        std::vector<intptr_t> b_diffs(nd, 0);
         for(int i=0; i<nd; ++i)
         {
             intptr_t const f_n_elements = f_n_elements_vec[i];
@@ -133,14 +129,12 @@ extend_axes(
             {
                 old_shape[i] -= f_n_elements;
                 old_fcap[i] += f_n_elements;
-                f_diffs[i] = f_n_elements;
                 front_capacity_[i] = max_fcap_vec[i];
             }
             if(b_n_elements > 0)
             {
                 old_shape[i] -= b_n_elements;
                 old_bcap[i] += b_n_elements;
-                b_diffs[i] = b_n_elements;
                 back_capacity_[i] = max_bcap_vec[i];
             }
         }
@@ -160,12 +154,12 @@ extend_axes(
         const int itemsize = dt_.get_itemsize();
 
         // Calculate data offset of the old array inside the new memory.
-        intptr_t new_offset = front_capacity_[nd-1] + f_diffs[nd-1];
+        intptr_t new_offset = front_capacity_[nd-1] + f_n_elements_vec[nd-1];
         intptr_t new_dim_offsets = 1;
         for(int i=nd-2; i>=0; --i)
         {
-            new_dim_offsets *= (front_capacity_[i+1]+f_diffs[i+1] + old_shape[i+1] + back_capacity_[i+1]+b_diffs[i+1]);
-            new_offset += (front_capacity_[i]+f_diffs[i])*new_dim_offsets;
+            new_dim_offsets *= (front_capacity_[i+1]+f_n_elements_vec[i+1] + old_shape[i+1] + back_capacity_[i+1]+b_n_elements_vec[i+1]);
+            new_offset += (front_capacity_[i]+f_n_elements_vec[i])*new_dim_offsets;
         }
         new_offset *= itemsize;
 
@@ -173,7 +167,7 @@ extend_axes(
         std::vector<intptr_t> new_strides(nd, itemsize);
         for(int i=nd-2; i>=0; --i)
         {
-            new_strides[i] = ((front_capacity_[i+1]+f_diffs[i+1] + old_shape[i+1] + back_capacity_[i+1]+b_diffs[i+1]) * new_strides[i+1]/itemsize)*itemsize;
+            new_strides[i] = ((front_capacity_[i+1]+f_n_elements_vec[i+1] + old_shape[i+1] + back_capacity_[i+1]+b_n_elements_vec[i+1]) * new_strides[i+1]/itemsize)*itemsize;
         }
 
         // Create the old array from the new memory.
