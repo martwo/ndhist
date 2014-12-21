@@ -96,7 +96,7 @@ struct axis_traits<bp::object>
 {
     static
     boost::shared_ptr<Axis>
-    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t autoscale_fcap=0, intptr_t autoscale_bcap=0)
+    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t, intptr_t)
     {
         // In case we have an object value typed axis, we use the
         // GenericAxis, because it requires only the < comparison
@@ -173,7 +173,6 @@ extend_axes_and_flush_oor_fill_record_stack(
         //       operation for this, because both
         //       vectors are of the same lengths and it
         //       is just an element-wise addition.
-        if(rec.relative_indices.size() < nd) throw ValueError("size < nd");
         for(intptr_t axis=0; axis<nd; ++axis)
         {
             indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
@@ -203,7 +202,7 @@ struct generic_nd_traits
             // But in case of 1-dimensional histogram we accept also a
             // simple array, which can also be a normal Python list.
 
-            int const nd = self.get_nd();
+            size_t const nd = self.get_nd();
             bp::object ndvalues_arr_obj;
             try
             {
@@ -374,7 +373,7 @@ ndhist(
 )
   : ndvalues_dt_(bn::dtype::new_builtin<void>())
 {
-    int const nd = bp::len(axes);
+    size_t const nd = bp::len(axes);
     std::vector<intptr_t> shape(nd);
     axes_extension_max_fcap_vec_.resize(nd);
     axes_extension_max_bcap_vec_.resize(nd);
@@ -510,12 +509,18 @@ ndhist(
     }
 
     // TODO: Make this as an option in the constructor.
-    intptr_t oor_stack_size = 1024;
+    intptr_t oor_stack_size = 65536;
 
     // Create a ndarray for the bin content.
     bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, dt));
     bp::object self(bp::ptr(this));
     bc_arr_ = bc_->ConstructNDArray(&self);
+
+    // Create the ndarrays for the under- and overflow bins.
+    std::vector<intptr_t> oor_arr_shape(1);
+    oor_arr_shape[0] = nd;
+    uf_arr_ = bn::zeros(oor_arr_shape, dt);
+    of_arr_ = bn::zeros(oor_arr_shape, dt);
 
     // Set the fill function based on the bin content data type.
     bn::dtype bc_dtype = GetBCArray().get_dtype();
@@ -560,7 +565,8 @@ ndhist(
         throw TypeError(ss.str());
     }
 
-    // Initialize the bin content array with objects using their default
+    // Initialize the bin content array and the under- and overflow arrays with
+    // objects using their default
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
     {
@@ -568,10 +574,24 @@ ndhist(
         bn::flat_iterator<bp::object> bc_iter_end(bc_iter.end());
         for(; bc_iter != bc_iter_end; ++bc_iter)
         {
-            bool isnone = (bc_class == bp::object());
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
             bp::object obj = bc_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+        }
+
+        bn::flat_iterator<bp::object> uf_iter(get_underflow_ndarray());
+        bn::flat_iterator<bp::object> of_iter(get_overflow_ndarray());
+        for(size_t i=0; i<nd; ++i)
+        {
+            uf_iter.jump_to_iter_index(i);
+            uintptr_t * uf_obj_ptr_ptr = uf_iter.get_object_ptr_ptr();
+            bp::object uf_obj = bc_class();
+            *uf_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(uf_obj.ptr()));
+
+            of_iter.jump_to_iter_index(i);
+            uintptr_t * of_obj_ptr_ptr = of_iter.get_object_ptr_ptr();
+            bp::object of_obj = bc_class();
+            *of_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(of_obj.ptr()));
         }
 
         bc_one_ = bc_class(1);
@@ -599,7 +619,7 @@ get_edges_ndarray(intptr_t axis) const
         axis += axes_.size();
     }
 
-    if(axis < 0 || axis >= axes_.size())
+    if(axis < 0 || axis >= intptr_t(axes_.size()))
     {
         std::stringstream ss;
         ss << "The axis parameter must be in the interval "
@@ -731,7 +751,7 @@ initialize_extended_bin_content_axis(
     }
 
     bn::flat_iterator<bp::object> bc_iter(bc_arr);
-    int const nd = bc_arr.get_nd();
+    intptr_t const nd = bc_arr.get_nd();
     if(nd == 1)
     {
         // We can just use the flat iterator directly.
@@ -767,7 +787,7 @@ initialize_extended_bin_content_axis(
         // Calculate the number of iterations (without the iteration axis).
         std::cout << "shape = ";
         intptr_t n_iters = 1;
-        for(size_t i=0; i<nd; ++i)
+        for(intptr_t i=0; i<nd; ++i)
         {
             std::cout << shape[i] << ",";
             if(i != axis) {
@@ -829,6 +849,7 @@ extend_axes(
     }
 }
 
+/*
 void
 ndhist::
 handle_struct_array(bp::object const & arr_obj)
@@ -851,7 +872,6 @@ handle_struct_array(bp::object const & arr_obj)
     }
     std::cout << "dt.itemsize = " << dt.get_itemsize() << std::endl;
 
-    /*
     bn::ndarray arr = bn::from_object(arr_obj, 0, 1, bn::ndarray::ALIGNED);
     bn::dtype arr_dt = arr.get_dtype();
     std::cout << "arr.nd = " << arr.get_nd() << std::endl;
@@ -946,7 +966,8 @@ handle_struct_array(bp::object const & arr_obj)
             }
         }
     }
-    */
+
 }
+*/
 
 }//namespace ndhist

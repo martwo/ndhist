@@ -27,6 +27,29 @@ project(ndhist CXX)
 message(STATUS "Configuring project \"${PROJECT_NAME}\"")
 message(STATUS "+    project source dir: ${PROJECT_SOURCE_DIR}")
 
+option(USE_MAINTAINER_MODE "Enable warnings usually relevant to developers" OFF)
+if(USE_MAINTAINER_MODE)
+    message(STATUS "Enable maintainer mode.")
+    set(MAINTAINER_MODE_WARN_FLAGS
+        extra
+        unused-parameter
+        unused-variable
+        missing-field-initializers
+        declaration-after-statement
+        missing-declarations
+        redundant-decls
+        cast-align
+    )
+    foreach(flag ${MAINTAINER_MODE_WARN_FLAGS})
+        set(cxxflag "-W${flag}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${cxxflag}")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${cxxflag}")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} ${cxxflag}")
+        set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS} ${cxxflag}")
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} ${cxxflag}")
+    endforeach()
+endif()
+
 set(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY TRUE)
 
 include(${CMAKE_SOURCE_DIR}/cmake/config.cmake)

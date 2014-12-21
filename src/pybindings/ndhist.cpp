@@ -69,10 +69,10 @@ void register_ndhist()
              , "Fills the histogram with the given n-dimensional numbers, "
                "weighted by the given weights. If no weights are specified, "
                "``1`` will be used for each entry.")
-        .def("handle_struct_array", &ndhist::handle_struct_array
-            , (bp::arg("arr"))
-            , "Test for handling a struct array."
-        )
+//         .def("handle_struct_array", &ndhist::handle_struct_array
+//             , (bp::arg("arr"))
+//             , "Test for handling a struct array."
+//         )
     ;
 }
 

@@ -154,6 +154,20 @@ class ndhist
     }
 
     inline
+    bn::ndarray &
+    get_underflow_ndarray()
+    {
+        return *static_cast<bn::ndarray *>(&uf_arr_);
+    }
+
+    inline
+    bn::ndarray &
+    get_overflow_ndarray()
+    {
+        return *static_cast<bn::ndarray *>(&of_arr_);
+    }
+
+    inline
     int get_nd() const
     {
         return GetBCArray().get_nd();
@@ -218,6 +232,12 @@ class ndhist
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
     bp::object bc_arr_;
+
+    /** The ndarrays holding the under- and overflow bins, i.e. their
+     *  weight sum.
+     */
+    bp::object uf_arr_;
+    bp::object of_arr_;
 
     /** The Python object scalar representation of 1 which will be used for
      *  filling when no weights are specified.
@@ -401,10 +421,12 @@ struct nd_traits<ND>
                             else
                             {
                                 std::cout << "axis has NO autoscale" << std::endl;
-                                // The current value is out of the axis bounds.
+                                // The current value is out-of-range on the
+                                // current the axis.
                                 // Just ignore it for now.
                                 // TODO: Introduce an under- and overflow bin for each
-                                //       each axis. Or resize the axis.
+                                //       each axis.
+
                             }
                         }
                     }
