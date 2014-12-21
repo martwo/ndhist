@@ -455,6 +455,8 @@ ndhist(
         }
     }
 
+    intptr_t oor_stack_size = 1;
+
     // Create a ndarray for the bin content.
     bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, dt));
     bp::object self(bp::ptr(this));
@@ -480,6 +482,7 @@ ndhist(
                 }                                                                   \
                 std::cout << "Found " << BOOST_PP_STRINGIZE(BCDTYPE) << " equiv. "  \
                           << "bc data type." << std::endl;                          \
+                oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd, oor_stack_size));\
                 fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill; \
                 bc_dtype_supported = true;                                          \
             }

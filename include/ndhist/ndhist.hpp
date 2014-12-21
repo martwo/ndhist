@@ -34,6 +34,7 @@
 #include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
+#include <ndhist/detail/oor_fill_record_stack.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -163,6 +164,13 @@ class ndhist
         return bc_one_;
     }
 
+    template <typename BCValueType>
+    detail::OORFillRecordStack<BCValueType> &
+    get_oor_fill_record_stack()
+    {
+        return *static_cast< detail::OORFillRecordStack<BCValueType>* >(oor_fill_record_stack_.get());
+    }
+
     void extend_axes(std::vector<intptr_t> const & n_extra_bins_vec);
     void extend_bin_content_array(std::vector<intptr_t> const & n_extra_bins_vec);
     void initialize_extended_bin_content_axis(intptr_t axis, intptr_t n_extra_bins);
@@ -193,6 +201,8 @@ class ndhist
      *  filling when no weights are specified.
      */
     bp::object bc_one_;
+
+    boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 };
@@ -299,6 +309,9 @@ struct nd_traits<ND>
             bn::ndarray bc_arr = self.GetBCArray();
             bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
+            // Get a handle to the OOR fill record stack.
+            OORFillRecordStack<BCValueType> & oorfrstack = self.get_oor_fill_record_stack<BCValueType>();
+
             // Do the iteration.
             std::vector<intptr_t> indices(ND);
             std::vector<intptr_t> n_extra_bins_vec(ND);
@@ -329,7 +342,7 @@ struct nd_traits<ND>
                         {
                             if(axis->is_extendable())
                             {
-                                std::cout << "axis has autoscale" << std::endl;
+                                std::cout << "axis is extentable" << std::endl;
                                 intptr_t const n_extra_bins = axis->request_extension_fct(axis->data_, ndvalue_ptr, oor);
                                 if(oor == axis::OOR_UNDERFLOW) {
                                     indices[i] = 0;
