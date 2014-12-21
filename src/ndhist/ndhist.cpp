@@ -105,44 +105,89 @@ struct axis_traits<bp::object>
     }
 };
 
-// The implementation to increment the bin content by a weight based on the type
-// of the bin content value.
 template <typename BCValueType>
-void increment_bin_content(
-    bn::detail::iter & in_iter
-  , int weight_arr_op_idx
-  , bn::indexed_iterator<BCValueType> & bc_iter
-  , std::vector<intptr_t> const & indices
-)
+struct bc_value_traits
 {
-    // Get the weight value from the input iterator.
-    BCValueType & weight = *reinterpret_cast<BCValueType*>(in_iter.get_data(weight_arr_op_idx));
-    // Jump to the location of the requested bin content.
-    bc_iter.jump_to(indices);
-    // Get a reference to the bin content's value.
-    BCValueType & bc_value = *bc_iter;
-    bc_value += weight;
-}
+    typedef BCValueType &
+            ref_type;
+
+    static
+    ref_type
+    get_value_from_iter(bn::detail::iter & iter, int op_idx)
+    {
+        return *reinterpret_cast<BCValueType*>(iter.get_data(op_idx));
+    }
+};
 
 template <>
-void increment_bin_content<bp::object>(
-    bn::detail::iter & in_iter
-  , int weight_arr_op_idx
-  , bn::indexed_iterator<bp::object> & bc_iter
-  , std::vector<intptr_t> const & indices
+struct bc_value_traits<bp::object>
+{
+    typedef bp::object
+            ref_type;
+
+    static
+    ref_type
+    get_value_from_iter(bn::detail::iter & iter, int op_idx)
+    {
+        uintptr_t * value_ptr = reinterpret_cast<uintptr_t*>(iter.get_data(op_idx));
+        bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*value_ptr)));
+        return value;
+    }
+};
+
+template <typename BCValueType>
+static
+void
+extend_axes_and_flush_oor_fill_record_stack(
+    ndhist                            & self
+  , std::vector<intptr_t>             & f_n_extra_bins_vec
+  , std::vector<intptr_t>             & b_n_extra_bins_vec
+  , std::vector<intptr_t>             & indices
+  , bn::ndarray                       & bc_arr
+  , bn::indexed_iterator<BCValueType> & bc_iter
+  , OORFillRecordStack<BCValueType>   & oorfrstack
 )
 {
-    // Get the weight value from the input iterator.
-    uintptr_t * weight_ptr = reinterpret_cast<uintptr_t*>(in_iter.get_data(weight_arr_op_idx));
-    bp::object weight(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*weight_ptr)));
+    intptr_t const nd = f_n_extra_bins_vec.size();
 
-    // Jump to the location of the requested bin content.
-    bc_iter.jump_to(indices);
+    // Extent the axes.
+    self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
+    self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
+    bc_arr = self.GetBCArray();
+    bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
-    bp::object bc_value = *bc_iter;
-    // Use the bp::object operator+= implementation, which will
-    // call the appropriate Python function of the object.
-    bc_value += weight;
+    // Fill in the cached values.
+    intptr_t idx = oorfrstack.get_size();
+    while(idx--)
+    {
+        typename OORFillRecordStack<BCValueType>::oor_fill_record_type const & rec = oorfrstack.get_record(idx);
+        // Translate the relative indices to absolut
+        // indices for the extended bin content array.
+        // This is just
+        // f_n_extra_bins_vec[i] + relative_indices[i]
+        // for each axis.
+        // Note: Since the length of these vectors is ND
+        //       thus, not a constant for all histogram
+        //       objects, we need to use a for-loop.
+        //       It would be nice to have a SIMD
+        //       operation for this, because both
+        //       vectors are of the same lengths and it
+        //       is just an element-wise addition.
+        if(rec.relative_indices.size() < nd) throw ValueError("size < nd");
+        for(intptr_t axis=0; axis<nd; ++axis)
+        {
+            indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
+        }
+        bc_iter.jump_to(indices);
+        typename bc_value_traits<BCValueType>::ref_type bc_value = *bc_iter;
+        bc_value += rec.weight;
+    }
+
+    // Finally, clear the stack, and reset the extra bin
+    // information.
+    oorfrstack.clear();
+    memset(&f_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
+    memset(&b_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
 }
 
 struct generic_nd_traits
@@ -261,11 +306,16 @@ struct generic_nd_traits
             }
 
             // Do the iteration.
+            typedef typename bc_value_traits<BCValueType>::ref_type
+                    bc_ref_type;
             std::vector<intptr_t> indices(nd);
             do {
                 intptr_t size = iter.get_inner_loop_size();
                 while(size--)
                 {
+                    // Get the weight scalar from the iterator.
+                    bc_ref_type weight = bc_value_traits<BCValueType>::get_value_from_iter(iter, 1);
+
                     // Fill the scalar into the bin content array.
                     // Get the coordinate of the current ndvalue.
                     bool is_overflown = false;
@@ -294,7 +344,9 @@ struct generic_nd_traits
                     // Increase the bin content if the bin exists.
                     if(!is_overflown)
                     {
-                        increment_bin_content<BCValueType>(iter, 1, bc_iter, indices);
+                        bc_iter.jump_to(indices);
+                        bc_ref_type bc_value = *bc_iter;
+                        bc_value += weight;
                     }
 
                     // Jump to the next fill iteration.
@@ -457,7 +509,8 @@ ndhist(
         }
     }
 
-    intptr_t oor_stack_size = 1;
+    // TODO: Make this as an option in the constructor.
+    intptr_t oor_stack_size = 1024;
 
     // Create a ndarray for the bin content.
     bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, dt));

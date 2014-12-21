@@ -55,14 +55,16 @@ class OORFillRecordStack
         oor_fill_record_type rec;
         rec.relative_indices.resize(nd);
         stack_.resize(base_t::capacity_, rec);
+        std::cout << "OORFillRecordStack size = "<<stack_.size() <<std::endl;
     }
 
     /** Returns true, when the capacity is reached after adding the record, and
      *  false otherwise.
      */
     bool
-    push_back(std::vector<intptr_t> const & relative_indices, BCValueType const & weight)
+    push_back(std::vector<intptr_t> const & relative_indices, BCValueType weight)
     {
+        std::cout << "OORFillRecordStack::push_back at "<< size_ << std::endl<<std::flush;
         stack_[size_].relative_indices = relative_indices;
         stack_[size_].weight           = weight;
         ++size_;

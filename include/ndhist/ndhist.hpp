@@ -328,20 +328,22 @@ struct nd_traits<ND>
             OORFillRecordStack<BCValueType> & oorfrstack = self.get_oor_fill_record_stack<BCValueType>();
 
             // Do the iteration.
-            std::vector<intptr_t> indices(ND);
-            std::vector<intptr_t> relative_indices(ND);
-            std::vector<intptr_t> f_n_extra_bins_vec(ND);
-            std::vector<intptr_t> b_n_extra_bins_vec(ND);
+            typedef typename bc_value_traits<BCValueType>::ref_type
+                    bc_ref_type;
+            std::vector<intptr_t> indices(ND, 0);
+            std::vector<intptr_t> relative_indices(ND, 0);
+            std::vector<intptr_t> f_n_extra_bins_vec(ND, 0);
+            std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
             bool is_overflown;
             bool extend_axes;
             do {
                 intptr_t size = iter.get_inner_loop_size();
                 while(size--)
                 {
-                    // Fill the scalar into the bin content array.
-                    memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
-                    memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
+                    // Get the weight scalar from the iterator.
+                    bc_ref_type weight = bc_value_traits<BCValueType>::get_value_from_iter(iter, ND);
 
+                    // Fill the scalar into the bin content array.
                     // Get the coordinate of the current ndvalue.
                     is_overflown = false;
                     extend_axes = false;
@@ -354,11 +356,14 @@ struct nd_traits<ND>
                         intptr_t axis_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr, &oor);
                         if(oor == axis::OOR_NONE)
                         {
+                            std::cout << "normal fill i=" << i << "indices.size()="<<indices.size()
+                                      << "relative_indices.size() "<< relative_indices.size()<<std::endl;
                             indices[i] = axis_idx;
                             relative_indices[i] = axis_idx;
                         }
                         else
                         {
+                            is_overflown = true;
                             if(axis->is_extendable())
                             {
                                 std::cout << "axis is extentable" << std::endl;
@@ -383,32 +388,53 @@ struct nd_traits<ND>
                                 // Just ignore it for now.
                                 // TODO: Introduce an under- and overflow bin for each
                                 //       each axis. Or resize the axis.
-                                is_overflown = true;
                                 break;
                             }
                         }
                     }
 
-                    // Check if we need to extend the axes in order to fit the
-                    // value into the histogram's bin content array.
+                    // If the value is out-of-range for any axis and that axis
+                    // is extenable we want to cache the value in order to
+                    // accumulate a stack of out-of-range values before
+                    // extending the axes and the bin content array, what is
+                    // very expensive esp. in case of a high dimensional
+                    // histogram.
                     if(extend_axes)
                     {
-                        self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                        self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                        bc_arr = self.GetBCArray();
-                        bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                        // TODO: Check if an actual reallocation is required,
+                        //       if not don't fill the stack and do the axes
+                        //       extension. Note: The changeover from
+                        //       not-required to required happens only once.
+                        std::cout << "extend_axes is true, size="<< oorfrstack.get_size() << std::endl<<std::flush;
+                        // The value is out-of-range for any extandable axis.
+                        // Push it into the cache stack. If it returns ``true``
+                        // the stack is full and we need to extent the axes and
+                        // fill the cached values in.
+                        if(oorfrstack.push_back(relative_indices, weight))
+                        {
+                            std::cout << "push_back returned true" << std::endl<<std::flush;
+                            extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+                        }
                     }
 
                     // Increase the bin content if the bin exists.
                     if(!is_overflown)
                     {
-                        increment_bin_content<BCValueType>(iter, ND, bc_iter, indices);
+                        bc_iter.jump_to(indices);
+                        bc_ref_type bc_value = *bc_iter;
+                        bc_value += weight;
                     }
 
                     // Jump to the next fill iteration.
                     iter.add_inner_loop_strides_to_data_ptrs();
                 }
             } while(iter.next());
+
+            // Fill the remaining out-of-range values from the stack.
+            if(oorfrstack.get_size())
+            {
+                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+            }
         }
     };
 };
@@ -430,6 +456,7 @@ struct nd_traits<ND>
         }                                                                      \
         std::cout << "Found " << BOOST_PP_STRINGIZE(BCDTYPE) << " equiv. "     \
                   << "bc data type." << std::endl;                             \
+        oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd, oor_stack_size));\
         fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;        \
         bc_dtype_supported = true;                                             \
     }
