@@ -20,7 +20,12 @@ namespace detail {
 template <typename BCValueType>
 struct oor_fill_record
 {
-    std::bitset<NDHIST_LIMIT_MAX_ND> oor_bset;
+    bool is_oor;
+    uintptr_t oor_arr_idx;
+    std::vector<intptr_t> oor_arr_noor_relative_indices;
+    uintptr_t oor_arr_noor_relative_indices_size;
+    std::vector<intptr_t> oor_arr_oor_relative_indices;
+    uintptr_t oor_arr_oor_relative_indices_size;
     std::vector<intptr_t> relative_indices;
     BCValueType weight;
 };
@@ -65,12 +70,31 @@ class OORFillRecordStack
      *  false otherwise.
      */
     bool
-    push_back(std::bitset<NDHIST_LIMIT_MAX_ND> const & oor_bset, std::vector<intptr_t> const & relative_indices, BCValueType weight)
+    push_back(
+        bool is_oor
+      , uintptr_t oor_arr_idx
+      , std::vector<intptr_t> const & oor_arr_noor_relative_indices
+      , uintptr_t oor_arr_noor_relative_indices_size
+      , std::vector<intptr_t> const & oor_arr_oor_relative_indices
+      , uintptr_t oor_arr_oor_relative_indices_size
+      , std::vector<intptr_t> const & relative_indices
+      , BCValueType weight)
     {
         std::cout << "OORFillRecordStack::push_back at "<< size_ << std::endl<<std::flush;
-        stack_[size_].oor_bset         = oor_bset;
-        stack_[size_].relative_indices = relative_indices;
-        stack_[size_].weight           = weight;
+        stack_[size_].is_oor = is_oor;
+        if(is_oor)
+        {
+            stack_[size_].oor_arr_idx = oor_arr_idx;
+            stack_[size_].oor_arr_noor_relative_indices = oor_arr_noor_relative_indices;
+            stack_[size_].oor_arr_noor_relative_indices_size = oor_arr_noor_relative_indices_size;
+            stack_[size_].oor_arr_oor_relative_indices  = oor_arr_oor_relative_indices;
+            stack_[size_].oor_arr_oor_relative_indices_size = oor_arr_oor_relative_indices_size;
+        }
+        else
+        {
+            stack_[size_].relative_indices = relative_indices;
+        }
+        stack_[size_].weight = weight;
         ++size_;
         return (size_ == base_t::capacity_);
     }

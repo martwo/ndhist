@@ -151,12 +151,15 @@ extend_axes_and_flush_oor_fill_record_stack(
   , OORFillRecordStack<BCValueType>   & oorfrstack
 )
 {
+    typedef typename bc_value_traits<BCValueType>::ref_type
+            bc_ref_type;
+
     intptr_t const nd = f_n_extra_bins_vec.size();
 
     // Extent the axes.
     self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
     self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-    self.extend_oor_arrays(f_n_extra_bins_vec, b_n_extra_bins_vec);
+    self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
     bc_arr = self.GetBCArray();
     bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
@@ -165,25 +168,43 @@ extend_axes_and_flush_oor_fill_record_stack(
     while(idx--)
     {
         typename OORFillRecordStack<BCValueType>::oor_fill_record_type const & rec = oorfrstack.get_record(idx);
-        // Translate the relative indices to absolut
-        // indices for the extended bin content array.
-        // This is just
-        // f_n_extra_bins_vec[i] + relative_indices[i]
-        // for each axis.
-        // Note: Since the length of these vectors is ND
-        //       thus, not a constant for all histogram
-        //       objects, we need to use a for-loop.
-        //       It would be nice to have a SIMD
-        //       operation for this, because both
-        //       vectors are of the same lengths and it
-        //       is just an element-wise addition.
-        for(intptr_t axis=0; axis<nd; ++axis)
+        if(rec.is_oor)
         {
-            indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
+            bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(rec.oor_arr_idx);
+
+            memcpy(&indices[0], &rec.oor_arr_noor_relative_indices[0], rec.oor_arr_noor_relative_indices_size);
+            memcpy(&indices[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_relative_indices[0], rec.oor_arr_oor_relative_indices_size);
+            for(intptr_t axis=0; axis<nd; ++axis)
+            {
+                indices[axis] += f_n_extra_bins_vec[axis];
+            }
+
+            oor_arr_iter.jump_to(indices);
+            bc_ref_type oor_value = *oor_arr_iter;
+            oor_value += rec.weight;
         }
-        bc_iter.jump_to(indices);
-        typename bc_value_traits<BCValueType>::ref_type bc_value = *bc_iter;
-        bc_value += rec.weight;
+        else
+        {
+            // Translate the relative indices to absolut
+            // indices for the extended bin content array.
+            // This is just
+            // f_n_extra_bins_vec[i] + relative_indices[i]
+            // for each axis.
+            // Note: Since the length of these vectors is ND
+            //       thus, not a constant for all histogram
+            //       objects, we need to use a for-loop.
+            //       It would be nice to have a SIMD
+            //       operation for this, because both
+            //       vectors are of the same lengths and it
+            //       is just an element-wise addition.
+            for(intptr_t axis=0; axis<nd; ++axis)
+            {
+                indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
+            }
+            bc_iter.jump_to(indices);
+            bc_ref_type bc_value = *bc_iter;
+            bc_value += rec.weight;
+        }
     }
 
     // Finally, clear the stack, and reset the extra bin
@@ -600,6 +621,7 @@ create_oor_arrays(
     bp::object self(bp::ptr(this));
     uintptr_t const n_arrays = std::pow(2, nd) - 1;
     oor_arr_vec_.reserve(n_arrays);
+    oor_arr_iter_vec_.reserve(n_arrays);
     for(uintptr_t idx=0; idx<n_arrays; ++idx)
     {
         std::cout << "idx = " << idx << std::endl<<std::flush;
@@ -650,6 +672,27 @@ create_oor_arrays(
                 *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
             }
         }
+
+        // Create the array of indexed iterators for the oor arrays.
+        #define NDHIST_OOR_ITER(BCDTYPE)                                       \
+            if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<BCDTYPE>()))\
+            {                                                                  \
+                std::cout << "Create indexed iterator at idx = "<<idx<<std::endl;\
+                bn::ndarray arr = arr_storage->ConstructNDArray(&self);\
+                oor_arr_iter_vec_.push_back( boost::shared_ptr< bn::indexed_iterator<BCDTYPE> >(new bn::indexed_iterator<BCDTYPE>(arr)));\
+                std::cout << "ptr = "<< (*static_cast<bn::indexed_iterator<BCDTYPE> *>(oor_arr_iter_vec_[idx].get())).get_ptr() <<std::endl;\
+            }
+        NDHIST_OOR_ITER(bool)
+        NDHIST_OOR_ITER(int16_t)
+        NDHIST_OOR_ITER(uint16_t)
+        NDHIST_OOR_ITER(int32_t)
+        NDHIST_OOR_ITER(uint32_t)
+        NDHIST_OOR_ITER(int64_t)
+        NDHIST_OOR_ITER(uint64_t)
+        NDHIST_OOR_ITER(float)
+        NDHIST_OOR_ITER(double)
+        NDHIST_OOR_ITER(bp::object)
+        #undef NDHIST_OOR_ITER
     }
 }
 
@@ -899,78 +942,6 @@ extend_bin_content_array(
     }
 }
 
-void
-ndhist::
-extend_oor_arrays(
-    std::vector<intptr_t> const & f_n_extra_bins_vec
-  , std::vector<intptr_t> const & b_n_extra_bins_vec
-)
-{
-    bp::object self(bp::ptr(this));
-
-    uintptr_t const nd = f_n_extra_bins_vec.size();
-    uintptr_t min_axis = nd - 1;
-    for(uintptr_t i=0; i<nd; ++i)
-    {
-        if(f_n_extra_bins_vec[i] > 0 || b_n_extra_bins_vec[i] > 0)
-        {
-            min_axis = std::min(min_axis, i);
-        }
-    }
-
-    // Calculate the smallest idx including the smallest to-get-extended axis.
-    uintptr_t oor_idx = (1 << min_axis);
-
-    // Loop over the oor arrays.
-    std::vector<intptr_t> arr_f_n_extra_bins_vec(nd);
-    std::vector<intptr_t> arr_b_n_extra_bins_vec(nd);
-    std::vector<intptr_t> arr_max_fcap_vec(nd);
-    std::vector<intptr_t> arr_max_bcap_vec(nd);
-    uintptr_t const n_oor_arr = oor_arr_vec_.size();
-    for(; oor_idx < n_oor_arr; ++oor_idx)
-    {
-        std::bitset<NDHIST_LIMIT_MAX_ND> idx_bset(oor_idx);
-
-        memset(&arr_f_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
-        memset(&arr_b_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
-        memset(&arr_max_fcap_vec.front(), 0, nd*sizeof(intptr_t));
-        memset(&arr_max_bcap_vec.front(), 0, nd*sizeof(intptr_t));
-        bool any_extra_bins = false;
-        uintptr_t p=0;
-        for(uintptr_t i=0; i<nd; ++i)
-        {
-            if(idx_bset.test(i))
-            {
-                any_extra_bins |= (f_n_extra_bins_vec[i] > 0 || b_n_extra_bins_vec[i] > 0);
-                arr_f_n_extra_bins_vec[p] = f_n_extra_bins_vec[i];
-                arr_b_n_extra_bins_vec[p] = b_n_extra_bins_vec[i];
-                arr_max_fcap_vec[p] = axes_[i]->extension_max_fcap_;
-                arr_max_bcap_vec[p] = axes_[i]->extension_max_bcap_;
-                ++p;
-            }
-        }
-        if(! any_extra_bins)
-        {
-            continue;
-        }
-
-        oor_arr_vec_[oor_idx]->extend_axes(
-            arr_f_n_extra_bins_vec
-          , arr_b_n_extra_bins_vec
-          , arr_max_fcap_vec
-          , arr_max_bcap_vec
-          , &self
-        );
-
-        //FIXME
-        // If the bin content dtype is object we need to initialize the new
-        // elements.
-
-
-
-
-    }
-}
 
 
 
