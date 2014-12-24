@@ -471,8 +471,10 @@ struct nd_traits<ND>
             uintptr_t oor_arr_idx;
             std::vector<intptr_t> oor_arr_noor_indices(ND);
             std::vector<intptr_t> oor_arr_noor_relavive_indices(ND);
+            std::vector<intptr_t> oor_arr_noor_axes_indices(ND);
             std::vector<intptr_t> oor_arr_oor_indices(ND);
             std::vector<intptr_t> oor_arr_oor_relavive_indices(ND);
+            std::vector<intptr_t> oor_arr_oor_axes_indices(ND);
             uintptr_t oor_arr_noor_size = 0;
             uintptr_t oor_arr_oor_size = 0;
             bool extend_axes;
@@ -512,6 +514,7 @@ struct nd_traits<ND>
                             oor_arr_idx |= (1<<i);
                             oor_arr_noor_indices[oor_arr_noor_size] = bin_idx;
                             oor_arr_noor_relavive_indices[oor_arr_noor_size] = bin_idx;
+                            oor_arr_noor_axes_indices[oor_arr_noor_size] = i;
                             ++oor_arr_noor_size;
                         }
                         else
@@ -529,6 +532,7 @@ struct nd_traits<ND>
 
                                     oor_arr_noor_indices[oor_arr_noor_size] = 0;
                                     oor_arr_noor_relavive_indices[oor_arr_noor_size] = n_extra_bins;
+                                    oor_arr_noor_axes_indices[oor_arr_noor_size] = i;
                                     ++oor_arr_noor_size;
 
                                     f_n_extra_bins_vec[i] = std::max(-n_extra_bins, f_n_extra_bins_vec[i]);
@@ -543,6 +547,7 @@ struct nd_traits<ND>
 
                                     oor_arr_noor_indices[oor_arr_noor_size] = index;
                                     oor_arr_noor_relavive_indices[oor_arr_noor_size] = index;
+                                    oor_arr_noor_axes_indices[oor_arr_noor_size] = i;
                                     ++oor_arr_noor_size;
 
                                     b_n_extra_bins_vec[i] = std::max(n_extra_bins, b_n_extra_bins_vec[i]);
@@ -563,12 +568,14 @@ struct nd_traits<ND>
                                 {
                                     oor_arr_oor_indices[oor_arr_oor_size] = 0;
                                     oor_arr_oor_relavive_indices[oor_arr_oor_size] = 0;
+                                    oor_arr_oor_axes_indices[oor_arr_oor_size] = i;
                                     ++oor_arr_oor_size;
                                 }
                                 else // oor == axis::OOR_OVERFLOW
                                 {
                                     oor_arr_oor_indices[oor_arr_oor_size] = 1;
                                     oor_arr_oor_relavive_indices[oor_arr_oor_size] = 1;
+                                    oor_arr_oor_axes_indices[oor_arr_oor_size] = i;
                                     ++oor_arr_oor_size;
                                 }
                             }
@@ -599,8 +606,10 @@ struct nd_traits<ND>
                                 is_oor
                               , oor_arr_idx
                               , oor_arr_noor_relavive_indices
+                              , oor_arr_noor_axes_indices
                               , oor_arr_noor_size
                               , oor_arr_oor_relavive_indices
+                              , oor_arr_oor_axes_indices
                               , oor_arr_oor_size
                               , relative_indices
                               , weight))

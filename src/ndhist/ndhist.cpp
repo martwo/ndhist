@@ -172,12 +172,35 @@ extend_axes_and_flush_oor_fill_record_stack(
         {
             bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(rec.oor_arr_idx);
 
-            memcpy(&indices[0], &rec.oor_arr_noor_relative_indices[0], rec.oor_arr_noor_relative_indices_size);
-            memcpy(&indices[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_relative_indices[0], rec.oor_arr_oor_relative_indices_size);
-            for(intptr_t axis=0; axis<nd; ++axis)
+            std::cout << "rec.oor_arr_noor_relative_indices = ";
+            for(intptr_t axis=0; axis<rec.oor_arr_noor_relative_indices_size; ++axis)
             {
-                indices[axis] += f_n_extra_bins_vec[axis];
+                std::cout << rec.oor_arr_noor_relative_indices[axis]<<",";
             }
+            std::cout << std::endl;
+
+            std::cout << "rec.oor_arr_oor_relative_indices = ";
+            for(intptr_t axis=0; axis<rec.oor_arr_oor_relative_indices_size; ++axis)
+            {
+                std::cout << rec.oor_arr_oor_relative_indices[axis]<<",";
+            }
+            std::cout << std::endl;
+
+            size_t const noor_size = rec.oor_arr_noor_relative_indices_size*sizeof(intptr_t);
+            size_t const oor_size = rec.oor_arr_oor_relative_indices_size*sizeof(intptr_t);
+            memcpy(&indices[0], &rec.oor_arr_noor_relative_indices[0], noor_size);
+            memcpy(&indices[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_relative_indices[0], oor_size);
+            memcpy(&oorfrstack.nd_mem0_[0], &rec.oor_arr_noor_axes_indices[0], noor_size);
+            memcpy(&oorfrstack.nd_mem0_[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_axes_indices[0], oor_size);
+            std::cout << "indices[axis] = ";
+            for(intptr_t oor_arr_axis=0; oor_arr_axis<nd; ++oor_arr_axis)
+            {
+                // FIXME
+                indices[oor_arr_axis] += f_n_extra_bins_vec[oorfrstack.nd_mem0_[oor_arr_axis]];
+                std::cout << indices[oor_arr_axis]<<",";
+            }
+            std::cout << std::endl;
+
 
             oor_arr_iter.jump_to(indices);
             bc_ref_type oor_value = *oor_arr_iter;
