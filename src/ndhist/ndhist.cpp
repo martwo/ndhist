@@ -10,6 +10,8 @@
  *
  */
 #include <algorithm>
+#include <bitset>
+#include <cmath>
 #include <cstring>
 #include <sstream>
 
@@ -23,6 +25,7 @@
 #include <boost/numpy/indexed_iterator.hpp>
 #include <boost/numpy/dstream.hpp>
 
+#include <ndhist/limits.hpp>
 #include <ndhist/ndhist.hpp>
 #include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/limits.hpp>
@@ -153,6 +156,7 @@ extend_axes_and_flush_oor_fill_record_stack(
     // Extent the axes.
     self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
     self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
+    self.extend_oor_arrays(f_n_extra_bins_vec, b_n_extra_bins_vec);
     bc_arr = self.GetBCArray();
     bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
@@ -516,12 +520,6 @@ ndhist(
     bp::object self(bp::ptr(this));
     bc_arr_ = bc_->ConstructNDArray(&self);
 
-    // Create the ndarrays for the under- and overflow bins.
-    std::vector<intptr_t> oor_arr_shape(1);
-    oor_arr_shape[0] = nd;
-    uf_arr_ = bn::zeros(oor_arr_shape, dt);
-    of_arr_ = bn::zeros(oor_arr_shape, dt);
-
     // Set the fill function based on the bin content data type.
     bn::dtype bc_dtype = GetBCArray().get_dtype();
     bool bc_dtype_supported = false;
@@ -579,27 +577,79 @@ ndhist(
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
         }
 
-        bn::flat_iterator<bp::object> uf_iter(get_underflow_ndarray());
-        bn::flat_iterator<bp::object> of_iter(get_overflow_ndarray());
-        for(size_t i=0; i<nd; ++i)
-        {
-            uf_iter.jump_to_iter_index(i);
-            uintptr_t * uf_obj_ptr_ptr = uf_iter.get_object_ptr_ptr();
-            bp::object uf_obj = bc_class();
-            *uf_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(uf_obj.ptr()));
-
-            of_iter.jump_to_iter_index(i);
-            uintptr_t * of_obj_ptr_ptr = of_iter.get_object_ptr_ptr();
-            bp::object of_obj = bc_class();
-            *of_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(of_obj.ptr()));
-        }
-
         bc_one_ = bc_class(1);
     }
     else
     {
         bp::object one(1);
         bc_one_ = bn::from_object(one, GetBCArray().get_dtype(), 0, 1, bn::ndarray::ALIGNED).scalarize();
+    }
+
+    // Create the out-of-range (oor) arrays.
+    create_oor_arrays(nd, dt, bc_class);
+}
+
+void
+ndhist::
+create_oor_arrays(
+    uintptr_t nd
+  , bn::dtype const & bc_dt
+  , bp::object const & bc_class
+)
+{
+    bp::object self(bp::ptr(this));
+    uintptr_t const n_arrays = std::pow(2, nd) - 1;
+    oor_arr_vec_.reserve(n_arrays);
+    for(uintptr_t idx=0; idx<n_arrays; ++idx)
+    {
+        std::cout << "idx = " << idx << std::endl<<std::flush;
+        std::bitset<NDHIST_LIMIT_MAX_ND> bset(idx);
+        // Determine the shape of the nd-dim. array.
+        std::vector<intptr_t> shape;
+        std::vector<intptr_t> axes_extension_max_fcap_vec;
+        std::vector<intptr_t> axes_extension_max_bcap_vec;
+        shape.reserve(nd);
+        axes_extension_max_fcap_vec.reserve(nd);
+        axes_extension_max_bcap_vec.reserve(nd);
+        // First set the shapes of the not-oor axes.
+        for(uintptr_t i=0; i<nd; ++i)
+        {
+            if(bset.test(i))
+            {
+                std::cout << "axis = " << i <<" bit is set."<< std::endl<<std::flush;
+                boost::shared_ptr<detail::Axis> const & axis = axes_[i];
+                shape.push_back(axis->get_n_bins_fct(axis->data_));
+                axes_extension_max_fcap_vec.push_back(axis->extension_max_fcap_);
+                axes_extension_max_bcap_vec.push_back(axis->extension_max_bcap_);
+            }
+        }
+        // Now add the shape elements for the oor axes.
+        uintptr_t i = nd - shape.size();
+        while(i--)
+        {
+            shape.push_back(2);
+            axes_extension_max_fcap_vec.push_back(0);
+            axes_extension_max_bcap_vec.push_back(0);
+            std::cout << "Add 2 to shape." << std::endl<<std::flush;
+        }
+        // Now create the array.
+        std::cout << "Create arr " << std::endl<<std::flush;
+        boost::shared_ptr<detail::ndarray_storage> arr_storage(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec, axes_extension_max_bcap_vec, bc_dt));
+        oor_arr_vec_.push_back(arr_storage);
+
+        // In case the dtype is object, we need to initialize the array's values
+        // with bc_class() objects.
+        if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<bp::object>()))
+        {
+            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(&self));
+            bn::flat_iterator<bp::object> iter_end(iter.end());
+            for(; iter != iter_end; ++iter)
+            {
+                uintptr_t * obj_ptr_ptr = iter.get_object_ptr_ptr();
+                bp::object obj = bc_class();
+                *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+            }
+        }
     }
 }
 
@@ -806,6 +856,21 @@ initialize_extended_bin_content_axis(
 
 void
 ndhist::
+extend_axes(
+    std::vector<intptr_t> const & f_n_extra_bins_vec
+  , std::vector<intptr_t> const & b_n_extra_bins_vec
+)
+{
+    int const nd = this->get_nd();
+    for(int i=0; i<nd; ++i)
+    {
+        boost::shared_ptr<detail::Axis> & axis = this->axes_[i];
+        axis->extend_fct(axis->data_, f_n_extra_bins_vec[i], b_n_extra_bins_vec[i]);
+    }
+}
+
+void
+ndhist::
 extend_bin_content_array(
     std::vector<intptr_t> const & f_n_extra_bins_vec
   , std::vector<intptr_t> const & b_n_extra_bins_vec
@@ -836,18 +901,78 @@ extend_bin_content_array(
 
 void
 ndhist::
-extend_axes(
+extend_oor_arrays(
     std::vector<intptr_t> const & f_n_extra_bins_vec
   , std::vector<intptr_t> const & b_n_extra_bins_vec
 )
 {
-    int const nd = this->get_nd();
-    for(int i=0; i<nd; ++i)
+    bp::object self(bp::ptr(this));
+
+    uintptr_t const nd = f_n_extra_bins_vec.size();
+    uintptr_t min_axis = nd - 1;
+    for(uintptr_t i=0; i<nd; ++i)
     {
-        boost::shared_ptr<detail::Axis> & axis = this->axes_[i];
-        axis->extend_fct(axis->data_, f_n_extra_bins_vec[i], b_n_extra_bins_vec[i]);
+        if(f_n_extra_bins_vec[i] > 0 || b_n_extra_bins_vec[i] > 0)
+        {
+            min_axis = std::min(min_axis, i);
+        }
+    }
+
+    // Calculate the smallest idx including the smallest to-get-extended axis.
+    uintptr_t oor_idx = (1 << min_axis);
+
+    // Loop over the oor arrays.
+    std::vector<intptr_t> arr_f_n_extra_bins_vec(nd);
+    std::vector<intptr_t> arr_b_n_extra_bins_vec(nd);
+    std::vector<intptr_t> arr_max_fcap_vec(nd);
+    std::vector<intptr_t> arr_max_bcap_vec(nd);
+    uintptr_t const n_oor_arr = oor_arr_vec_.size();
+    for(; oor_idx < n_oor_arr; ++oor_idx)
+    {
+        std::bitset<NDHIST_LIMIT_MAX_ND> idx_bset(oor_idx);
+
+        memset(&arr_f_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
+        memset(&arr_b_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
+        memset(&arr_max_fcap_vec.front(), 0, nd*sizeof(intptr_t));
+        memset(&arr_max_bcap_vec.front(), 0, nd*sizeof(intptr_t));
+        bool any_extra_bins = false;
+        uintptr_t p=0;
+        for(uintptr_t i=0; i<nd; ++i)
+        {
+            if(idx_bset.test(i))
+            {
+                any_extra_bins |= (f_n_extra_bins_vec[i] > 0 || b_n_extra_bins_vec[i] > 0);
+                arr_f_n_extra_bins_vec[p] = f_n_extra_bins_vec[i];
+                arr_b_n_extra_bins_vec[p] = b_n_extra_bins_vec[i];
+                arr_max_fcap_vec[p] = axes_[i]->extension_max_fcap_;
+                arr_max_bcap_vec[p] = axes_[i]->extension_max_bcap_;
+                ++p;
+            }
+        }
+        if(! any_extra_bins)
+        {
+            continue;
+        }
+
+        oor_arr_vec_[oor_idx]->extend_axes(
+            arr_f_n_extra_bins_vec
+          , arr_b_n_extra_bins_vec
+          , arr_max_fcap_vec
+          , arr_max_bcap_vec
+          , &self
+        );
+
+        //FIXME
+        // If the bin content dtype is object we need to initialize the new
+        // elements.
+
+
+
+
     }
 }
+
+
 
 /*
 void

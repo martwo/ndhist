@@ -77,8 +77,8 @@ extend_axes(
 )
 {
     int const nd = this->get_nd();
-    if(f_n_elements_vec.size() != nd ||
-       b_n_elements_vec.size() != nd
+    if(f_n_elements_vec.size() != size_t(nd) ||
+       b_n_elements_vec.size() != size_t(nd)
       )
     {
         std::stringstream ss;

@@ -97,15 +97,15 @@ class ndarray_storage
     }
 
     /** Extends the memory of this ndarray storage by at least the given number
-     *  of elements for each axis. The n_elements_vec argument must hold the
-     *  number of extra elements (can be zero) for each axis. Negative numbers
-     *  indicate an extension to the left and positive numbers to the right of
-     *  the axis. If all the axes
+     *  of elements for each axis. The f_n_elements_vec argument must hold the
+     *  number of extra front elements (can be zero) for each axis. The
+     *  b_n_elements_vec argument must hold the number of extra back elements
+     *  (can be zero) for each axis. If all the axes
      *  have still enough capacity to hold the new elements, no reallocation of
      *  memory is performed. Otherwise a complete new junk of memory is
      *  allocated that can fit the extended array plus the specified extra font
-     *  and back capacity. The data from the old array is copied to the new
-     *  array.
+     *  (max_fcap_vec) and back (max_bcap_vec) capacity. The data from the old
+     *  array is copied to the new array.
      */
     void
     extend_axes(

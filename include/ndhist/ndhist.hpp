@@ -108,27 +108,6 @@ class ndhist
     py_get_bin_content_ndarray();
 
     /**
-     * @brief Creates a new ndarray object wrapping the data of the under- and
-     *        overflow bin array. Here we say that we own the data (which is
-     *        not true) but in the python bindings we use the BoostNumpy
-     *        ndarray_accessor_return() call policy which sets the owner to this
-     *        ndhist object and keeps the lifetime of both objects coherent.
-     */
-    bn::ndarray
-    py_get_underflow_ndarray()
-    {
-        bn::ndarray & uf_arr = *static_cast<bn::ndarray *>(&uf_arr_);
-        return bn::from_data(uf_arr.get_data(), uf_arr.get_dtype(), uf_arr.get_shape_vector(), uf_arr.get_strides_vector(), NULL);
-    }
-
-    bn::ndarray
-    py_get_overflow_ndarray()
-    {
-        bn::ndarray & of_arr = *static_cast<bn::ndarray *>(&of_arr_);
-        return bn::from_data(of_arr.get_data(), of_arr.get_dtype(), of_arr.get_shape_vector(), of_arr.get_strides_vector(), NULL);
-    }
-
-    /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
      *        Note, that this is always a copy, since the edges are supposed
      *        to be readonly, because a re-edging of an already filled histogram
@@ -176,23 +155,6 @@ class ndhist
     }
 
     inline
-    bn::ndarray &
-    get_underflow_ndarray()
-    {
-        return *static_cast<bn::ndarray *>(&uf_arr_);
-    }
-
-    inline
-    bn::ndarray &
-    get_overflow_ndarray()
-    {
-        return *static_cast<bn::ndarray *>(&of_arr_);
-    }
-
-
-
-
-    inline
     int
     get_nd() const
     {
@@ -233,6 +195,12 @@ class ndhist
     );
 
     void
+    extend_oor_arrays(
+        std::vector<intptr_t> const & f_n_extra_bins_vec
+      , std::vector<intptr_t> const & b_n_extra_bins_vec
+    );
+
+    void
     initialize_extended_bin_content_axis(
         intptr_t axis
       , intptr_t f_n_extra_bins
@@ -243,6 +211,8 @@ class ndhist
     ndhist()
       : ndvalues_dt_(bn::dtype::new_builtin<void>())
     {};
+
+    void create_oor_arrays(uintptr_t nd, bn::dtype const & bc_dt, bp::object const & bc_class);
 
     /** The dtype object describing the ndvalues structure. It describes a
      *  structured ndarray with field names, one for each axis of the histogram.
@@ -261,11 +231,28 @@ class ndhist
     boost::shared_ptr<detail::ndarray_storage> bc_;
     bp::object bc_arr_;
 
-    /** The ndarrays holding the under- and overflow bins, i.e. their
-     *  weight sum.
+    /** The vector holding n-dimensional ndarrays holding the out-of-range (oor)
+     *  bins. We separete the oor bins for different amounts of oor axes for a
+     *  fill value, because in case an axis is extended, we don't have to move
+     *  oor bin values and can just extend the appropriate arrays.
+     *  The index of this vectors determines through a bit mask what axes of a
+     *  fill value is out-of-range. A bit set to 0 means the axis is oor and 1
+     *  otherwise. The shapes of these n-dim. arrays depend on the number of
+     *  oor axes. So for instance for n=3, if all axes are oor, ie. index 0, the
+     *  shape is (2,2,2) an represents the corners of the cube. It's 2 because
+     *  there are always one underflow and one overflow bin per axis.
+     *  Continuing with n=3 and two axes are oor, the shape of the n-dim. array
+     *  is (S, 2, 2) where S is the length of the axis that was not oor.
+     *  Finally, if two axes are not oor, the shape is (S1, S2, 2) where S1 and
+     *  S2 are the lengths of the not-oor axes. Note, that the order of the
+     *  dimenions of the n-dim. oor arrays is (by definition) ordered ascending
+     *  w.r.t. the dimensions of the histogram, so i.e. x,y if the z-axis is oor
+     *  and x,z if the y axis is oor.
+     *  In total, there are (2^n - 1) oor arrays in this vector.
+     *  The bits of the bit mask are (by definition) ordered from right to left,
+     *  i.e. zyx.
      */
-    bp::object uf_arr_;
-    bp::object of_arr_;
+    std::vector< boost::shared_ptr<detail::ndarray_storage> > oor_arr_vec_;
 
     /** The Python object scalar representation of 1 which will be used for
      *  filling when no weights are specified.
@@ -391,9 +378,7 @@ struct nd_traits<ND>
             std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
             std::vector<intptr_t> & bc_fcap = self.get_bc_storage().get_front_capacity_vector();
             std::vector<intptr_t> & bc_bcap = self.get_bc_storage().get_back_capacity_vector();
-            bn::flat_iterator<BCValueType> uf_iter(self.get_underflow_ndarray());
-            bn::flat_iterator<BCValueType> of_iter(self.get_overflow_ndarray());
-            bool is_oor;
+            std::bitset<NDHIST_LIMIT_MAX_ND> oor_bset;
             bool extend_axes;
             bool reallocation_upon_extension = false;
             do {
@@ -405,8 +390,11 @@ struct nd_traits<ND>
 
                     // Fill the scalar into the bin content array.
                     // Get the coordinate of the current ndvalue.
-                    is_oor = false;
                     extend_axes = false;
+                    // Set all bits of the out-of-range bitset to 1, i.e. the
+                    // value is not oor for any axis.
+                    oor_bset.reset();
+                    oor_bset.flip();
                     for(size_t i=0; i<ND; ++i)
                     {
                         std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
@@ -423,7 +411,6 @@ struct nd_traits<ND>
                         }
                         else
                         {
-                            is_oor = true;
                             if(axis->is_extendable())
                             {
                                 std::cout << "axis is extentable" << std::endl;
@@ -433,9 +420,7 @@ struct nd_traits<ND>
                                     indices[i] = 0;
                                     relative_indices[i] = n_extra_bins;
                                     f_n_extra_bins_vec[i] = std::max(-n_extra_bins, f_n_extra_bins_vec[i]);
-                                    if(f_n_extra_bins_vec[i] > bc_fcap[i]) {
-                                        reallocation_upon_extension = true;
-                                    }
+                                    reallocation_upon_extension |= (f_n_extra_bins_vec[i] > bc_fcap[i]);
                                 }
                                 else // oor == axis::OOR_OVERFLOW
                                 {
@@ -443,9 +428,7 @@ struct nd_traits<ND>
                                     indices[i] = index;
                                     relative_indices[i] = index;
                                     b_n_extra_bins_vec[i] = std::max(n_extra_bins, b_n_extra_bins_vec[i]);
-                                    if(b_n_extra_bins_vec[i] > bc_bcap[i]) {
-                                        reallocation_upon_extension = true;
-                                    }
+                                    reallocation_upon_extension |= (b_n_extra_bins_vec[i] > bc_bcap[i]);
                                 }
 
                                 extend_axes = true;
@@ -454,20 +437,9 @@ struct nd_traits<ND>
                             {
                                 std::cout << "axis has NO autoscale" << std::endl;
                                 // The current value is out-of-range on the
-                                // current the axis.
-                                // Just ignore it for now.
-                                if(oor == axis::OOR_UNDERFLOW)
-                                {
-                                    uf_iter.jump_to_iter_index(i);
-                                    bc_ref_type uf_value = *uf_iter;
-                                    uf_value += weight;
-                                }
-                                else // oor == axis::OOR_OVERFLOW
-                                {
-                                    of_iter.jump_to_iter_index(i);
-                                    bc_ref_type of_value = *of_iter;
-                                    of_value += weight;
-                                }
+                                // current the axis, which is not extendable.
+                                // So mark the axis as oor for this value.
+                                oor_bset.set(i, false);
                             }
                         }
                     }
@@ -492,7 +464,7 @@ struct nd_traits<ND>
                             // Push it into the cache stack. If it returns ``true``
                             // the stack is full and we need to extent the axes and
                             // fill the cached values in.
-                            if(oorfrstack.push_back(relative_indices, weight))
+                            if(oorfrstack.push_back(oor_bset, relative_indices, weight))
                             {
                                 std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
@@ -501,23 +473,32 @@ struct nd_traits<ND>
                         }
                         else
                         {
+                            // No reallocation of memory is required for the
+                            // extension, so we just extend the axes.
                             std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                            self.extend_oor_arrays(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             bc_arr = self.GetBCArray();
                             bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
-                            is_oor = false;
                         }
                     }
 
-                    // Increase the bin content if the bin exists.
-                    if(!is_oor)
+                    // Increase the bin content if all bin indices exist.
+                    // Note: We could use the bitset::all method here, but
+                    //       that's C++11.
+                    if(oor_bset.count() == NDHIST_LIMIT_MAX_ND)
                     {
                         bc_iter.jump_to(indices);
                         bc_ref_type bc_value = *bc_iter;
                         bc_value += weight;
+                    }
+                    else
+                    {
+                        // There is at least one axis that is out-of-range.
+                        // FIXME: Fill value into oor array.
                     }
 
                     // Jump to the next fill iteration.
