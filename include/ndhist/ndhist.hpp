@@ -209,9 +209,12 @@ class ndhist
       , std::vector<intptr_t> const & b_n_extra_bins_vec
     );
 
+    static
     void
-    initialize_extended_bin_content_axis(
-        intptr_t axis
+    initialize_extended_array_axis(
+        bp::object & arr_obj
+      , bp::object const & obj_class
+      , intptr_t axis
       , intptr_t f_n_extra_bins
       , intptr_t b_n_extra_bins
     );
@@ -219,6 +222,7 @@ class ndhist
   private:
     ndhist()
       : ndvalues_dt_(bn::dtype::new_builtin<void>())
+      , bc_class_(bp::object())
     {};
 
     void create_oor_arrays(uintptr_t nd, bn::dtype const & bc_dt, bp::object const & bc_class);
@@ -263,6 +267,11 @@ class ndhist
      */
     std::vector< boost::shared_ptr<detail::ndarray_storage> > oor_arr_vec_;
     std::vector< boost::shared_ptr<bn::detail::iter_iterator_type> > oor_arr_iter_vec_;
+
+    /** The Python object holding the class object to initialize the bin
+     *  content elements if the datatype is object.
+     */
+    bp::object const bc_class_;
 
     /** The Python object scalar representation of 1 which will be used for
      *  filling when no weights are specified.
@@ -342,13 +351,15 @@ extend_oor_arrays(
         bn::ndarray oor_arr = oor_arr_vec_[oor_idx]->ConstructNDArray(&self);
         oor_arr_iter_vec_[oor_idx] = boost::shared_ptr< bn::indexed_iterator<BCValueType> >(new bn::indexed_iterator<BCValueType>(oor_arr));
 
-        //FIXME
         // If the bin content dtype is object we need to initialize the new
         // elements.
-
-
-
-
+        if(bn::dtype::equivalent(GetBCArray().get_dtype(), bn::dtype::get_builtin<bp::object>()))
+        {
+            for(uintptr_t i=0; i<nd; ++i)
+            {
+                initialize_extended_array_axis(oor_arr, bc_class_, i, arr_f_n_extra_bins_vec[i], arr_b_n_extra_bins_vec[i]);
+            }
+        }
     }
 }
 

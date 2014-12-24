@@ -173,14 +173,14 @@ extend_axes_and_flush_oor_fill_record_stack(
             bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(rec.oor_arr_idx);
 
             std::cout << "rec.oor_arr_noor_relative_indices = ";
-            for(intptr_t axis=0; axis<rec.oor_arr_noor_relative_indices_size; ++axis)
+            for(uintptr_t axis=0; axis<rec.oor_arr_noor_relative_indices_size; ++axis)
             {
                 std::cout << rec.oor_arr_noor_relative_indices[axis]<<",";
             }
             std::cout << std::endl;
 
             std::cout << "rec.oor_arr_oor_relative_indices = ";
-            for(intptr_t axis=0; axis<rec.oor_arr_oor_relative_indices_size; ++axis)
+            for(uintptr_t axis=0; axis<rec.oor_arr_oor_relative_indices_size; ++axis)
             {
                 std::cout << rec.oor_arr_oor_relative_indices[axis]<<",";
             }
@@ -195,12 +195,10 @@ extend_axes_and_flush_oor_fill_record_stack(
             std::cout << "indices[axis] = ";
             for(intptr_t oor_arr_axis=0; oor_arr_axis<nd; ++oor_arr_axis)
             {
-                // FIXME
                 indices[oor_arr_axis] += f_n_extra_bins_vec[oorfrstack.nd_mem0_[oor_arr_axis]];
                 std::cout << indices[oor_arr_axis]<<",";
             }
             std::cout << std::endl;
-
 
             oor_arr_iter.jump_to(indices);
             bc_ref_type oor_value = *oor_arr_iter;
@@ -420,6 +418,7 @@ ndhist(
   , bp::object const & bc_class
 )
   : ndvalues_dt_(bn::dtype::new_builtin<void>())
+  , bc_class_(bc_class)
 {
     size_t const nd = bp::len(axes);
     std::vector<intptr_t> shape(nd);
@@ -761,7 +760,7 @@ fill(bp::object const & ndvalue_obj, bp::object weight_obj)
 
 static
 void
-initialize_extended_bin_content_axis_range(
+initialize_extended_array_axis_range(
     bn::flat_iterator<bp::object> & iter
   , intptr_t axis
   , std::vector<intptr_t> const & shape
@@ -769,7 +768,7 @@ initialize_extended_bin_content_axis_range(
   , intptr_t n_iters
   , intptr_t axis_idx_range_min
   , intptr_t axis_idx_range_max
-  , bp::object const one
+  , bp::object const obj_class
 )
 {
     int const nd = strides.size();
@@ -806,7 +805,7 @@ initialize_extended_bin_content_axis_range(
             std::cout << "jump done" << std::endl<<std::flush;
 
             uintptr_t * obj_ptr_ptr = iter.get_object_ptr_ptr();
-            bp::object obj = one - one;
+            bp::object obj = obj_class();
             std::cout << "Setting pointer data ..."<<std::flush;
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
             std::cout << "done."<<std::endl<<std::flush;
@@ -839,15 +838,17 @@ initialize_extended_bin_content_axis_range(
 
 void
 ndhist::
-initialize_extended_bin_content_axis(
-    intptr_t axis
+initialize_extended_array_axis(
+    bp::object & arr_obj
+  , bp::object const & obj_class
+  , intptr_t axis
   , intptr_t f_n_extra_bins
   , intptr_t b_n_extra_bins
 )
 {
     if(f_n_extra_bins == 0 && b_n_extra_bins == 0) return;
 
-    bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&bc_arr_);
+    bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&arr_obj);
     std::vector<intptr_t> const shape = bc_arr.get_shape_vector();
 
     intptr_t f_axis_idx_range_min = 0;
@@ -877,7 +878,7 @@ initialize_extended_bin_content_axis(
         {
             bc_iter.jump_to_iter_index(axis_idx);
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
-            bp::object obj = bc_one_ - bc_one_;
+            bp::object obj = obj_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
         }
 
@@ -886,7 +887,7 @@ initialize_extended_bin_content_axis(
         {
             bc_iter.jump_to_iter_index(axis_idx);
             uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
-            bp::object obj = bc_one_ - bc_one_;
+            bp::object obj = obj_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
         }
     }
@@ -914,9 +915,9 @@ initialize_extended_bin_content_axis(
         std::cout << "n_iters = " << n_iters << std::endl<<std::flush;
 
         // Initialize the front elements.
-        initialize_extended_bin_content_axis_range(bc_iter, axis, shape, strides, n_iters, f_axis_idx_range_min, f_axis_idx_range_max, bc_one_);
+        initialize_extended_array_axis_range(bc_iter, axis, shape, strides, n_iters, f_axis_idx_range_min, f_axis_idx_range_max, obj_class);
         // Initialize the back elements.
-        initialize_extended_bin_content_axis_range(bc_iter, axis, shape, strides, n_iters, b_axis_idx_range_min, b_axis_idx_range_max, bc_one_);
+        initialize_extended_array_axis_range(bc_iter, axis, shape, strides, n_iters, b_axis_idx_range_min, b_axis_idx_range_max, obj_class);
     }
 }
 
@@ -961,7 +962,7 @@ extend_bin_content_array(
     int const nd = this->get_nd();
     for(int axis=0; axis<nd; ++axis)
     {
-        this->initialize_extended_bin_content_axis(axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
+        initialize_extended_array_axis(bc_arr, bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
     }
 }
 
