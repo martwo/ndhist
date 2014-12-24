@@ -47,11 +47,11 @@ CalcDataStrides() const
 {
     const int itemsize = dt_.get_itemsize();
     std::vector<intptr_t> strides(shape_.size(), itemsize);
-    std::cout << "strides["<<strides.size()-1<<"] = " << strides[strides.size()-1] << std::endl;
+    //std::cout << "strides["<<strides.size()-1<<"] = " << strides[strides.size()-1] << std::endl;
     for(int i=strides.size()-2; i>=0; --i)
     {
         strides[i] = ((front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
-        std::cout << "strides["<<i<<"] = " << strides[i] << std::endl;
+        //std::cout << "strides["<<i<<"] = " << strides[i] << std::endl;
     }
 
     return strides;
@@ -114,7 +114,7 @@ extend_axes(
         }
     }
 
-    std::cout << "ndarray_storage::extend_axes" <<std::endl<<std::flush;
+    //std::cout << "ndarray_storage::extend_axes" <<std::endl<<std::flush;
 
     if(reallocate)
     {
@@ -139,7 +139,7 @@ extend_axes(
             }
         }
 
-        std::cout << "ndarray_storage::extend_axes: reallocate ++++++++++++++++" <<std::endl<<std::flush;
+        //std::cout << "ndarray_storage::extend_axes: reallocate ++++++++++++++++" <<std::endl<<std::flush;
         // At this point shape_, front_capacity_ and back_capacity_ have the
         // right numbers for the new array.
         // Allocate the new array memory.
@@ -211,7 +211,7 @@ char *
 ndarray_storage::
 calloc_data(size_t capacity, size_t elsize)
 {
-    std::cout << "Calloc " << capacity << " elements of size " << elsize << std::endl;
+    //std::cout << "Calloc " << capacity << " elements of size " << elsize << std::endl;
     char * data = (char*)calloc(capacity, elsize);
     if(data == NULL)
     {

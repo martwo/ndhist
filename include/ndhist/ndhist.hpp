@@ -125,8 +125,6 @@ class ndhist
     void
     fill(bp::object const & ndvalue_obj, bp::object weight_obj);
 
-    //void handle_struct_array(bp::object const & arr_obj);
-
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
     get_axes()
@@ -224,7 +222,7 @@ class ndhist
       : ndvalues_dt_(bn::dtype::new_builtin<void>())
       , bc_class_(bp::object())
     {};
-
+public:
     void create_oor_arrays(uintptr_t nd, bn::dtype const & bc_dt, bp::object const & bc_class);
 
     /** The dtype object describing the ndvalues structure. It describes a
@@ -383,7 +381,7 @@ struct nd_traits<ND>
         void
         fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
         {
-            std::cout << "nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
+            //std::cout << "nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
             if(! PyTuple_Check(ndvalues_obj.ptr()))
             {
                 // The input ndvalues object is not a tuple, so we assume it's a
@@ -442,10 +440,12 @@ struct nd_traits<ND>
             bn::detail::iter_flags_t iter_flags =
                 bn::detail::iter::flags::REFS_OK::value // This is needed for the
                                                         // weight, which can be bp::object.
-              | bn::detail::iter::flags::EXTERNAL_LOOP::value;
+              | bn::detail::iter::flags::EXTERNAL_LOOP::value
+              | bn::detail::iter::flags::BUFFERED::value
+              | bn::detail::iter::flags::GROWINNER::value;
             bn::order_t order = bn::KEEPORDER;
             bn::casting_t casting = bn::NO_CASTING;
-            intptr_t buffersize = 0;
+            intptr_t buffersize = 0; // Use a default value.
 
             #define NDHIST_DEF(z, n, data) \
                 , BOOST_PP_CAT(ndvalue_arr_iter_op,n)
@@ -490,11 +490,15 @@ struct nd_traits<ND>
             uintptr_t oor_arr_oor_size = 0;
             bool extend_axes;
             bool reallocation_upon_extension = false;
-
+            axis::out_of_range_t oor;
+            size_t i;
+            intptr_t bin_idx;
+            char * ndvalue_ptr;
             do {
                 intptr_t size = iter.get_inner_loop_size();
                 while(size--)
                 {
+
                     // Get the weight scalar from the iterator.
                     bc_ref_type weight = bc_value_traits<BCValueType>::get_value_from_iter(iter, ND);
 
@@ -505,18 +509,17 @@ struct nd_traits<ND>
                     oor_arr_idx = 0;
                     oor_arr_noor_size = 0;
                     oor_arr_oor_size = 0;
-                    for(size_t i=0; i<ND; ++i)
+
+                    for(i=0; i<ND; ++i)
                     {
-                        std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
-                        boost::shared_ptr<detail::Axis> & axis = self.get_axes()[i];
-                        char * ndvalue_ptr = iter.get_data(i);
-                        axis::out_of_range_t oor;
-                        intptr_t bin_idx = axis->get_bin_index_fct(axis->data_, ndvalue_ptr, &oor);
+                        //std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
+                        boost::shared_ptr<detail::Axis> & axis = self.axes_[i];
+                        ndvalue_ptr = iter.data_ptr_array_ptr_[i];
+                        bin_idx = self.axes_[i]->get_bin_index_fct(self.axes_[i]->data_, ndvalue_ptr, &oor);
                         if(oor == axis::OOR_NONE)
                         {
-
-                            std::cout << "normal fill i=" << i << "indices.size()="<<indices.size()
-                                      << "relative_indices.size() "<< relative_indices.size()<<std::endl;
+                            //std::cout << "normal fill i=" << i << "indices.size()="<<indices.size();
+                            //std::cout << "relative_indices.size() "<< relative_indices.size()<<std::endl;
                             indices[i] = bin_idx;
                             relative_indices[i] = bin_idx;
 
@@ -534,7 +537,7 @@ struct nd_traits<ND>
                             {
                                 // Mark this axis as available.
                                 oor_arr_idx |= (1<<i);
-                                std::cout << "axis is extentable" << std::endl;
+                                //std::cout << "axis is extentable" << std::endl;
                                 intptr_t const n_extra_bins = axis->request_extension_fct(axis->data_, ndvalue_ptr, oor);
                                 if(oor == axis::OOR_UNDERFLOW)
                                 {
@@ -569,7 +572,7 @@ struct nd_traits<ND>
                             }
                             else
                             {
-                                std::cout << "axis has NO autoscale" << std::endl;
+                                //std::cout << "axis has NO autoscale" << std::endl;
                                 // The current value is out-of-range on the
                                 // current the axis, which is not extendable.
                                 // So mark the axis as oor for this value.
@@ -601,14 +604,14 @@ struct nd_traits<ND>
                     // histogram.
                     if(extend_axes)
                     {
-                        std::cout << "extend_axes is true, size="<< oorfrstack.get_size() << std::endl<<std::flush;
+                        //std::cout << "extend_axes is true, size="<< oorfrstack.get_size() << std::endl<<std::flush;
                         // Check if an actual reallocation is required,
                         // if not don't fill the stack and just do the
                         // axes extension and mark the value as not
                         // out-of-range.
                         if(reallocation_upon_extension)
                         {
-                            std::cout << "reallocation required upon extension " << std::endl<<std::flush;
+                            //std::cout << "reallocation required upon extension " << std::endl<<std::flush;
                             // The value is out-of-range for any extandable axis.
                             // Push it into the cache stack. If it returns ``true``
                             // the stack is full and we need to extent the axes and
@@ -625,7 +628,7 @@ struct nd_traits<ND>
                               , relative_indices
                               , weight))
                             {
-                                std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
+                                //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
                                 reallocation_upon_extension = false;
                             }
@@ -634,7 +637,7 @@ struct nd_traits<ND>
                         {
                             // No reallocation of memory is required for the
                             // extension, so we just extend the axes.
-                            std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
+                            //std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
@@ -654,14 +657,14 @@ struct nd_traits<ND>
                     }
                     else
                     {
-                        std::cout << "is_oor is true, oor_arr_idx ="<< oor_arr_idx << std::endl;
+                        //std::cout << "is_oor is true, oor_arr_idx ="<< oor_arr_idx << std::endl;
                         // There is at least one axis that is out-of-range.
                         bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(oor_arr_idx);
 
                         memcpy(&indices[0], &oor_arr_noor_indices[0], oor_arr_noor_size*sizeof(intptr_t));
                         memcpy(&indices[oor_arr_noor_size], &oor_arr_oor_indices[0], oor_arr_oor_size*sizeof(intptr_t));
 
-                        std::cout << "jump to indices, ptr" << std::endl;
+                        //std::cout << "jump to indices, ptr" << std::endl;
                         oor_arr_iter.jump_to(indices);
                         bc_ref_type oor_value = *oor_arr_iter;
                         oor_value += weight;
@@ -696,8 +699,6 @@ struct nd_traits<ND>
                << "possible C++ data type! This is an internal error!";        \
             throw TypeError(ss.str());                                         \
         }                                                                      \
-        std::cout << "Found " << BOOST_PP_STRINGIZE(BCDTYPE) << " equiv. "     \
-                  << "bc data type." << std::endl;                             \
         oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd, oor_stack_size));\
         fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;        \
         bc_dtype_supported = true;                                             \

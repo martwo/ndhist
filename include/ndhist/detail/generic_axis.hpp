@@ -76,7 +76,7 @@ struct GenericAxisBase
 
     static
     bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<AxisData> axisdata)
+    get_edges_ndarray(boost::shared_ptr<AxisData> & axisdata)
     {
         DerivedData & data = *static_cast<DerivedData*>(axisdata.get());
         bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
@@ -98,7 +98,7 @@ struct GenericAxis
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> axisdata, char * value_ptr, axis::out_of_range_t * oor_ptr)
+    get_bin_index(boost::shared_ptr<AxisData> & axisdata, char * value_ptr, axis::out_of_range_t * oor_ptr)
     {
         GenericAxisData<AxisValueType> & data = *static_cast< GenericAxisData<AxisValueType> *>(axisdata.get());
         AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
@@ -158,7 +158,7 @@ struct GenericAxis<bp::object>
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> axisdata, char * obj_ptr, axis::out_of_range_t * oor_ptr)
+    get_bin_index(boost::shared_ptr<AxisData> & axisdata, char * obj_ptr, axis::out_of_range_t * oor_ptr)
     {
         std::cout << "GenericAxis<bp::object>::get_bin_index" << std::endl;
         GenericAxisData<bp::object> & data = *static_cast<GenericAxisData<bp::object> *>(axisdata.get());

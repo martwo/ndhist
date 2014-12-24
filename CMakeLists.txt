@@ -50,6 +50,14 @@ if(USE_MAINTAINER_MODE)
     endforeach()
 endif()
 
+# Enable compiler optimizations.
+set(cxxflag "-O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${cxxflag}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${cxxflag}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} ${cxxflag}")
+set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS} ${cxxflag}")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} ${cxxflag}")
+
 set(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY TRUE)
 
 include(${CMAKE_SOURCE_DIR}/cmake/config.cmake)

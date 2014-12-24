@@ -85,7 +85,7 @@ struct axis_traits
         // thus the axis is linear.
         if(has_constant_bin_width(edges))
         {
-            std::cout << "+++++++++++++ Detected const bin width of "  << std::endl;
+            //std::cout << "+++++++++++++ Detected const bin width of "  << std::endl;
             return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges, autoscale_fcap, autoscale_bcap));
         }
 
@@ -172,19 +172,19 @@ extend_axes_and_flush_oor_fill_record_stack(
         {
             bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(rec.oor_arr_idx);
 
-            std::cout << "rec.oor_arr_noor_relative_indices = ";
+            //std::cout << "rec.oor_arr_noor_relative_indices = ";
             for(uintptr_t axis=0; axis<rec.oor_arr_noor_relative_indices_size; ++axis)
             {
-                std::cout << rec.oor_arr_noor_relative_indices[axis]<<",";
+                //std::cout << rec.oor_arr_noor_relative_indices[axis]<<",";
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
 
-            std::cout << "rec.oor_arr_oor_relative_indices = ";
+            //std::cout << "rec.oor_arr_oor_relative_indices = ";
             for(uintptr_t axis=0; axis<rec.oor_arr_oor_relative_indices_size; ++axis)
             {
-                std::cout << rec.oor_arr_oor_relative_indices[axis]<<",";
+                //std::cout << rec.oor_arr_oor_relative_indices[axis]<<",";
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
 
             size_t const noor_size = rec.oor_arr_noor_relative_indices_size*sizeof(intptr_t);
             size_t const oor_size = rec.oor_arr_oor_relative_indices_size*sizeof(intptr_t);
@@ -192,13 +192,13 @@ extend_axes_and_flush_oor_fill_record_stack(
             memcpy(&indices[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_relative_indices[0], oor_size);
             memcpy(&oorfrstack.nd_mem0_[0], &rec.oor_arr_noor_axes_indices[0], noor_size);
             memcpy(&oorfrstack.nd_mem0_[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_axes_indices[0], oor_size);
-            std::cout << "indices[axis] = ";
+            //std::cout << "indices[axis] = ";
             for(intptr_t oor_arr_axis=0; oor_arr_axis<nd; ++oor_arr_axis)
             {
                 indices[oor_arr_axis] += f_n_extra_bins_vec[oorfrstack.nd_mem0_[oor_arr_axis]];
-                std::cout << indices[oor_arr_axis]<<",";
+                //std::cout << indices[oor_arr_axis]<<",";
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
 
             oor_arr_iter.jump_to(indices);
             bc_ref_type oor_value = *oor_arr_iter;
@@ -366,7 +366,7 @@ struct generic_nd_traits
                     bool is_overflown = false;
                     for(size_t i=0; i<nd; ++i)
                     {
-                        std::cout << "Get bin idx of axis " << i << " of " << nd << std::endl;
+                        //std::cout << "Get bin idx of axis " << i << " of " << nd << std::endl;
                         boost::shared_ptr<detail::Axis> & axis = self.get_axes()[i];
                         char * ndvalue_ptr = iter.get_data(0) + ndvalue_byte_offsets[i];
                         axis::out_of_range_t oor;
@@ -511,8 +511,6 @@ ndhist(
                        << "possible C++ data type! This is an internal error!";     \
                     throw TypeError(ss.str());                                      \
                 }                                                                   \
-                std::cout << "Found " << BOOST_PP_STRINGIZE(AXISDTYPE) << " equiv. "\
-                          << "axis data type." << std::endl;                        \
                 axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, autoscale_fcap, autoscale_bcap));\
                 axis_dtype_supported = true;                                        \
             }
@@ -581,8 +579,6 @@ ndhist(
                     << "possible C++ data type! This is an internal error!";        \
                     throw TypeError(ss.str());                                      \
                 }                                                                   \
-                std::cout << "Found " << BOOST_PP_STRINGIZE(BCDTYPE) << " equiv. "  \
-                          << "bc data type." << std::endl;                          \
                 oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd, oor_stack_size));\
                 fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill; \
                 bc_dtype_supported = true;                                          \
@@ -646,7 +642,7 @@ create_oor_arrays(
     oor_arr_iter_vec_.reserve(n_arrays);
     for(uintptr_t idx=0; idx<n_arrays; ++idx)
     {
-        std::cout << "idx = " << idx << std::endl<<std::flush;
+        //std::cout << "idx = " << idx << std::endl<<std::flush;
         std::bitset<NDHIST_LIMIT_MAX_ND> bset(idx);
         // Determine the shape of the nd-dim. array.
         std::vector<intptr_t> shape;
@@ -660,7 +656,7 @@ create_oor_arrays(
         {
             if(bset.test(i))
             {
-                std::cout << "axis = " << i <<" bit is set."<< std::endl<<std::flush;
+                //std::cout << "axis = " << i <<" bit is set."<< std::endl<<std::flush;
                 boost::shared_ptr<detail::Axis> const & axis = axes_[i];
                 shape.push_back(axis->get_n_bins_fct(axis->data_));
                 axes_extension_max_fcap_vec.push_back(axis->extension_max_fcap_);
@@ -674,10 +670,10 @@ create_oor_arrays(
             shape.push_back(2);
             axes_extension_max_fcap_vec.push_back(0);
             axes_extension_max_bcap_vec.push_back(0);
-            std::cout << "Add 2 to shape." << std::endl<<std::flush;
+            //std::cout << "Add 2 to shape." << std::endl<<std::flush;
         }
         // Now create the array.
-        std::cout << "Create arr " << std::endl<<std::flush;
+        //std::cout << "Create arr " << std::endl<<std::flush;
         boost::shared_ptr<detail::ndarray_storage> arr_storage(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec, axes_extension_max_bcap_vec, bc_dt));
         oor_arr_vec_.push_back(arr_storage);
 
@@ -699,10 +695,8 @@ create_oor_arrays(
         #define NDHIST_OOR_ITER(BCDTYPE)                                       \
             if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<BCDTYPE>()))\
             {                                                                  \
-                std::cout << "Create indexed iterator at idx = "<<idx<<std::endl;\
-                bn::ndarray arr = arr_storage->ConstructNDArray(&self);\
+                bn::ndarray arr = arr_storage->ConstructNDArray(&self);        \
                 oor_arr_iter_vec_.push_back( boost::shared_ptr< bn::indexed_iterator<BCDTYPE> >(new bn::indexed_iterator<BCDTYPE>(arr)));\
-                std::cout << "ptr = "<< (*static_cast<bn::indexed_iterator<BCDTYPE> *>(oor_arr_iter_vec_[idx].get())).get_ptr() <<std::endl;\
             }
         NDHIST_OOR_ITER(bool)
         NDHIST_OOR_ITER(int16_t)
@@ -774,11 +768,11 @@ initialize_extended_array_axis_range(
     int const nd = strides.size();
 
     intptr_t const last_axis = (nd - 1 == axis ? nd - 2 : nd - 1);
-    std::cout << "last_axis = "<< last_axis << std::endl<<std::flush;
+    //std::cout << "last_axis = "<< last_axis << std::endl<<std::flush;
     std::vector<intptr_t> indices(nd);
     for(intptr_t axis_idx=axis_idx_range_min; axis_idx < axis_idx_range_max; ++axis_idx)
     {
-        std::cout << "Start new axis idx"<<std::endl<<std::flush;
+        //std::cout << "Start new axis idx"<<std::endl<<std::flush;
         memset(&indices.front(), 0, nd*sizeof(intptr_t));
         indices[axis] = axis_idx;
         // The iteration follows a matrix. The index pointer p indicates
@@ -788,27 +782,27 @@ initialize_extended_array_axis_range(
         intptr_t p = last_axis;
         for(intptr_t i=0; i<n_iters; ++i)
         {
-            std::cout << "indices = ";
+            //std::cout << "indices = ";
             for(intptr_t j=0; j<nd; ++j)
             {
-                std::cout << indices[j] << ",";
+                //std::cout << indices[j] << ",";
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
 
             intptr_t iteridx = 0;
             for(intptr_t j=nd-1; j>=0; --j)
             {
                 iteridx += indices[j]*strides[j];
             }
-            std::cout << "iteridx = " << iteridx << std::endl<<std::flush;
+            //std::cout << "iteridx = " << iteridx << std::endl<<std::flush;
             iter.jump_to_iter_index(iteridx);
-            std::cout << "jump done" << std::endl<<std::flush;
+            //std::cout << "jump done" << std::endl<<std::flush;
 
             uintptr_t * obj_ptr_ptr = iter.get_object_ptr_ptr();
             bp::object obj = obj_class();
-            std::cout << "Setting pointer data ..."<<std::flush;
+            //std::cout << "Setting pointer data ..."<<std::flush;
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
-            std::cout << "done."<<std::endl<<std::flush;
+            //std::cout << "done."<<std::endl<<std::flush;
             if(i == n_iters-1) break;
             // Move the index pointer to the next outer-axis if the index
             // of the current axis has reached its maximum. Then increase
@@ -816,13 +810,13 @@ initialize_extended_array_axis_range(
             // increased index to zero. After this operation, the index
             // pointer points to the inner-most axis (excluding the
             // iteration axis).
-            std::cout << "p1 = "<<p<<std::endl<<std::flush;
+            //std::cout << "p1 = "<<p<<std::endl<<std::flush;
             while(indices[p] == shape[p]-1)
             {
                 --p;
                 if(p == axis) --p;
             }
-            std::cout << "p2 = "<<p<<std::endl<<std::flush;
+            //std::cout << "p2 = "<<p<<std::endl<<std::flush;
             indices[p]++;
             while(p < last_axis)
             {
@@ -831,7 +825,7 @@ initialize_extended_array_axis_range(
                 indices[p] = 0;
             }
 
-            std::cout << "p3 = "<<p<<std::endl;
+            //std::cout << "p3 = "<<p<<std::endl;
         }
     }
 }
@@ -902,17 +896,17 @@ initialize_extended_array_axis(
         }
 
         // Calculate the number of iterations (without the iteration axis).
-        std::cout << "shape = ";
+        //std::cout << "shape = ";
         intptr_t n_iters = 1;
         for(intptr_t i=0; i<nd; ++i)
         {
-            std::cout << shape[i] << ",";
+            //std::cout << shape[i] << ",";
             if(i != axis) {
                 n_iters *= shape[i];
             }
         }
-        std::cout << std::endl;
-        std::cout << "n_iters = " << n_iters << std::endl<<std::flush;
+        //std::cout << std::endl;
+        //std::cout << "n_iters = " << n_iters << std::endl<<std::flush;
 
         // Initialize the front elements.
         initialize_extended_array_axis_range(bc_iter, axis, shape, strides, n_iters, f_axis_idx_range_min, f_axis_idx_range_max, obj_class);
@@ -943,7 +937,7 @@ extend_bin_content_array(
   , std::vector<intptr_t> const & b_n_extra_bins_vec
 )
 {
-    std::cout << "extend_bin_content_array" << std::endl;
+    //std::cout << "extend_bin_content_array" << std::endl;
     bp::object self(bp::ptr(this));
 
     // Extend the bin content array. This might cause a reallocation of memory.

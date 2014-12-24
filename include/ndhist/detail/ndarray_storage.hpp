@@ -59,7 +59,7 @@ class ndarray_storage
     virtual
     ~ndarray_storage()
     {
-        std::cout << "Destructing ndarray_storage" << std::endl;
+        //std::cout << "Destructing ndarray_storage" << std::endl;
         if(data_)
         {
             free_data(data_);

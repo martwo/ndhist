@@ -62,8 +62,6 @@ struct Axis
 
     bool is_extendable() const
     {
-        std::cout << " extension_max_fcap_ = "<< extension_max_fcap_
-                  << " extension_max_bcap_ = "<< extension_max_bcap_<<std::endl;
         return ((extension_max_fcap_ > 0 && extension_max_bcap_ >= 0) ||
                 (extension_max_bcap_ > 0 && extension_max_fcap_ >= 0));
     }
@@ -71,15 +69,15 @@ struct Axis
     bn::dtype dt_;
     intptr_t extension_max_fcap_;
     intptr_t extension_max_bcap_;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t *)>
+    boost::function<intptr_t (boost::shared_ptr<AxisData> &, char *, axis::out_of_range_t *)>
         get_bin_index_fct;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>, char *, axis::out_of_range_t)>
+    boost::function<intptr_t (boost::shared_ptr<AxisData> &, char *, axis::out_of_range_t)>
         request_extension_fct;
-    boost::function<void (boost::shared_ptr<AxisData>, intptr_t, intptr_t)>
+    boost::function<void (boost::shared_ptr<AxisData> &, intptr_t, intptr_t)>
         extend_fct;
-    boost::function<intptr_t (boost::shared_ptr<AxisData>)>
+    boost::function<intptr_t (boost::shared_ptr<AxisData> &)>
         get_n_bins_fct;
-    boost::function<bn::ndarray (boost::shared_ptr<AxisData>)>
+    boost::function<bn::ndarray (boost::shared_ptr<AxisData> &)>
         get_edges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;
 };
