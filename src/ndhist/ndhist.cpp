@@ -559,7 +559,7 @@ ndhist(
     // Create a ndarray for the bin content.
     bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, dt));
     bp::object self(bp::ptr(this));
-    bc_arr_ = bc_->ConstructNDArray(&self);
+    bc_arr_ = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
 
     // Set the fill function based on the bin content data type.
     bn::dtype bc_dtype = GetBCArray().get_dtype();
@@ -681,7 +681,7 @@ create_oor_arrays(
         // with bc_class() objects.
         if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<bp::object>()))
         {
-            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(&self));
+            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self));
             bn::flat_iterator<bp::object> iter_end(iter.end());
             for(; iter != iter_end; ++iter)
             {
@@ -695,7 +695,7 @@ create_oor_arrays(
         #define NDHIST_OOR_ITER(BCDTYPE)                                       \
             if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<BCDTYPE>()))\
             {                                                                  \
-                bn::ndarray arr = arr_storage->ConstructNDArray(&self);        \
+                bn::ndarray arr = arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self);\
                 oor_arr_iter_vec_.push_back( boost::shared_ptr< bn::indexed_iterator<BCDTYPE> >(new bn::indexed_iterator<BCDTYPE>(arr)));\
             }
         NDHIST_OOR_ITER(bool)
@@ -716,7 +716,7 @@ bn::ndarray
 ndhist::
 py_get_bin_content_ndarray()
 {
-    return bc_->ConstructNDArray();
+    return bc_->ConstructNDArray(bc_->get_dtype());
 }
 
 bn::ndarray
@@ -944,7 +944,7 @@ extend_bin_content_array(
     bc_->extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, &self);
 
     // Recreate the bin content ndarray.
-    bc_arr_ = bc_->ConstructNDArray(&self);
+    bc_arr_ = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
 
     // We need to initialize the new bin content values, if the data type
     // is object.

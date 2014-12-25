@@ -4,31 +4,37 @@ import dashi
 import time
 import resource
 
-h = ndhist.ndhist(((np.array([-2,-1,0,1,2], dtype=np.dtype(np.float64)), "x", 0, 0),
-                   (np.array([-2,-1,0,1,2], dtype=np.dtype(np.float64)), "y", 0, 0)
+axis = np.linspace(-100, 100, num=201, endpoint=True).astype(np.dtype(np.float64))
+print(axis)
+
+h = ndhist.ndhist(((axis, "x", 0, 0),
+                   (axis, "y", 0, 0)
                   )
                   , dtype=np.dtype(np.float64)
                  )
 
 d = dashi.histogram.histogram(  2
-                    , (np.array([-2,-1,0,1,2], dtype=np.dtype(np.float64)),
-                       np.array([-2,-1,0,1,2], dtype=np.dtype(np.float64))
+                    , (axis,
+                       axis
                       )
                    )
 
-a1 = np.random.normal(0, 0.5, size=1e7) #np.linspace(-10, 10, num=21, endpoint=True).astype(np.dtype(np.int64))
-a2 = np.random.normal(0, 0.5, size=1e7) #np.linspace(0, 2, num=a1.size).astype(np.dtype(np.float64))
+a1 = np.random.normal(0, 50, size=1e7) #np.linspace(-10, 10, num=21, endpoint=True).astype(np.dtype(np.int64))
+a2 = np.random.normal(0, 50, size=1e7) #np.linspace(0, 2, num=a1.size).astype(np.dtype(np.float64))
 
 # Make sure all values are within the range.
-a1 = np.select([a1 < -2, a1 >= -2], [-2, a1])
-a1 = np.select([a1 >= 2, a1 < 2], [1, a1])
-print(np.any(a1[a1<-2]))
-print(np.any(a1[a1>=2]))
+axis_min = axis.min()
+axis_max = axis.max()
 
-a2 = np.select([a2 < -2, a2 >= -2], [-2, a2])
-a2 = np.select([a2 >= 2, a2 < 2], [1, a2])
-print(np.any(a2[a2<-2]))
-print(np.any(a2[a2>=2]))
+a1 = np.select([a1 < axis_min, a1 >= axis_min], [axis_min, a1])
+a1 = np.select([a1 >= axis_max, a1 < axis_max], [axis_max-1, a1])
+print(np.any(a1[a1<axis_min]))
+print(np.any(a1[a1>=axis_max]))
+
+a2 = np.select([a2 < axis_min, a2 >= axis_min], [axis_min, a2])
+a2 = np.select([a2 >= axis_max, a2 < axis_max], [axis_max-1, a2])
+print(np.any(a2[a2<axis_min]))
+print(np.any(a2[a2>=axis_max]))
 
 print(a1, a2)
 

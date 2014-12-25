@@ -62,7 +62,7 @@ struct GenericAxisBase
             new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
         // Copy the data from the user provided edge array to the storage array.
         bp::object owner(bp::ptr(h));
-        ddata.arr_ = ddata.storage_->ConstructNDArray(&owner);
+        ddata.arr_ = ddata.storage_->ConstructNDArray(ddata.storage_->get_dtype(), 0, &owner);
         bn::ndarray & arr = *static_cast<bn::ndarray*>(&ddata.arr_);
         if(!bn::copy_into(arr, edges))
         {

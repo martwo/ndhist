@@ -346,7 +346,7 @@ extend_oor_arrays(
         );
 
         // Replace the indexed iterator for this extended oor array.
-        bn::ndarray oor_arr = oor_arr_vec_[oor_idx]->ConstructNDArray(&self);
+        bn::ndarray oor_arr = oor_arr_vec_[oor_idx]->ConstructNDArray(oor_arr_vec_[oor_idx]->get_dtype(), 0, &self);
         oor_arr_iter_vec_[oor_idx] = boost::shared_ptr< bn::indexed_iterator<BCValueType> >(new bn::indexed_iterator<BCValueType>(oor_arr));
 
         // If the bin content dtype is object we need to initialize the new

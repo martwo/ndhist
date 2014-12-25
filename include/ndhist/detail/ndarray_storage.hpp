@@ -53,7 +53,7 @@ class ndarray_storage
       , dt_(dt)
       , data_(NULL)
     {
-        data_ = create_array_data(shape_, front_capacity_, back_capacity_, dt_);
+        data_ = create_array_data(shape_, front_capacity_, back_capacity_, dt_.get_itemsize());
     }
 
     virtual
@@ -72,7 +72,7 @@ class ndarray_storage
     /** Calculates the offset of the data pointer needed for a ndarray wrapping
      *  this ndarray storage.
      */
-    intptr_t CalcDataOffset() const;
+    intptr_t CalcDataOffset(size_t sub_item_byte_offset) const;
 
     /** Calculates the data strides for a ndarray wrapping this ndarray storage.
      */
@@ -81,8 +81,12 @@ class ndarray_storage
     /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
      *  with the correct layout, i.e. strides.
      */
-    boost::numpy::ndarray
-    ConstructNDArray(boost::python::object const * data_owner=NULL);
+    bn::ndarray
+    ConstructNDArray(
+        bn::dtype const &  dt
+      , size_t             sub_item_byte_offset = 0
+      , bp::object const * data_owner = NULL
+    );
 
     std::vector<intptr_t> &
     get_front_capacity_vector()
@@ -94,6 +98,12 @@ class ndarray_storage
     get_back_capacity_vector()
     {
         return back_capacity_;
+    }
+
+    bn::dtype &
+    get_dtype()
+    {
+        return dt_;
     }
 
     /** Extends the memory of this ndarray storage by at least the given number
@@ -142,7 +152,7 @@ class ndarray_storage
         std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
       , std::vector<intptr_t> const & back_capacity
-      , boost::numpy::dtype   const & dt
+      , size_t itemsize
     );
 
   private:
@@ -159,7 +169,7 @@ class ndarray_storage
 
     /** The numpy data type object, defining the element size in bytes.
      */
-    boost::numpy::dtype dt_;
+    bn::dtype dt_;
 
     /** The pointer to the actual data storage.
      */

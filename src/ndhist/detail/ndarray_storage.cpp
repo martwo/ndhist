@@ -25,7 +25,7 @@ namespace detail {
 //______________________________________________________________________________
 intptr_t
 ndarray_storage::
-CalcDataOffset() const
+CalcDataOffset(size_t sub_item_byte_offset) const
 {
     const int nd = shape_.size();
     intptr_t offset = front_capacity_[nd-1];
@@ -37,7 +37,7 @@ CalcDataOffset() const
     }
     offset *= dt_.get_itemsize();
 
-    return offset;
+    return offset + sub_item_byte_offset;
 }
 
 //______________________________________________________________________________
@@ -60,9 +60,9 @@ CalcDataStrides() const
 //______________________________________________________________________________
 bn::ndarray
 ndarray_storage::
-ConstructNDArray(bp::object const * data_owner)
+ConstructNDArray(bn::dtype const & dt, size_t sub_item_byte_offset, bp::object const * data_owner)
 {
-    return bn::from_data(data_+CalcDataOffset(), dt_, shape_, CalcDataStrides(), data_owner);
+    return bn::from_data(data_+CalcDataOffset(sub_item_byte_offset), dt, shape_, CalcDataStrides(), data_owner);
 }
 
 //______________________________________________________________________________
@@ -143,7 +143,7 @@ extend_axes(
         // At this point shape_, front_capacity_ and back_capacity_ have the
         // right numbers for the new array.
         // Allocate the new array memory.
-        char * new_data = create_array_data(shape_, front_capacity_, back_capacity_, dt_);
+        char * new_data = create_array_data(shape_, front_capacity_, back_capacity_, dt_.get_itemsize());
 
         // Copy the data from the old memory to the new one. We do this by
         // creating two ndarrays having the same layout. The first is the old
@@ -238,7 +238,7 @@ create_array_data(
     std::vector<intptr_t> const & shape
   , std::vector<intptr_t> const & front_capacity
   , std::vector<intptr_t> const & back_capacity
-  , boost::numpy::dtype   const & dt
+  , size_t itemsize
 )
 {
     size_t const nd = shape.size();
@@ -268,7 +268,7 @@ create_array_data(
         throw AssertionError(
             "The capacity is less or equal 0!");
     }
-    return calloc_data(capacity, dt.get_itemsize());
+    return calloc_data(capacity, itemsize);
 }
 
 }// namespace detail
