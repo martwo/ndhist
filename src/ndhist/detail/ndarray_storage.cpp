@@ -60,8 +60,15 @@ CalcDataStrides() const
 //______________________________________________________________________________
 bn::ndarray
 ndarray_storage::
-ConstructNDArray(bn::dtype const & dt, size_t sub_item_byte_offset, bp::object const * data_owner)
+ConstructNDArray(bn::dtype const & dt, size_t field_idx, bp::object const * data_owner)
 {
+    //std::cout << "ConstructNDArray for field_idx "<< field_idx << std::endl;
+    size_t sub_item_byte_offset = 0;
+    if(field_idx > 0)
+    {
+        sub_item_byte_offset = dt_.get_fields_byte_offsets()[field_idx];
+    }
+    //std::cout << "sub_item_byte_offset = "<<sub_item_byte_offset<<std::endl;
     return bn::from_data(data_+CalcDataOffset(sub_item_byte_offset), dt, shape_, CalcDataStrides(), data_owner);
 }
 

@@ -79,12 +79,15 @@ class ndarray_storage
     std::vector<intptr_t> CalcDataStrides() const;
 
     /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
-     *  with the correct layout, i.e. strides.
+     *  with the correct layout, i.e. offset and strides. If the field_idx
+     *  is greater than 0, it is assumed, that the data storage was created with
+     *  a structured dtype object and the correct byte offset will be calculated
+     *  automatically to select the field having the given index.
      */
     bn::ndarray
     ConstructNDArray(
         bn::dtype const &  dt
-      , size_t             sub_item_byte_offset = 0
+      , size_t             field_idx = 0
       , bp::object const * data_owner = NULL
     );
 

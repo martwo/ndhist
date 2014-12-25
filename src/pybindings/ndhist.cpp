@@ -38,12 +38,23 @@ void register_ndhist()
           )
         )
 
+
+
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
-        .add_property("bincontent", bp::make_function(
-              &ndhist::py_get_bin_content_ndarray
+        .add_property("binentries", bp::make_function(
+              &ndhist::py_get_noe_ndarray
             , bn::ndarray_accessor_return())
-            , "The ndarray holding the bin contents.")
+            , "The ndarray holding the bin entries (counts) for each bin.")
+        .add_property("bincontent", bp::make_function(
+              &ndhist::py_get_sow_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the bin contents (sum of weights) for "
+              "each bin.")
+        .add_property("squaredweights", bp::make_function(
+              &ndhist::py_get_sows_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the sum of weights for for each bin.")
 
         .add_property("nd", &ndhist::get_nd
             , "The dimensionality of the histogram.")
@@ -69,10 +80,6 @@ void register_ndhist()
              , "Fills the histogram with the given n-dimensional numbers, "
                "weighted by the given weights. If no weights are specified, "
                "``1`` will be used for each entry.")
-//         .def("handle_struct_array", &ndhist::handle_struct_array
-//             , (bp::arg("arr"))
-//             , "Test for handling a struct array."
-//         )
     ;
 }
 

@@ -146,8 +146,12 @@ extend_axes_and_flush_oor_fill_record_stack(
   , std::vector<intptr_t>             & f_n_extra_bins_vec
   , std::vector<intptr_t>             & b_n_extra_bins_vec
   , std::vector<intptr_t>             & indices
-  , bn::ndarray                       & bc_arr
-  , bn::indexed_iterator<BCValueType> & bc_iter
+  , bn::ndarray                       & bc_noe_arr
+  , bn::ndarray                       & bc_sow_arr
+  , bn::ndarray                       & bc_sows_arr
+  , bn::indexed_iterator<uintptr_t>   & bc_noe_iter
+  , bn::indexed_iterator<BCValueType> & bc_sow_iter
+  , bn::indexed_iterator<BCValueType> & bc_sows_iter
   , OORFillRecordStack<BCValueType>   & oorfrstack
 )
 {
@@ -160,8 +164,13 @@ extend_axes_and_flush_oor_fill_record_stack(
     self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
     self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
     self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
-    bc_arr = self.GetBCArray();
-    bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+    // Update the local variables.
+    bc_noe_arr  = self.get_bc_noe_ndarray();
+    bc_sow_arr  = self.get_bc_sow_ndarray();
+    bc_sows_arr = self.get_bc_sows_ndarray();
+    bc_noe_iter  = bn::indexed_iterator<uintptr_t>(bc_noe_arr, bn::detail::iter_operand::flags::READWRITE::value);
+    bc_sow_iter  = bn::indexed_iterator<BCValueType>(bc_sow_arr, bn::detail::iter_operand::flags::READWRITE::value);
+    bc_sows_iter = bn::indexed_iterator<BCValueType>(bc_sows_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
     // Fill in the cached values.
     intptr_t idx = oorfrstack.get_size();
@@ -222,9 +231,15 @@ extend_axes_and_flush_oor_fill_record_stack(
             {
                 indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
             }
-            bc_iter.jump_to(indices);
-            bc_ref_type bc_value = *bc_iter;
-            bc_value += rec.weight;
+            bc_noe_iter.jump_to(indices);
+            bc_sow_iter.jump_to(indices);
+            bc_sows_iter.jump_to(indices);
+            uintptr_t & bc_noe_value  = *bc_noe_iter;
+            bc_ref_type bc_sow_value  = *bc_sow_iter;
+            bc_ref_type bc_sows_value = *bc_sows_iter;
+            bc_noe_value  += 1;
+            bc_sow_value  += rec.weight;
+            bc_sows_value += rec.weight * rec.weight;
         }
     }
 
@@ -318,7 +333,7 @@ struct generic_nd_traits
             iter.init_full_iteration();
 
             // Create an indexed iterator for the bin content array.
-            bn::ndarray & bc_arr = self.GetBCArray();
+            bn::ndarray & bc_arr = self.get_bc_sow_ndarray();
             bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
             // Do the iteration.
@@ -417,16 +432,18 @@ ndhist(
   , bn::dtype const & dt
   , bp::object const & bc_class
 )
-  : ndvalues_dt_(bn::dtype::new_builtin<void>())
+  : nd_(bp::len(axes))
+  , ndvalues_dt_(bn::dtype::new_builtin<void>())
+  , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
+  , bc_weight_dt_(dt)
   , bc_class_(bc_class)
 {
-    size_t const nd = bp::len(axes);
-    std::vector<intptr_t> shape(nd);
-    axes_extension_max_fcap_vec_.resize(nd);
-    axes_extension_max_bcap_vec_.resize(nd);
+    std::vector<intptr_t> shape(nd_);
+    axes_extension_max_fcap_vec_.resize(nd_);
+    axes_extension_max_bcap_vec_.resize(nd_);
 
     // Construct the axes of the histogram.
-    for(size_t i=0; i<nd; ++i)
+    for(size_t i=0; i<nd_; ++i)
     {
         // Each axes element can be a single ndarray or a tuple of the form
         // (edges_ndarry[, axis_name[, front_capacity, back_capacity]])
@@ -556,13 +573,19 @@ ndhist(
     // TODO: Make this as an option in the constructor.
     intptr_t oor_stack_size = 65536;
 
-    // Create a ndarray for the bin content.
-    bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, dt));
+    // Create a ndarray for the bin content. Each bin content element consists
+    // of three sub-elements: n_entries, sum_of_weights, sum_of_weights_squared.
+    bn::dtype bc_dt = bn::dtype::new_builtin<void>();
+    bc_dt.add_field("n",    bc_noe_dt_);
+    bc_dt.add_field("sow",  bc_weight_dt_);
+    bc_dt.add_field("sows", bc_weight_dt_);
+    bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, bc_dt));
     bp::object self(bp::ptr(this));
-    bc_arr_ = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
+    bc_noe_arr_  = bc_->ConstructNDArray(bc_noe_dt_,    0, &self);
+    bc_sow_arr_  = bc_->ConstructNDArray(bc_weight_dt_, 1, &self);
+    bc_sows_arr_ = bc_->ConstructNDArray(bc_weight_dt_, 2, &self);
 
     // Set the fill function based on the bin content data type.
-    bn::dtype bc_dtype = GetBCArray().get_dtype();
     bool bc_dtype_supported = false;
     #define BOOST_PP_ITERATION_PARAMS_1                                        \
         (4, (1, NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND, <ndhist/ndhist.hpp>, 2))
@@ -571,7 +594,7 @@ ndhist(
     {
         // nd is greater than NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND.
         #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE)                           \
-            if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<BCDTYPE>()))  \
+            if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))  \
             {                                                                       \
                 if(bc_dtype_supported) {                                            \
                     std::stringstream ss;                                           \
@@ -579,7 +602,7 @@ ndhist(
                     << "possible C++ data type! This is an internal error!";        \
                     throw TypeError(ss.str());                                      \
                 }                                                                   \
-                oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd, oor_stack_size));\
+                oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
                 fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill; \
                 bc_dtype_supported = true;                                          \
             }
@@ -602,18 +625,21 @@ ndhist(
         throw TypeError(ss.str());
     }
 
-    // Initialize the bin content array and the under- and overflow arrays with
-    // objects using their default
+    // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
-    if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
+    if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
-        bn::flat_iterator<bp::object> bc_iter(GetBCArray());
-        bn::flat_iterator<bp::object> bc_iter_end(bc_iter.end());
-        for(; bc_iter != bc_iter_end; ++bc_iter)
+        bn::flat_iterator<bp::object> bc_sow_iter(get_bc_sow_ndarray());
+        bn::flat_iterator<bp::object> bc_sow_iter_end(bc_sow_iter.end());
+        bn::flat_iterator<bp::object> bc_sows_iter(get_bc_sows_ndarray());
+        for(; bc_sow_iter != bc_sow_iter_end; ++bc_sow_iter, ++bc_sows_iter)
         {
-            uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
-            bp::object obj = bc_class();
-            *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
+            uintptr_t * sow_obj_ptr_ptr = bc_sow_iter.get_object_ptr_ptr();
+            uintptr_t * sows_obj_ptr_ptr = bc_sows_iter.get_object_ptr_ptr();
+            bp::object sow_obj  = bc_class_();
+            bp::object sows_obj = bc_class_();
+            *sow_obj_ptr_ptr  = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sow_obj.ptr()));
+            *sows_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sows_obj.ptr()));
         }
 
         bc_one_ = bc_class(1);
@@ -621,18 +647,18 @@ ndhist(
     else
     {
         bp::object one(1);
-        bc_one_ = bn::from_object(one, GetBCArray().get_dtype(), 0, 1, bn::ndarray::ALIGNED).scalarize();
+        bc_one_ = bn::from_object(one, bc_weight_dt_, 0, 1, bn::ndarray::ALIGNED).scalarize();
     }
 
     // Create the out-of-range (oor) arrays.
-    create_oor_arrays(nd, dt, bc_class);
+    create_oor_arrays(nd_, bc_weight_dt_, bc_class_);
 }
 
 void
 ndhist::
 create_oor_arrays(
     uintptr_t nd
-  , bn::dtype const & bc_dt
+  , bn::dtype const & bc_weight_dt
   , bp::object const & bc_class
 )
 {
@@ -674,14 +700,14 @@ create_oor_arrays(
         }
         // Now create the array.
         //std::cout << "Create arr " << std::endl<<std::flush;
-        boost::shared_ptr<detail::ndarray_storage> arr_storage(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec, axes_extension_max_bcap_vec, bc_dt));
+        boost::shared_ptr<detail::ndarray_storage> arr_storage(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec, axes_extension_max_bcap_vec, bc_weight_dt));
         oor_arr_vec_.push_back(arr_storage);
 
         // In case the dtype is object, we need to initialize the array's values
         // with bc_class() objects.
-        if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<bp::object>()))
+        if(bn::dtype::equivalent(bc_weight_dt, bn::dtype::get_builtin<bp::object>()))
         {
-            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self));
+            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(bc_weight_dt, 1, &self));
             bn::flat_iterator<bp::object> iter_end(iter.end());
             for(; iter != iter_end; ++iter)
             {
@@ -693,7 +719,7 @@ create_oor_arrays(
 
         // Create the array of indexed iterators for the oor arrays.
         #define NDHIST_OOR_ITER(BCDTYPE)                                       \
-            if(bn::dtype::equivalent(bc_dt, bn::dtype::get_builtin<BCDTYPE>()))\
+            if(bn::dtype::equivalent(bc_weight_dt, bn::dtype::get_builtin<BCDTYPE>()))\
             {                                                                  \
                 bn::ndarray arr = arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self);\
                 oor_arr_iter_vec_.push_back( boost::shared_ptr< bn::indexed_iterator<BCDTYPE> >(new bn::indexed_iterator<BCDTYPE>(arr)));\
@@ -714,9 +740,23 @@ create_oor_arrays(
 
 bn::ndarray
 ndhist::
-py_get_bin_content_ndarray()
+py_get_noe_ndarray()
 {
-    return bc_->ConstructNDArray(bc_->get_dtype());
+    return bc_->ConstructNDArray(bc_noe_dt_, 0);
+}
+
+bn::ndarray
+ndhist::
+py_get_sow_ndarray()
+{
+    return bc_->ConstructNDArray(bc_weight_dt_, 1);
+}
+
+bn::ndarray
+ndhist::
+py_get_sows_ndarray()
+{
+    return bc_->ConstructNDArray(bc_weight_dt_, 2);
 }
 
 bn::ndarray
@@ -842,8 +882,8 @@ initialize_extended_array_axis(
 {
     if(f_n_extra_bins == 0 && b_n_extra_bins == 0) return;
 
-    bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&arr_obj);
-    std::vector<intptr_t> const shape = bc_arr.get_shape_vector();
+    bn::ndarray & arr = *static_cast<bn::ndarray *>(&arr_obj);
+    std::vector<intptr_t> const shape = arr.get_shape_vector();
 
     intptr_t f_axis_idx_range_min = 0;
     intptr_t f_axis_idx_range_max = 0;
@@ -861,8 +901,8 @@ initialize_extended_array_axis(
         b_axis_idx_range_max = shape[axis];
     }
 
-    bn::flat_iterator<bp::object> bc_iter(bc_arr);
-    intptr_t const nd = bc_arr.get_nd();
+    bn::flat_iterator<bp::object> bc_iter(arr);
+    intptr_t const nd = arr.get_nd();
     if(nd == 1)
     {
         // We can just use the flat iterator directly.
@@ -943,20 +983,23 @@ extend_bin_content_array(
     // Extend the bin content array. This might cause a reallocation of memory.
     bc_->extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, &self);
 
-    // Recreate the bin content ndarray.
-    bc_arr_ = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
+    // Recreate the bin content ndarrays.
+    bc_noe_arr_  = bc_->ConstructNDArray(bc_noe_dt_, 0, &self);
+    bc_sow_arr_  = bc_->ConstructNDArray(bc_weight_dt_, 1, &self);
+    bc_sows_arr_ = bc_->ConstructNDArray(bc_weight_dt_, 2, &self);
 
     // We need to initialize the new bin content values, if the data type
     // is object.
-    bn::ndarray & bc_arr = *static_cast<bn::ndarray *>(&bc_arr_);
-    bn::dtype bc_dtype = bc_arr.get_dtype();
-    if(! bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<bp::object>()))
+    if(! bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
         return;
 
+    bn::ndarray & bc_sow_arr = *static_cast<bn::ndarray *>(&bc_sow_arr_);
+    bn::ndarray & bc_sows_arr = *static_cast<bn::ndarray *>(&bc_sows_arr_);
     int const nd = this->get_nd();
     for(int axis=0; axis<nd; ++axis)
     {
-        initialize_extended_array_axis(bc_arr, bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
+        initialize_extended_array_axis(bc_sow_arr,  bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
+        initialize_extended_array_axis(bc_sows_arr, bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
     }
 }
 

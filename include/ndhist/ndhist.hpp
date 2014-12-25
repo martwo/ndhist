@@ -101,12 +101,31 @@ class ndhist
     }
 
     /**
-     * @brief Constructs the bin content ndarray for releasing it to Python.
+     * @brief Constructs the number of entries ndarray for releasing it to
+     *        Python.
      *        The lifetime of this new object and this ndhist object will be
      *        managed through the BoostNumpy ndarray_accessor_return() policy.
      */
     bn::ndarray
-    py_get_bin_content_ndarray();
+    py_get_noe_ndarray();
+
+    /**
+     * @brief Constructs the sum of weights ndarray for releasing it to
+     *        Python.
+     *        The lifetime of this new object and this ndhist object will be
+     *        managed through the BoostNumpy ndarray_accessor_return() policy.
+     */
+    bn::ndarray
+    py_get_sow_ndarray();
+
+    /**
+     * @brief Constructs the sum of weights squared ndarray for releasing
+     *        it to Python.
+     *        The lifetime of this new object and this ndhist object will be
+     *        managed through the BoostNumpy ndarray_accessor_return() policy.
+     */
+    bn::ndarray
+    py_get_sows_ndarray();
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -141,23 +160,30 @@ class ndhist
 
     inline
     bn::ndarray &
-    GetBCArray()
+    get_bc_noe_ndarray()
     {
-        return *static_cast<bn::ndarray*>(&bc_arr_);
+        return *static_cast<bn::ndarray*>(&bc_noe_arr_);
     }
 
     inline
-    bn::ndarray const &
-    GetBCArray() const
+    bn::ndarray &
+    get_bc_sow_ndarray()
     {
-        return *static_cast<bn::ndarray const *>(&bc_arr_);
+        return *static_cast<bn::ndarray*>(&bc_sow_arr_);
     }
 
     inline
-    int
+    bn::ndarray &
+    get_bc_sows_ndarray()
+    {
+        return *static_cast<bn::ndarray*>(&bc_sows_arr_);
+    }
+
+    inline
+    uintptr_t
     get_nd() const
     {
-        return GetBCArray().get_nd();
+        return nd_;
     }
 
     inline
@@ -219,11 +245,19 @@ class ndhist
 
   private:
     ndhist()
-      : ndvalues_dt_(bn::dtype::new_builtin<void>())
+      : nd_(0)
+      , ndvalues_dt_(bn::dtype::new_builtin<void>())
+      , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
+      , bc_weight_dt_(bn::dtype::get_builtin<void>())
       , bc_class_(bp::object())
     {};
-public:
+
+  public:
     void create_oor_arrays(uintptr_t nd, bn::dtype const & bc_dt, bp::object const & bc_class);
+
+    /** The number of dimenions of this histogram.
+     */
+    uintptr_t const nd_;
 
     /** The dtype object describing the ndvalues structure. It describes a
      *  structured ndarray with field names, one for each axis of the histogram.
@@ -238,9 +272,21 @@ public:
     std::vector<intptr_t> axes_extension_max_bcap_vec_;
 
     /** The bin contents.
+     *  bc_ holds the actual data of the bins.
+     *  bc_dt_ is the dtype object describing the data type of the weights.
+     *  bc_noe_arr_ is a ndarray object being a view into the data storage
+     *      for the number of entries.
+     *  bc_sow_arr_ is a ndarray object being a view into the data storage for
+     *      the sum of weights.
+     *  bc_sows_arr_ is a ndarray object being a view into the data storage for
+     *      the sum of weights squared.
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
-    bp::object bc_arr_;
+    bn::dtype const bc_noe_dt_;
+    bn::dtype const bc_weight_dt_;
+    bp::object bc_noe_arr_;
+    bp::object bc_sow_arr_;
+    bp::object bc_sows_arr_;
 
     /** The vector holding n-dimensional ndarrays holding the out-of-range (oor)
      *  bins. We separete the oor bins for different amounts of oor axes for a
@@ -351,7 +397,7 @@ extend_oor_arrays(
 
         // If the bin content dtype is object we need to initialize the new
         // elements.
-        if(bn::dtype::equivalent(GetBCArray().get_dtype(), bn::dtype::get_builtin<bp::object>()))
+        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
         {
             for(uintptr_t i=0; i<nd; ++i)
             {
@@ -462,9 +508,14 @@ struct nd_traits<ND>
             #undef NDHIST_DEF
             iter.init_full_iteration();
 
-            // Create an indexed iterator for the bin content array.
-            bn::ndarray bc_arr = self.GetBCArray();
-            bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+            // Create indexed iterators for the bin content arrays.
+            // TODO: A multi indexed iterator would be nice to have.
+            bn::ndarray bc_noe_arr = self.get_bc_noe_ndarray();
+            bn::ndarray bc_sow_arr = self.get_bc_sow_ndarray();
+            bn::ndarray bc_sows_arr = self.get_bc_sows_ndarray();
+            bn::indexed_iterator<uintptr_t>   bc_noe_iter(bc_noe_arr,   bn::detail::iter_operand::flags::READWRITE::value);
+            bn::indexed_iterator<BCValueType> bc_sow_iter(bc_sow_arr,   bn::detail::iter_operand::flags::READWRITE::value);
+            bn::indexed_iterator<BCValueType> bc_sows_iter(bc_sows_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
             // Get a handle to the OOR fill record stack.
             OORFillRecordStack<BCValueType> & oorfrstack = self.get_oor_fill_record_stack<BCValueType>();
@@ -629,7 +680,19 @@ struct nd_traits<ND>
                               , weight))
                             {
                                 //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
-                                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+                                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(
+                                    self
+                                  , f_n_extra_bins_vec
+                                  , b_n_extra_bins_vec
+                                  , indices
+                                  , bc_noe_arr
+                                  , bc_sow_arr
+                                  , bc_sows_arr
+                                  , bc_noe_iter
+                                  , bc_sow_iter
+                                  , bc_sows_iter
+                                  , oorfrstack
+                                );
                                 reallocation_upon_extension = false;
                             }
                         }
@@ -641,8 +704,12 @@ struct nd_traits<ND>
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            bc_arr = self.GetBCArray();
-                            bc_iter = bn::indexed_iterator<BCValueType>(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                            bc_noe_arr  = self.get_bc_noe_ndarray();
+                            bc_sow_arr  = self.get_bc_sow_ndarray();
+                            bc_sows_arr = self.get_bc_sows_ndarray();
+                            bc_noe_iter  = bn::indexed_iterator<uintptr_t>(bc_noe_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                            bc_sow_iter  = bn::indexed_iterator<BCValueType>(bc_sow_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                            bc_sows_iter = bn::indexed_iterator<BCValueType>(bc_sows_arr, bn::detail::iter_operand::flags::READWRITE::value);
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                         }
@@ -651,9 +718,15 @@ struct nd_traits<ND>
                     // Increase the bin content if all bin indices exist.
                     if(!is_oor)
                     {
-                        bc_iter.jump_to(indices);
-                        bc_ref_type bc_value = *bc_iter;
-                        bc_value += weight;
+                        bc_noe_iter.jump_to(indices);
+                        bc_sow_iter.jump_to(indices);
+                        bc_sows_iter.jump_to(indices);
+                        uintptr_t & bc_noe_value  = *bc_noe_iter;
+                        bc_ref_type bc_sow_value  = *bc_sow_iter;
+                        bc_ref_type bc_sows_value = *bc_sows_iter;
+                        bc_noe_value  += 1;
+                        bc_sow_value  += weight;
+                        bc_sows_value += weight * weight;
                     }
                     else
                     {
@@ -678,7 +751,18 @@ struct nd_traits<ND>
             // Fill the remaining out-of-range values from the stack.
             if(oorfrstack.get_size() > 0)
             {
-                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(self, f_n_extra_bins_vec, b_n_extra_bins_vec, indices, bc_arr, bc_iter, oorfrstack);
+                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(
+                    self
+                  , f_n_extra_bins_vec
+                  , b_n_extra_bins_vec
+                  , indices
+                  , bc_noe_arr
+                  , bc_sow_arr
+                  , bc_sows_arr
+                  , bc_noe_iter
+                  , bc_sow_iter
+                  , bc_sows_iter
+                  , oorfrstack);
             }
         }
     };
@@ -691,7 +775,7 @@ struct nd_traits<ND>
 #define ND BOOST_PP_ITERATION()
 
 #define NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(BCDTYPE)                          \
-    if(bn::dtype::equivalent(bc_dtype, bn::dtype::get_builtin<BCDTYPE>()))     \
+    if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))     \
     {                                                                          \
         if(bc_dtype_supported) {                                               \
             std::stringstream ss;                                              \
@@ -699,7 +783,7 @@ struct nd_traits<ND>
                << "possible C++ data type! This is an internal error!";        \
             throw TypeError(ss.str());                                         \
         }                                                                      \
-        oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd, oor_stack_size));\
+        oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
         fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;        \
         bc_dtype_supported = true;                                             \
     }
@@ -707,7 +791,7 @@ struct nd_traits<ND>
 #if ND > 1
 else
 #endif
-if(nd == ND)
+if(nd_ == ND)
 {
     NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(bool)
     NDHIST_NDTRAITS_BC_DATA_TYPE_SUPPORT(int16_t)

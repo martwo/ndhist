@@ -41,7 +41,7 @@ print(a1, a2)
 #time.sleep(3)
 print("Filling h")
 h_ru_start = resource.getrusage(resource.RUSAGE_SELF)
-h.fill((a1, a2), 1)
+h.fill((a1, a2), 2)
 h_ru_end = resource.getrusage(resource.RUSAGE_SELF)
 h_dutime = h_ru_end[0]-h_ru_start[0]
 h_dstime = h_ru_end[1]-h_ru_start[1]
@@ -50,8 +50,9 @@ print("done. Dutime = %g, Dstime = %g, Total = %g"%(h_dutime, h_dstime, h_total)
 
 #time.sleep(3)
 print("Filling d")
+d_weights = np.zeros((a1.size,), dtype=axis.dtype)+2
 d_ru_start = resource.getrusage(resource.RUSAGE_SELF)
-d.fill((a1, a2), None)
+d.fill((a1, a2), d_weights)
 d_ru_end = resource.getrusage(resource.RUSAGE_SELF)
 d_dutime = d_ru_end[0]-d_ru_start[0]
 d_dstime = d_ru_end[1]-d_ru_start[1]
@@ -63,3 +64,7 @@ print("Ratio h/d = %g"%(h_total/d_total))
 #time.sleep(3)
 print(h.bincontent)
 print(d.bincontent)
+
+print("---------------------")
+print(h.binentries)
+print(h.squaredweights)
