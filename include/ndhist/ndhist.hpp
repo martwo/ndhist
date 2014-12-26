@@ -510,14 +510,14 @@ struct nd_traits<ND>
             iter.init_full_iteration();
 
             // Create indexed iterators for the bin content arrays.
-            bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType> bc_iter(
-                self.get_bc_noe_ndarray()
-              , self.get_bc_sow_ndarray()
-              , self.get_bc_sows_ndarray()
-              , bn::detail::iter_operand::flags::READWRITE::value
-              , bn::detail::iter_operand::flags::READWRITE::value
-              , bn::detail::iter_operand::flags::READWRITE::value
-            );
+//             bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType> bc_iter(
+//                 self.get_bc_noe_ndarray()
+//               , self.get_bc_sow_ndarray()
+//               , self.get_bc_sows_ndarray()
+//               , bn::detail::iter_operand::flags::READWRITE::value
+//               , bn::detail::iter_operand::flags::READWRITE::value
+//               , bn::detail::iter_operand::flags::READWRITE::value
+//             );
 
             // Get a handle to the OOR fill record stack.
             OORFillRecordStack<BCValueType> & oorfrstack = self.get_oor_fill_record_stack<BCValueType>();
@@ -547,6 +547,10 @@ struct nd_traits<ND>
             size_t i;
             intptr_t bin_idx;
             char * ndvalue_ptr;
+            intptr_t bc_data_offset = self.bc_->CalcDataOffset(0);
+            std::vector<intptr_t> bc_data_strides = self.bc_->CalcDataStrides();
+            char * bc_data_addr;
+            bool value_cached;
             do {
                 intptr_t size = iter.get_inner_loop_size();
                 while(size--)
@@ -559,10 +563,12 @@ struct nd_traits<ND>
                     // Get the coordinate of the current ndvalue.
                     extend_axes = false;
                     is_oor = false;
+                    value_cached = false;
                     oor_arr_idx = 0;
                     oor_arr_noor_size = 0;
                     oor_arr_oor_size = 0;
 
+                    bc_data_addr = self.bc_->data_ + bc_data_offset;
                     for(i=0; i<ND; ++i)
                     {
                         //std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
@@ -573,6 +579,7 @@ struct nd_traits<ND>
                         {
                             //std::cout << "normal fill i=" << i << "indices.size()="<<indices.size();
                             //std::cout << "relative_indices.size() "<< relative_indices.size()<<std::endl;
+                            bc_data_addr += bin_idx*bc_data_strides[i];
                             indices[i] = bin_idx;
                             relative_indices[i] = bin_idx;
 
@@ -669,6 +676,7 @@ struct nd_traits<ND>
                             // Push it into the cache stack. If it returns ``true``
                             // the stack is full and we need to extent the axes and
                             // fill the cached values in.
+                            value_cached = true;
                             if(oorfrstack.push_back(
                                 is_oor
                               , oor_arr_idx
@@ -682,14 +690,17 @@ struct nd_traits<ND>
                               , weight))
                             {
                                 //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
-                                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(
-                                    self
-                                  , f_n_extra_bins_vec
-                                  , b_n_extra_bins_vec
-                                  , indices
-                                  , bc_iter
-                                  , oorfrstack
-                                );
+                                // The cache stack is full. Extend the axes.
+                                self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                                self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                                self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                                bc_data_offset = self.bc_->CalcDataOffset(0);
+                                bc_data_strides = self.bc_->CalcDataStrides();
+
+                                flush_oor_cache<BCValueType>(self, f_n_extra_bins_vec, indices, bc_data_offset, bc_data_strides, oorfrstack);
+
+                                memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
+                                memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                                 reallocation_upon_extension = false;
                             }
                         }
@@ -701,41 +712,43 @@ struct nd_traits<ND>
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            bc_iter = bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType>(
-                                self.get_bc_noe_ndarray()
-                              , self.get_bc_sow_ndarray()
-                              , self.get_bc_sows_ndarray()
-                              , bn::detail::iter_operand::flags::READWRITE::value
-                              , bn::detail::iter_operand::flags::READWRITE::value
-                              , bn::detail::iter_operand::flags::READWRITE::value
-                            );
+                            bc_data_offset = self.bc_->CalcDataOffset(0);
+                            bc_data_strides = self.bc_->CalcDataStrides();
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
+
+                            // Since the strides have changed, we need to
+                            // recompute the bc_data_addr.
+                            bc_data_addr = self.bc_->data_ + bc_data_offset;
+                            for(size_t i=0; i<ND; ++i)
+                            {
+                                bc_data_addr += indices[i]*bc_data_strides[i];
+                            }
                         }
                     }
 
-                    // Increase the bin content if all bin indices exist.
-                    if(!is_oor)
+                    if(!value_cached)
                     {
-                        bc_iter.jump_to(indices);
-                        bc_iter.dereference();
-                        *bc_iter.value_ptr_0 += 1;
-                        *bc_iter.value_ptr_1 += weight;
-                        *bc_iter.value_ptr_2 += weight*weight;
-                    }
-                    else
-                    {
-                        //std::cout << "is_oor is true, oor_arr_idx ="<< oor_arr_idx << std::endl;
-                        // There is at least one axis that is out-of-range.
-                        bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(oor_arr_idx);
+                        // Increase the bin content if all bin indices exist.
+                        if(!is_oor)
+                        {
+                            //std::cout << "increment the bin "<< std::endl<<std::flush;
+                            detail::bc_value_traits<BCValueType>::increment_bin(bc_data_addr, weight);
+                        }
+                        else
+                        {
+                            //std::cout << "is_oor is true, oor_arr_idx ="<< oor_arr_idx << std::endl;
+                            // There is at least one axis that is out-of-range.
+                            bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(oor_arr_idx);
 
-                        memcpy(&indices[0], &oor_arr_noor_indices[0], oor_arr_noor_size*sizeof(intptr_t));
-                        memcpy(&indices[oor_arr_noor_size], &oor_arr_oor_indices[0], oor_arr_oor_size*sizeof(intptr_t));
+                            memcpy(&indices[0], &oor_arr_noor_indices[0], oor_arr_noor_size*sizeof(intptr_t));
+                            memcpy(&indices[oor_arr_noor_size], &oor_arr_oor_indices[0], oor_arr_oor_size*sizeof(intptr_t));
 
-                        //std::cout << "jump to indices, ptr" << std::endl;
-                        oor_arr_iter.jump_to(indices);
-                        bc_ref_type oor_value = *oor_arr_iter;
-                        oor_value += weight;
+                            //std::cout << "jump to indices, ptr" << std::endl;
+                            oor_arr_iter.jump_to(indices);
+                            bc_ref_type oor_value = *oor_arr_iter;
+                            oor_value += weight;
+                        }
                     }
 
                     // Jump to the next fill iteration.
@@ -746,13 +759,20 @@ struct nd_traits<ND>
             // Fill the remaining out-of-range values from the stack.
             if(oorfrstack.get_size() > 0)
             {
-                extend_axes_and_flush_oor_fill_record_stack<BCValueType>(
+                self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
+                bc_data_offset = self.bc_->CalcDataOffset(0);
+                bc_data_strides = self.bc_->CalcDataStrides();
+
+                flush_oor_cache<BCValueType>(
                     self
                   , f_n_extra_bins_vec
-                  , b_n_extra_bins_vec
                   , indices
-                  , bc_iter
-                  , oorfrstack);
+                  , bc_data_offset
+                  , bc_data_strides
+                  , oorfrstack
+                );
             }
         }
     };

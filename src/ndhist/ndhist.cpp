@@ -120,6 +120,19 @@ struct bc_value_traits
     {
         return *reinterpret_cast<BCValueType*>(iter.get_data(op_idx));
     }
+
+    static
+    void
+    increment_bin(char * bc_data_addr, BCValueType const & weight)
+    {
+        uintptr_t & noe    = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        BCValueType & sow  = *reinterpret_cast<BCValueType*>(bc_data_addr + sizeof(uintptr_t));
+        BCValueType & sows = *reinterpret_cast<BCValueType*>(bc_data_addr + sizeof(uintptr_t) + sizeof(BCValueType));
+
+        noe  += 1;
+        sow  += weight;
+        sows += weight * weight;
+    }
 };
 
 template <>
@@ -136,17 +149,32 @@ struct bc_value_traits<bp::object>
         bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*value_ptr)));
         return value;
     }
+
+    static
+    void
+    increment_bin(char * bc_data_addr, bp::object const & weight)
+    {
+        uintptr_t & noe = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        uintptr_t * ptr = reinterpret_cast<uintptr_t*>(bc_data_addr + sizeof(uintptr_t));
+        bp::object sow(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*ptr)));
+        uintptr_t * ptr2 = reinterpret_cast<uintptr_t*>(bc_data_addr + 2*sizeof(uintptr_t));
+        bp::object sows(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*ptr2)));
+
+        noe  += 1;
+        sow  += weight;
+        sows += weight * weight;
+    }
 };
 
 template <typename BCValueType>
 static
 void
-extend_axes_and_flush_oor_fill_record_stack(
+flush_oor_cache(
     ndhist                & self
   , std::vector<intptr_t> & f_n_extra_bins_vec
-  , std::vector<intptr_t> & b_n_extra_bins_vec
   , std::vector<intptr_t> & indices
-  , bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType> & bc_iter
+  , uintptr_t               bc_data_offset
+  , std::vector<intptr_t> & bc_data_strides
   , OORFillRecordStack<BCValueType> & oorfrstack
 )
 {
@@ -155,21 +183,8 @@ extend_axes_and_flush_oor_fill_record_stack(
 
     intptr_t const nd = f_n_extra_bins_vec.size();
 
-    // Extent the axes.
-    self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
-    self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-    self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
-    // Update the local variables.
-    bc_iter = bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType>(
-        self.get_bc_noe_ndarray()
-      , self.get_bc_sow_ndarray()
-      , self.get_bc_sows_ndarray()
-      , bn::detail::iter_operand::flags::READWRITE::value
-      , bn::detail::iter_operand::flags::READWRITE::value
-      , bn::detail::iter_operand::flags::READWRITE::value
-    );
-
     // Fill in the cached values.
+    char * bc_data_addr;
     intptr_t idx = oorfrstack.get_size();
     while(idx--)
     {
@@ -178,20 +193,6 @@ extend_axes_and_flush_oor_fill_record_stack(
         {
             bn::indexed_iterator<BCValueType> & oor_arr_iter = self.get_oor_arr_iter<BCValueType>(rec.oor_arr_idx);
 
-            //std::cout << "rec.oor_arr_noor_relative_indices = ";
-            for(uintptr_t axis=0; axis<rec.oor_arr_noor_relative_indices_size; ++axis)
-            {
-                //std::cout << rec.oor_arr_noor_relative_indices[axis]<<",";
-            }
-            //std::cout << std::endl;
-
-            //std::cout << "rec.oor_arr_oor_relative_indices = ";
-            for(uintptr_t axis=0; axis<rec.oor_arr_oor_relative_indices_size; ++axis)
-            {
-                //std::cout << rec.oor_arr_oor_relative_indices[axis]<<",";
-            }
-            //std::cout << std::endl;
-
             size_t const noor_size = rec.oor_arr_noor_relative_indices_size*sizeof(intptr_t);
             size_t const oor_size = rec.oor_arr_oor_relative_indices_size*sizeof(intptr_t);
             memcpy(&indices[0], &rec.oor_arr_noor_relative_indices[0], noor_size);
@@ -199,7 +200,9 @@ extend_axes_and_flush_oor_fill_record_stack(
             memcpy(&oorfrstack.nd_mem0_[0], &rec.oor_arr_noor_axes_indices[0], noor_size);
             memcpy(&oorfrstack.nd_mem0_[rec.oor_arr_noor_relative_indices_size], &rec.oor_arr_oor_axes_indices[0], oor_size);
             //std::cout << "indices[axis] = ";
-            for(intptr_t oor_arr_axis=0; oor_arr_axis<nd; ++oor_arr_axis)
+            // Translate the relative indices of the noor axes into absolute
+            // indices.
+            for(uintptr_t oor_arr_axis=0; oor_arr_axis<rec.oor_arr_noor_relative_indices_size; ++oor_arr_axis)
             {
                 indices[oor_arr_axis] += f_n_extra_bins_vec[oorfrstack.nd_mem0_[oor_arr_axis]];
                 //std::cout << indices[oor_arr_axis]<<",";
@@ -212,35 +215,20 @@ extend_axes_and_flush_oor_fill_record_stack(
         }
         else
         {
-            // Translate the relative indices to absolut
-            // indices for the extended bin content array.
-            // This is just
-            // f_n_extra_bins_vec[i] + relative_indices[i]
-            // for each axis.
-            // Note: Since the length of these vectors is ND
-            //       thus, not a constant for all histogram
-            //       objects, we need to use a for-loop.
-            //       It would be nice to have a SIMD
-            //       operation for this, because both
-            //       vectors are of the same lengths and it
-            //       is just an element-wise addition.
+            // Translate the relative indices into an absolute
+            // data address for the extended bin content array.
+            bc_data_addr = self.bc_->data_ + bc_data_offset;
             for(intptr_t axis=0; axis<nd; ++axis)
             {
-                indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
+                bc_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * bc_data_strides[axis];
             }
-            bc_iter.jump_to(indices);
-            bc_iter.dereference();
-            *bc_iter.value_ptr_0 += 1;
-            *bc_iter.value_ptr_1 += rec.weight;
-            *bc_iter.value_ptr_2 += rec.weight * rec.weight;
+
+            detail::bc_value_traits<BCValueType>::increment_bin(bc_data_addr, rec.weight);
         }
     }
 
-    // Finally, clear the stack, and reset the extra bin
-    // information.
+    // Finally, clear the stack.
     oorfrstack.clear();
-    memset(&f_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
-    memset(&b_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
 }
 
 struct generic_nd_traits

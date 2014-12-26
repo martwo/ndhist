@@ -173,7 +173,7 @@ class ndarray_storage
     /** The numpy data type object, defining the element size in bytes.
      */
     bn::dtype dt_;
-
+  public:
     /** The pointer to the actual data storage.
      */
     char * data_;
