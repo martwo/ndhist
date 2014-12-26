@@ -12,6 +12,9 @@ class V(object):
     def __add__(self, rhs):
         print("%f + %f"%(self._v, rhs._v))
         return V(self._v + rhs._v)
+    def __mul__(self, rhs):
+        print("%f * %f"%(self._v, rhs._v))
+        return V(self._v * rhs._v)
     def __iadd__(self, rhs):
         print("%f += %f"%(self._v, rhs._v))
         self._v += rhs._v

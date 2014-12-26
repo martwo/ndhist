@@ -142,17 +142,12 @@ template <typename BCValueType>
 static
 void
 extend_axes_and_flush_oor_fill_record_stack(
-    ndhist                            & self
-  , std::vector<intptr_t>             & f_n_extra_bins_vec
-  , std::vector<intptr_t>             & b_n_extra_bins_vec
-  , std::vector<intptr_t>             & indices
-  , bn::ndarray                       & bc_noe_arr
-  , bn::ndarray                       & bc_sow_arr
-  , bn::ndarray                       & bc_sows_arr
-  , bn::indexed_iterator<uintptr_t>   & bc_noe_iter
-  , bn::indexed_iterator<BCValueType> & bc_sow_iter
-  , bn::indexed_iterator<BCValueType> & bc_sows_iter
-  , OORFillRecordStack<BCValueType>   & oorfrstack
+    ndhist                & self
+  , std::vector<intptr_t> & f_n_extra_bins_vec
+  , std::vector<intptr_t> & b_n_extra_bins_vec
+  , std::vector<intptr_t> & indices
+  , bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType> & bc_iter
+  , OORFillRecordStack<BCValueType> & oorfrstack
 )
 {
     typedef typename bc_value_traits<BCValueType>::ref_type
@@ -165,12 +160,14 @@ extend_axes_and_flush_oor_fill_record_stack(
     self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
     self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
     // Update the local variables.
-    bc_noe_arr  = self.get_bc_noe_ndarray();
-    bc_sow_arr  = self.get_bc_sow_ndarray();
-    bc_sows_arr = self.get_bc_sows_ndarray();
-    bc_noe_iter  = bn::indexed_iterator<uintptr_t>(bc_noe_arr, bn::detail::iter_operand::flags::READWRITE::value);
-    bc_sow_iter  = bn::indexed_iterator<BCValueType>(bc_sow_arr, bn::detail::iter_operand::flags::READWRITE::value);
-    bc_sows_iter = bn::indexed_iterator<BCValueType>(bc_sows_arr, bn::detail::iter_operand::flags::READWRITE::value);
+    bc_iter = bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType>(
+        self.get_bc_noe_ndarray()
+      , self.get_bc_sow_ndarray()
+      , self.get_bc_sows_ndarray()
+      , bn::detail::iter_operand::flags::READWRITE::value
+      , bn::detail::iter_operand::flags::READWRITE::value
+      , bn::detail::iter_operand::flags::READWRITE::value
+    );
 
     // Fill in the cached values.
     intptr_t idx = oorfrstack.get_size();
@@ -231,15 +228,11 @@ extend_axes_and_flush_oor_fill_record_stack(
             {
                 indices[axis] = f_n_extra_bins_vec[axis] + rec.relative_indices[axis];
             }
-            bc_noe_iter.jump_to(indices);
-            bc_sow_iter.jump_to(indices);
-            bc_sows_iter.jump_to(indices);
-            uintptr_t & bc_noe_value  = *bc_noe_iter;
-            bc_ref_type bc_sow_value  = *bc_sow_iter;
-            bc_ref_type bc_sows_value = *bc_sows_iter;
-            bc_noe_value  += 1;
-            bc_sow_value  += rec.weight;
-            bc_sows_value += rec.weight * rec.weight;
+            bc_iter.jump_to(indices);
+            bc_iter.dereference();
+            *bc_iter.value_ptr_0 += 1;
+            *bc_iter.value_ptr_1 += rec.weight;
+            *bc_iter.value_ptr_2 += rec.weight * rec.weight;
         }
     }
 
@@ -707,7 +700,7 @@ create_oor_arrays(
         // with bc_class() objects.
         if(bn::dtype::equivalent(bc_weight_dt, bn::dtype::get_builtin<bp::object>()))
         {
-            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(bc_weight_dt, 1, &self));
+            bn::flat_iterator<bp::object> iter(arr_storage->ConstructNDArray(bc_weight_dt, 0, &self));
             bn::flat_iterator<bp::object> iter_end(iter.end());
             for(; iter != iter_end; ++iter)
             {

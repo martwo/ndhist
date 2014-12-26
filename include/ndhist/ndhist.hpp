@@ -30,6 +30,7 @@
 #include <boost/numpy/dtype.hpp>
 #include <boost/numpy/ndarray.hpp>
 #include <boost/numpy/indexed_iterator.hpp>
+#include <boost/numpy/multi_indexed_iterator.hpp>
 
 #include <ndhist/error.hpp>
 #include <ndhist/detail/axis.hpp>
@@ -509,13 +510,14 @@ struct nd_traits<ND>
             iter.init_full_iteration();
 
             // Create indexed iterators for the bin content arrays.
-            // TODO: A multi indexed iterator would be nice to have.
-            bn::ndarray bc_noe_arr = self.get_bc_noe_ndarray();
-            bn::ndarray bc_sow_arr = self.get_bc_sow_ndarray();
-            bn::ndarray bc_sows_arr = self.get_bc_sows_ndarray();
-            bn::indexed_iterator<uintptr_t>   bc_noe_iter(bc_noe_arr,   bn::detail::iter_operand::flags::READWRITE::value);
-            bn::indexed_iterator<BCValueType> bc_sow_iter(bc_sow_arr,   bn::detail::iter_operand::flags::READWRITE::value);
-            bn::indexed_iterator<BCValueType> bc_sows_iter(bc_sows_arr, bn::detail::iter_operand::flags::READWRITE::value);
+            bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType> bc_iter(
+                self.get_bc_noe_ndarray()
+              , self.get_bc_sow_ndarray()
+              , self.get_bc_sows_ndarray()
+              , bn::detail::iter_operand::flags::READWRITE::value
+              , bn::detail::iter_operand::flags::READWRITE::value
+              , bn::detail::iter_operand::flags::READWRITE::value
+            );
 
             // Get a handle to the OOR fill record stack.
             OORFillRecordStack<BCValueType> & oorfrstack = self.get_oor_fill_record_stack<BCValueType>();
@@ -685,12 +687,7 @@ struct nd_traits<ND>
                                   , f_n_extra_bins_vec
                                   , b_n_extra_bins_vec
                                   , indices
-                                  , bc_noe_arr
-                                  , bc_sow_arr
-                                  , bc_sows_arr
-                                  , bc_noe_iter
-                                  , bc_sow_iter
-                                  , bc_sows_iter
+                                  , bc_iter
                                   , oorfrstack
                                 );
                                 reallocation_upon_extension = false;
@@ -704,12 +701,14 @@ struct nd_traits<ND>
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            bc_noe_arr  = self.get_bc_noe_ndarray();
-                            bc_sow_arr  = self.get_bc_sow_ndarray();
-                            bc_sows_arr = self.get_bc_sows_ndarray();
-                            bc_noe_iter  = bn::indexed_iterator<uintptr_t>(bc_noe_arr, bn::detail::iter_operand::flags::READWRITE::value);
-                            bc_sow_iter  = bn::indexed_iterator<BCValueType>(bc_sow_arr, bn::detail::iter_operand::flags::READWRITE::value);
-                            bc_sows_iter = bn::indexed_iterator<BCValueType>(bc_sows_arr, bn::detail::iter_operand::flags::READWRITE::value);
+                            bc_iter = bn::iterators::multi_indexed_iterator<3>::iter<uintptr_t, BCValueType, BCValueType>(
+                                self.get_bc_noe_ndarray()
+                              , self.get_bc_sow_ndarray()
+                              , self.get_bc_sows_ndarray()
+                              , bn::detail::iter_operand::flags::READWRITE::value
+                              , bn::detail::iter_operand::flags::READWRITE::value
+                              , bn::detail::iter_operand::flags::READWRITE::value
+                            );
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                         }
@@ -718,15 +717,11 @@ struct nd_traits<ND>
                     // Increase the bin content if all bin indices exist.
                     if(!is_oor)
                     {
-                        bc_noe_iter.jump_to(indices);
-                        bc_sow_iter.jump_to(indices);
-                        bc_sows_iter.jump_to(indices);
-                        uintptr_t & bc_noe_value  = *bc_noe_iter;
-                        bc_ref_type bc_sow_value  = *bc_sow_iter;
-                        bc_ref_type bc_sows_value = *bc_sows_iter;
-                        bc_noe_value  += 1;
-                        bc_sow_value  += weight;
-                        bc_sows_value += weight * weight;
+                        bc_iter.jump_to(indices);
+                        bc_iter.dereference();
+                        *bc_iter.value_ptr_0 += 1;
+                        *bc_iter.value_ptr_1 += weight;
+                        *bc_iter.value_ptr_2 += weight*weight;
                     }
                     else
                     {
@@ -756,12 +751,7 @@ struct nd_traits<ND>
                   , f_n_extra_bins_vec
                   , b_n_extra_bins_vec
                   , indices
-                  , bc_noe_arr
-                  , bc_sow_arr
-                  , bc_sows_arr
-                  , bc_noe_iter
-                  , bc_sow_iter
-                  , bc_sows_iter
+                  , bc_iter
                   , oorfrstack);
             }
         }
