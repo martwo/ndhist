@@ -38,7 +38,10 @@ void register_ndhist()
           )
         )
 
-
+        .add_property("nd", &ndhist::get_nd
+            , "The dimensionality of the histogram.")
+        .add_property("nbins", &ndhist::py_get_nbins
+            , "The tuple holding the number of bins for each axis.")
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
@@ -55,9 +58,6 @@ void register_ndhist()
               &ndhist::py_get_sows_ndarray
             , bn::ndarray_accessor_return())
             , "The ndarray holding the sum of weights for for each bin.")
-
-        .add_property("nd", &ndhist::get_nd
-            , "The dimensionality of the histogram.")
 
         .add_property("ndvalues_dtype", &ndhist::get_ndvalues_dtype
             , "The dtype object describing the ndvalues array needed for "
@@ -76,10 +76,10 @@ void register_ndhist()
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
         .def("fill", &ndhist::fill
-             , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
-             , "Fills the histogram with the given n-dimensional numbers, "
-               "weighted by the given weights. If no weights are specified, "
-               "``1`` will be used for each entry.")
+            , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
+            , "Fills the histogram with the given n-dimensional numbers, "
+              "weighted by the given weights. If no weights are specified, "
+              "``1`` will be used for each entry.")
     ;
 }
 

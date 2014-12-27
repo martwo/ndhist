@@ -1,7 +1,6 @@
 import numpy as np
 import ndhist
 import dashi
-import time
 import resource
 
 axis = np.linspace(-100, 100, num=201, endpoint=True).astype(np.dtype(np.float64))
@@ -38,7 +37,6 @@ print(np.any(a2[a2>=axis_max]))
 
 print(a1, a2)
 
-#time.sleep(3)
 print("Filling h")
 h_ru_start = resource.getrusage(resource.RUSAGE_SELF)
 h.fill((a1, a2), 2)
@@ -48,7 +46,7 @@ h_dstime = h_ru_end[1]-h_ru_start[1]
 h_total = h_dutime+h_dstime
 print("done. Dutime = %g, Dstime = %g, Total = %g"%(h_dutime, h_dstime, h_total))
 
-#time.sleep(3)
+
 print("Filling d")
 d_weights = np.zeros((a1.size,), dtype=axis.dtype)+2
 d_ru_start = resource.getrusage(resource.RUSAGE_SELF)
@@ -61,7 +59,6 @@ print("done. Dutime = %g, Dstime = %g, Total = %g"%(d_dutime, d_dstime, d_total)
 
 print("Ratio h/d = %g"%(h_total/d_total))
 
-#time.sleep(3)
 print(h.bincontent)
 print(d.bincontent)
 

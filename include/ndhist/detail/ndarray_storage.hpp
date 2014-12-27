@@ -103,6 +103,12 @@ class ndarray_storage
         return back_capacity_;
     }
 
+    std::vector<intptr_t> &
+    get_shape_vector()
+    {
+        return shape_;
+    }
+
     bn::dtype &
     get_dtype()
     {

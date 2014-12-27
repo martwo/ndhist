@@ -17,6 +17,7 @@
 
 #include <boost/type_traits/is_same.hpp>
 
+#include <boost/python/list.hpp>
 #include <boost/python/refcount.hpp>
 #include <boost/python/str.hpp>
 #include <boost/python/tuple.hpp>
@@ -694,6 +695,20 @@ create_oor_arrays(
             }
         }
     }
+}
+
+bp::tuple
+ndhist::
+py_get_nbins() const
+{
+    std::vector<intptr_t> const & shape = bc_->get_shape_vector();
+    bp::list shape_list;
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        shape_list.append(shape[i]);
+    }
+    bp::tuple shape_tuple(shape_list);
+    return shape_tuple;
 }
 
 bn::ndarray

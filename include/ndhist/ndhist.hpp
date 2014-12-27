@@ -102,6 +102,13 @@ class ndhist
     }
 
     /**
+     * @brief Creates a boost::python::tuple object holding the number of bins
+     *        for each axis.
+     */
+    bp::tuple
+    py_get_nbins() const;
+
+    /**
      * @brief Constructs the number of entries ndarray for releasing it to
      *        Python.
      *        The lifetime of this new object and this ndhist object will be
