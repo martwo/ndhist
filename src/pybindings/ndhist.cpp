@@ -38,10 +38,15 @@ void register_ndhist()
           )
         )
 
-        .add_property("nd", &ndhist::get_nd
+        .add_property("ndim", &ndhist::get_nd
             , "The dimensionality of the histogram.")
         .add_property("nbins", &ndhist::py_get_nbins
             , "The tuple holding the number of bins for each axis.")
+
+        .add_property("binedges", &ndhist::py_get_binedges
+            , "The tuple holding ndarray objects with the bin edges for each "
+              "axis. In case the histogram is 1-dimensional, just a single "
+              "ndarray is returned.")
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
@@ -65,7 +70,7 @@ void register_ndhist()
               "ndarray.view method in order to get a view on a MxN array to "
               "fill it into a N-dimensional histgram with M entries.")
 
-        .add_property("max_tuple_fill_nd", &ndhist::get_max_tuple_fill_nd
+        .add_property("max_tuple_fill_ndim", &ndhist::get_max_tuple_fill_nd
             , "The maximal dimensionality of the histogram, which "
               "is still supported for filling with a tuple of arrays as "
               "ndvalue function argument. Otherwise a structured array needs "

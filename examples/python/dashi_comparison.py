@@ -17,14 +17,17 @@ h = ndhist.ndhist(((axis, "x", 0, 0),
                   )
                   , dtype=np.dtype(np.float64)
                  )
-print(h.nbins)
 
 d = dashi.histogram.histogram(  2
                     , (axis,
                        axis
                       )
                    )
+print(h.nbins)
 print(d.nbins)
+
+print(h.binedges)
+print(d.binedges)
 
 a1 = np.random.normal(0, 50, size=N)
 a2 = np.random.normal(0, 50, size=N)

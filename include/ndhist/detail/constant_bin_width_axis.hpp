@@ -83,7 +83,7 @@ struct ConstantBinWidthAxis
         bn::flat_iterator<axis_value_type> iter_end(iter.end());
         for(intptr_t idx = 0; iter != iter_end; ++idx, ++iter)
         {
-            axis_value_type value = *iter;
+            axis_value_type & value = *iter;
             value = data.min_ + idx*data.bin_width_;
         }
         return edges;

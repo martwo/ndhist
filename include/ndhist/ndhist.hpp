@@ -144,6 +144,14 @@ class ndhist
     bn::ndarray
     get_edges_ndarray(intptr_t axis=0) const;
 
+    /**
+     * @brief In case of a 1-dimensional histogram it returns a ndarray holding
+     *        the bin edges, otherwise a tuple of ndarray objects holding the
+     *        bin edges for each axis.
+     */
+    bp::object
+    py_get_binedges() const;
+
     /** Fills a given n-dimension value into the histogram's bin content array.
      *  On the Python side, the *ndvalue* is a numpy object array that might
      *  hold values of different types. The order of these types must match the

@@ -753,6 +753,27 @@ get_edges_ndarray(intptr_t axis) const
     return axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data_);
 }
 
+bp::object
+ndhist::
+py_get_binedges() const
+{
+    // Special case for 1d histograms, where we skip the extra tuple of
+    // length 1.
+    if(nd_ == 1)
+    {
+        return get_edges_ndarray(0);
+    }
+
+    bp::list edges_list;
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        bn::ndarray edges = get_edges_ndarray(i);
+        edges_list.append(edges);
+    }
+    bp::tuple edges_tuple(edges_list);
+    return edges_tuple;
+}
+
 void
 ndhist::
 fill(bp::object const & ndvalue_obj, bp::object weight_obj)
