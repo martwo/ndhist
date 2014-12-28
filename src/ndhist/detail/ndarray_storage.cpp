@@ -213,6 +213,48 @@ extend_axes(
     }
 }
 
+void
+ndarray_storage::
+copy_from(
+    bn::ndarray const & src_arr
+  , std::vector<intptr_t> const & shape_offset_vec
+)
+{
+    int const nd = this->get_nd();
+    int const itemsize = dt_.get_itemsize();
+
+    std::vector<intptr_t> const & dst_shape = this->get_shape_vector();
+    std::vector<intptr_t> const src_shape = src_arr.get_shape_vector();
+
+    // Calculate the data offset of the given source array within this storage.
+    intptr_t offset = front_capacity_[nd-1] + shape_offset_vec[nd-1];
+    intptr_t dim_offsets = 1;
+    for(int i=nd-2; i>=0; --i)
+    {
+        dim_offsets *= (front_capacity_[i+1]+ shape_offset_vec[i+1] + src_shape[i+1] + (dst_shape[i+1] - shape_offset_vec[i+1] - src_shape[i+1]) + back_capacity_[i+1]);
+        offset += (front_capacity_[i]+shape_offset_vec[i])*dim_offsets;
+    }
+    offset *= itemsize;
+
+    // Calculate the strides of the given source array within this storage.
+    std::vector<intptr_t> strides(nd, itemsize);
+    for(int i=nd-2; i>=0; --i)
+    {
+        strides[i] = ((front_capacity_[i+1]+ shape_offset_vec[i+1] + src_shape[i+1] + (dst_shape[i+1] - shape_offset_vec[i+1] - src_shape[i+1]) + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
+    }
+
+    // Create the destination array from this storage.
+    bp::object data_owner; // We use the None object as an owner proxy.
+    bn::ndarray dst_arr = bn::from_data(data_+offset, dt_, src_shape, strides, &data_owner);
+
+    // Now we just copy the src array to the dst array.
+    if(! bn::copy_into(dst_arr, src_arr))
+    {
+        throw MemoryError("Unable to copy the source array into the this "
+                          "ndarray storage!");
+    }
+}
+
 //______________________________________________________________________________
 char *
 ndarray_storage::

@@ -42,11 +42,15 @@ void register_ndhist()
             , "The dimensionality of the histogram.")
         .add_property("nbins", &ndhist::py_get_nbins
             , "The tuple holding the number of bins for each axis.")
-
         .add_property("binedges", &ndhist::py_get_binedges
             , "The tuple holding ndarray objects with the bin edges for each "
               "axis. In case the histogram is 1-dimensional, just a single "
               "ndarray is returned.")
+
+        .add_property("title", &ndhist::py_get_title, &ndhist::py_set_title
+            , "The title of the histgram.")
+        .add_property("labels", &ndhist::py_get_labels
+            , "The tuple holding the labels of the axes.")
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
@@ -59,10 +63,24 @@ void register_ndhist()
             , bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents (sum of weights) for "
               "each bin.")
+        .add_property("_h_bincontent", bp::make_function(
+              &ndhist::py_get_oorpadded_sow_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the bin contents (sum of weights) for "
+              "each bin. The number of bins for each axis is increased by 2 "
+              "(one bin on each side of the axis) holding the under- and "
+              "overflow bins.")
         .add_property("squaredweights", bp::make_function(
               &ndhist::py_get_sows_ndarray
             , bn::ndarray_accessor_return())
-            , "The ndarray holding the sum of weights for for each bin.")
+            , "The ndarray holding the sum of weights for each bin.")
+        .add_property("_h_squaredweights", bp::make_function(
+              &ndhist::py_get_oorpadded_sows_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the sum of weights for each bin."
+              "The number of bins for each axis is increased by 2 "
+              "(one bin on each side of the axis) holding the under- and "
+              "overflow bins.")
 
         .add_property("ndvalues_dtype", &ndhist::get_ndvalues_dtype
             , "The dtype object describing the ndvalues array needed for "

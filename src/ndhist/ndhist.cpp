@@ -80,17 +80,23 @@ struct axis_traits
 
     static
     boost::shared_ptr<Axis>
-    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t autoscale_fcap=0, intptr_t autoscale_bcap=0)
+    construct_axis(
+        ndhist * self
+      , bn::ndarray const & edges
+      , std::string const & label
+      , intptr_t autoscale_fcap=0
+      , intptr_t autoscale_bcap=0
+    )
     {
         // Check if the edges have a constant bin width,
         // thus the axis is linear.
         if(has_constant_bin_width(edges))
         {
             //std::cout << "+++++++++++++ Detected const bin width of "  << std::endl;
-            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges, autoscale_fcap, autoscale_bcap));
+            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges, label, autoscale_fcap, autoscale_bcap));
         }
 
-        return boost::shared_ptr< detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges));
+        return boost::shared_ptr< detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges, label));
     }
 
 };
@@ -100,12 +106,18 @@ struct axis_traits<bp::object>
 {
     static
     boost::shared_ptr<Axis>
-    construct_axis(ndhist * self, bn::ndarray const & edges, intptr_t, intptr_t)
+    construct_axis(
+        ndhist * self
+      , bn::ndarray const & edges
+      , std::string const & label
+      , intptr_t
+      , intptr_t
+    )
     {
         // In case we have an object value typed axis, we use the
         // GenericAxis, because it requires only the < comparison
         // operator.
-        return boost::shared_ptr< detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(self, edges));
+        return boost::shared_ptr< detail::GenericAxis<bp::object> >(new detail::GenericAxis<bp::object>(self, edges, label));
     }
 };
 
@@ -388,6 +400,9 @@ struct generic_nd_traits
                     iter.add_inner_loop_strides_to_data_ptrs();
                 }
             } while(iter.next());
+
+            // Trigger the recreation of temporary properties.
+            self.recreate_oorpadded_bc_ = true;
         }
     }; // struct fill_traits
 }; // struct generic_nd_traits
@@ -412,6 +427,7 @@ ndhist(
   , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
   , bc_weight_dt_(dt)
   , bc_class_(bc_class)
+  , recreate_oorpadded_bc_(true)
 {
     std::vector<intptr_t> shape(nd_);
     axes_extension_max_fcap_vec_.resize(nd_);
@@ -421,10 +437,11 @@ ndhist(
     for(size_t i=0; i<nd_; ++i)
     {
         // Each axes element can be a single ndarray or a tuple of the form
-        // (edges_ndarry[, axis_name[, front_capacity, back_capacity]])
+        // (edges_ndarry[, axis_name[, axis_title[, front_capacity, back_capacity]]])
         bp::object axis = axes[i];
         bp::object edges_arr_obj;
         bp::object axis_name_obj;
+        bp::object axis_label_obj;
         bp::object fcap_obj;
         bp::object bcap_obj;
         if(PyTuple_Check(axis.ptr()))
@@ -452,18 +469,27 @@ ndhist(
                 fcap_obj = bp::object(0);
                 bcap_obj = bp::object(0);
             }
-            else if(tuple_len == 4)
+            else if(tuple_len == 3)
             {
-                edges_arr_obj = axis[0];
-                axis_name_obj = axis[1];
-                fcap_obj      = axis[2];
-                bcap_obj      = axis[3];
+                edges_arr_obj  = axis[0];
+                axis_name_obj  = axis[1];
+                axis_label_obj = axis[2];
+                fcap_obj = bp::object(0);
+                bcap_obj = bp::object(0);
+            }
+            else if(tuple_len == 5)
+            {
+                edges_arr_obj  = axis[0];
+                axis_name_obj  = axis[1];
+                axis_label_obj = axis[2];
+                fcap_obj       = axis[3];
+                bcap_obj       = axis[4];
             }
             else
             {
                 std::stringstream ss;
                 ss << "The "<<i<<"th axis tuple must have a length of "
-                   << "either 1, 2, or 4!";
+                   << "either 1, 2, 3, or 5!";
                 throw ValueError(ss.str());
             }
         }
@@ -488,8 +514,9 @@ ndhist(
         }
         const intptr_t n_bin_dim = edges_arr.get_size();
 
-        intptr_t const autoscale_fcap = bp::extract<intptr_t>(fcap_obj);
-        intptr_t const autoscale_bcap = bp::extract<intptr_t>(bcap_obj);
+        intptr_t const axis_extension_max_fcap = bp::extract<intptr_t>(fcap_obj);
+        intptr_t const axis_extension_max_bcap = bp::extract<intptr_t>(bcap_obj);
+        std::string const axis_label = bp::extract<std::string>(axis_label_obj);
 
         // Check the type of the edge values for the current axis.
         bool axis_dtype_supported = false;
@@ -503,7 +530,7 @@ ndhist(
                        << "possible C++ data type! This is an internal error!";     \
                     throw TypeError(ss.str());                                      \
                 }                                                                   \
-                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, autoscale_fcap, autoscale_bcap));\
+                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, axis_label, axis_extension_max_fcap, axis_extension_max_bcap));\
                 axis_dtype_supported = true;                                        \
             }
         NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
@@ -535,8 +562,8 @@ ndhist(
         // an autoscale.
         if(axes_[i]->is_extendable())
         {
-            axes_extension_max_fcap_vec_[i] = autoscale_fcap;
-            axes_extension_max_bcap_vec_[i] = autoscale_bcap;
+            axes_extension_max_fcap_vec_[i] = axis_extension_max_fcap;
+            axes_extension_max_bcap_vec_[i] = axis_extension_max_bcap;
         }
         else
         {
@@ -697,6 +724,30 @@ create_oor_arrays(
     }
 }
 
+void
+ndhist::
+recreate_oorpadded_bc()
+{
+    bn::dtype const & bc_dt = bc_->get_dtype();
+    std::vector<intptr_t> const & bc_shape = bc_->get_shape_vector();
+    std::vector<intptr_t> shape(nd_);
+    std::vector<intptr_t> fcap(nd_, 0);
+    std::vector<intptr_t> bcap(nd_, 0);
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        shape[i] = bc_shape[i] + 2;
+    }
+    oorpadded_bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, fcap, bcap, bc_dt));
+
+    // Copy the bin content data over to the new storage.
+    bp::object data_owner;
+    bn::ndarray src_arr = bc_->ConstructNDArray(bc_dt, 0, &data_owner);
+    std::vector<intptr_t> shape_offset_vec(nd_, 1);
+    oorpadded_bc_->copy_from(src_arr, shape_offset_vec);
+
+    // TODO: Copy also the out-of-range bins to their correct location.
+}
+
 bp::tuple
 ndhist::
 py_get_nbins() const
@@ -727,9 +778,50 @@ py_get_sow_ndarray()
 
 bn::ndarray
 ndhist::
+py_get_oorpadded_sow_ndarray()
+{
+    // Check if we need to (re-)create the storage for this array.
+    if(recreate_oorpadded_bc_)
+    {
+        recreate_oorpadded_bc();
+        recreate_oorpadded_bc_ = false;
+    }
+
+    return oorpadded_bc_->ConstructNDArray(bc_weight_dt_, 1);
+}
+
+bn::ndarray
+ndhist::
 py_get_sows_ndarray()
 {
     return bc_->ConstructNDArray(bc_weight_dt_, 2);
+}
+
+bn::ndarray
+ndhist::
+py_get_oorpadded_sows_ndarray()
+{
+    // Check if we need to (re-)create the storage for this array.
+    if(recreate_oorpadded_bc_)
+    {
+        recreate_oorpadded_bc();
+        recreate_oorpadded_bc_ = false;
+    }
+
+    return oorpadded_bc_->ConstructNDArray(bc_weight_dt_, 2);
+}
+
+bp::tuple
+ndhist::
+py_get_labels() const
+{
+    bp::list labels_list;
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        labels_list.append(axes_[i]->label_);
+    }
+    bp::tuple labels_tuple(labels_list);
+    return labels_tuple;
 }
 
 bn::ndarray

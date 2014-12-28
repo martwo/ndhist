@@ -43,8 +43,9 @@ struct GenericAxisBase
     GenericAxisBase(
         ::ndhist::ndhist * h
       , bn::ndarray const & edges
+      , std::string const & label
     )
-      : Axis(edges.get_dtype())
+      : Axis(edges.get_dtype(), label)
     {
         // Set up the axis's function pointers.
         get_bin_index_fct     = &Derived::get_bin_index;
@@ -92,8 +93,12 @@ struct GenericAxis
             base_t;
     typedef AxisValueType axis_value_type;
 
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges)
-      : base_t(h, edges)
+    GenericAxis(
+        ::ndhist::ndhist * h
+      , bn::ndarray const & edges
+      , std::string const & label
+    )
+      : base_t(h, edges, label)
     {}
 
     static
@@ -136,8 +141,12 @@ struct GenericAxis<bp::object>
             base_t;
     typedef bp::object axis_value_type;
 
-    GenericAxis(::ndhist::ndhist * h, bn::ndarray const & edges)
-      : base_t(h, edges)
+    GenericAxis(
+        ::ndhist::ndhist * h
+      , bn::ndarray const & edges
+      , std::string const & label
+    )
+      : base_t(h, edges, label)
     {}
 
     static

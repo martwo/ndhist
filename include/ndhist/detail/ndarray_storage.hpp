@@ -115,6 +115,19 @@ class ndarray_storage
         return dt_;
     }
 
+    /**
+     * @brief Copies the data of the given source array into this storage. The
+     *     shape of the source array for each axis must not be greater than the
+     *     shape of this storage. In case the shape of the source array is
+     *     smaller for some axes, the shift (offset) of each axis within this
+     *     storage can be specified.
+     */
+    void
+    copy_from(
+        bn::ndarray const & src_arr
+      , std::vector<intptr_t> const & shape_offset_vec
+    );
+
     /** Extends the memory of this ndarray storage by at least the given number
      *  of elements for each axis. The f_n_elements_vec argument must hold the
      *  number of extra front elements (can be zero) for each axis. The

@@ -39,10 +39,11 @@ struct ConstantBinWidthAxis
 
     ConstantBinWidthAxis(
         bn::ndarray const & edges
+      , std::string const & label
       , intptr_t extension_max_fcap
       , intptr_t extension_max_bcap
     )
-      : Axis(edges.get_dtype(), extension_max_fcap, extension_max_bcap)
+      : Axis(edges.get_dtype(), label, extension_max_fcap, extension_max_bcap)
     {
         // Set up the axis's function pointers.
         get_bin_index_fct     = &get_bin_index;

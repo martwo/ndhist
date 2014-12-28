@@ -50,10 +50,12 @@ struct Axis
 
     Axis(
         bn::dtype const & dt
+      , std::string const & label
       , intptr_t extension_max_fcap=0
       , intptr_t extension_max_bcap=0
     )
       : dt_(dt)
+      , label_(label)
       , extension_max_fcap_(extension_max_fcap)
       , extension_max_bcap_(extension_max_bcap)
     {}
@@ -67,8 +69,10 @@ struct Axis
     }
 
     bn::dtype dt_;
+    std::string label_;
     intptr_t extension_max_fcap_;
     intptr_t extension_max_bcap_;
+
     boost::function<intptr_t (boost::shared_ptr<AxisData> &, char *, axis::out_of_range_t *)>
         get_bin_index_fct;
     boost::function<intptr_t (boost::shared_ptr<AxisData> &, char *, axis::out_of_range_t)>

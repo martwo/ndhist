@@ -126,6 +126,9 @@ class ndhist
     bn::ndarray
     py_get_sow_ndarray();
 
+    bn::ndarray
+    py_get_oorpadded_sow_ndarray();
+
     /**
      * @brief Constructs the sum of weights squared ndarray for releasing
      *        it to Python.
@@ -134,6 +137,9 @@ class ndhist
      */
     bn::ndarray
     py_get_sows_ndarray();
+
+    bn::ndarray
+    py_get_oorpadded_sows_ndarray();
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -151,6 +157,11 @@ class ndhist
      */
     bp::object
     py_get_binedges() const;
+
+    std::string py_get_title() const                    { return title_; }
+    void        py_set_title(std::string const & title) { title_ = title; }
+
+    bp::tuple py_get_labels() const;
 
     /** Fills a given n-dimension value into the histogram's bin content array.
      *  On the Python side, the *ndvalue* is a numpy object array that might
@@ -238,6 +249,7 @@ class ndhist
       , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
       , bc_weight_dt_(bn::dtype::get_builtin<void>())
       , bc_class_(bp::object())
+      , recreate_oorpadded_bc_(true)
     {};
 
   protected:
@@ -247,6 +259,8 @@ class ndhist
       , bn::dtype const & bc_weight_dt
       , bp::object const & bc_class
     );
+
+    void recreate_oorpadded_bc();
 
   public:
     /** The number of dimenions of this histogram.
@@ -315,6 +329,16 @@ class ndhist
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
+
+    /** The ndarray storage for a nd-dimensional ndarray padded with the
+     *  out-of-range bins.
+     */
+    boost::shared_ptr<detail::ndarray_storage> oorpadded_bc_;
+    bool recreate_oorpadded_bc_;
+
+    /** The title string of the histogram, useful for plotting purposes.
+     */
+    std::string title_;
 };
 
 template <typename BCValueType>
@@ -757,6 +781,9 @@ struct nd_traits<ND>
                   , oorfrstack
                 );
             }
+
+            // Trigger the recreation of temporary properties.
+            self.recreate_oorpadded_bc_ = true;
         }
     };
 };
