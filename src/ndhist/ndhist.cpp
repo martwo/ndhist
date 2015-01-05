@@ -459,13 +459,15 @@ ndhist(
                 std::stringstream axis_name;
                 axis_name << "a" << i;
                 axis_name_obj = bp::str(axis_name.str());
+                axis_label_obj = bp::str("");
                 fcap_obj = bp::object(0);
                 bcap_obj = bp::object(0);
             }
             else if(tuple_len == 2)
             {
                 edges_arr_obj = axis[0];
-                axis_name_obj = axis[1];
+                axis_name_obj = bp::str(axis[1]);
+                axis_label_obj = bp::str("");
                 fcap_obj = bp::object(0);
                 bcap_obj = bp::object(0);
             }
@@ -500,6 +502,7 @@ ndhist(
             std::stringstream axis_name;
             axis_name << "a" << i;
             axis_name_obj = bp::str(axis_name.str());
+            axis_label_obj = bp::str("");
             fcap_obj = bp::object(0);
             bcap_obj = bp::object(0);
         }
@@ -533,6 +536,8 @@ ndhist(
                 axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, axis_label, axis_extension_max_fcap, axis_extension_max_bcap));\
                 axis_dtype_supported = true;                                        \
             }
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(int8_t)
+        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint8_t)
         NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
         NDHIST_AXIS_DATA_TYPE_SUPPORT(uint16_t)
         NDHIST_AXIS_DATA_TYPE_SUPPORT(int32_t)
@@ -605,6 +610,8 @@ ndhist(
                 bc_dtype_supported = true;                                          \
             }
         NDHIST_BC_DATA_TYPE_SUPPORT(bool)
+        NDHIST_BC_DATA_TYPE_SUPPORT(int8_t)
+        NDHIST_BC_DATA_TYPE_SUPPORT(uint8_t)
         NDHIST_BC_DATA_TYPE_SUPPORT(int16_t)
         NDHIST_BC_DATA_TYPE_SUPPORT(uint16_t)
         NDHIST_BC_DATA_TYPE_SUPPORT(int32_t)
@@ -653,6 +660,28 @@ ndhist(
 
     // Create the out-of-range (oor) arrays.
     create_oor_arrays(nd_, bc_dt, bc_weight_dt_, bc_class_);
+}
+
+boost::shared_ptr<ndhist>
+ndhist::
+empty_like() const
+{
+    bp::tuple axes_name_tuple = ndvalues_dt_.get_field_names();
+    bp::list axis_list;
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        bp::tuple axis = bp::make_tuple(
+            axes_[i]->get_edges_ndarray_fct(axes_[i]->data_)
+          , axes_name_tuple[i]
+          , axes_[i]->label_
+          , axes_[i]->extension_max_fcap_
+          , axes_[i]->extension_max_bcap_
+        );
+        axis_list.append(axis);
+    }
+    bp::tuple axes(axis_list);
+    boost::shared_ptr<ndhist> h(new ndhist(axes, bc_weight_dt_, bc_class_));
+    return h;
 }
 
 void

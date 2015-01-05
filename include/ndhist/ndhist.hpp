@@ -91,6 +91,13 @@ class ndhist
     virtual ~ndhist() {}
 
     /**
+     * @brief Creates a new empty ndhist object that has the same binning as
+     *        this histogram.
+     */
+    boost::shared_ptr<ndhist>
+    empty_like() const;
+
+    /**
      * @brief Returns the maximal dimensionality of the histogram object, which
      *        is still supported for filling with a tuple of arrays as ndvalue
      *        function argument. Otherwise a structured array needs to be used

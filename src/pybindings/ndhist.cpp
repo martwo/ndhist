@@ -103,6 +103,10 @@ void register_ndhist()
             , "Fills the histogram with the given n-dimensional numbers, "
               "weighted by the given weights. If no weights are specified, "
               "``1`` will be used for each entry.")
+        .def("empty_like", &ndhist::empty_like
+            , (bp::arg("self"))
+            , "Creates a new empty ndhist object having the same binning and "
+              "data types as this ndhist object.")
     ;
 }
 
