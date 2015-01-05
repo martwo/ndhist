@@ -91,6 +91,14 @@ class ndhist
     virtual ~ndhist() {}
 
     /**
+     * @brief Checks if the given ndhist object is compatible with this ndhist
+     *        object. This means, the dimensionality, and the bin edges must
+     *        match exactly between the two.
+     */
+    bool
+    is_compatible(ndhist const & other) const;
+
+    /**
      * @brief Creates a new empty ndhist object that has the same binning as
      *        this histogram.
      */

@@ -14,6 +14,7 @@
 
 #include <boost/numpy/ndarray_accessor_return.hpp>
 #include <boost/numpy/dstream.hpp>
+#include <boost/numpy/utilities.hpp>
 
 #include <ndhist/ndhist.hpp>
 
@@ -107,6 +108,11 @@ void register_ndhist()
             , (bp::arg("self"))
             , "Creates a new empty ndhist object having the same binning and "
               "data types as this ndhist object.")
+        .def("is_compatible", &ndhist::is_compatible
+            , (bp::arg("self"), bp::arg("other"))
+            , "Checks if the given ndhist object is compatible with this "
+              "ndhist object. This means, the dimensionality and the edges of "
+              "all axes must match.")
     ;
 }
 

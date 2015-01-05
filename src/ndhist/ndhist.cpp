@@ -25,6 +25,7 @@
 #include <boost/numpy/ndarray.hpp>
 #include <boost/numpy/indexed_iterator.hpp>
 #include <boost/numpy/dstream.hpp>
+#include <boost/numpy/utilities.hpp>
 
 #include <ndhist/limits.hpp>
 #include <ndhist/ndhist.hpp>
@@ -660,6 +661,27 @@ ndhist(
 
     // Create the out-of-range (oor) arrays.
     create_oor_arrays(nd_, bc_dt, bc_weight_dt_, bc_class_);
+}
+
+bool
+ndhist::
+is_compatible(ndhist const & other) const
+{
+    if(nd_ != other.nd_) {
+        return false;
+    }
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        bn::ndarray const this_axis_edges_arr = this->axes_[i]->get_edges_ndarray_fct(this->axes_[i]->data_);
+        bn::ndarray const other_axis_edges_arr = other.axes_[i]->get_edges_ndarray_fct(other.axes_[i]->data_);
+
+        if(bn::all(bn::equal(this_axis_edges_arr, other_axis_edges_arr), 0) == false)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 boost::shared_ptr<ndhist>
