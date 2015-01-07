@@ -11,6 +11,7 @@
  */
 #include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
+#include <boost/python/operators.hpp>
 
 #include <boost/numpy/ndarray_accessor_return.hpp>
 #include <boost/numpy/dstream.hpp>
@@ -113,6 +114,7 @@ void register_ndhist()
             , "Checks if the given ndhist object is compatible with this "
               "ndhist object. This means, the dimensionality and the edges of "
               "all axes must match.")
+        .def(bp::self += bp::self)
     ;
 }
 

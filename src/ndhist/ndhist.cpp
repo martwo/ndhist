@@ -21,9 +21,11 @@
 #include <boost/python/refcount.hpp>
 #include <boost/python/str.hpp>
 #include <boost/python/tuple.hpp>
+
 #include <boost/numpy/limits.hpp>
 #include <boost/numpy/ndarray.hpp>
 #include <boost/numpy/indexed_iterator.hpp>
+#include <boost/numpy/iterators/multi_flat_iterator.hpp>
 #include <boost/numpy/dstream.hpp>
 #include <boost/numpy/utilities.hpp>
 
@@ -181,6 +183,112 @@ struct bc_value_traits<bp::object>
 };
 
 template <typename BCValueType>
+struct bin_value
+{
+    uintptr_t   * noe_;
+    BCValueType * sow_;
+    BCValueType * sows_;
+};
+template <>
+struct bin_value<bp::object>
+{
+    uintptr_t  * noe_;
+    uintptr_t  * sow_obj_ptr_;
+    bp::object sow_obj_;
+    bp::object * sow_;
+    uintptr_t  * sows_obj_ptr_;
+    bp::object sows_obj_;
+    bp::object * sows_;
+};
+
+
+template <typename BCValueType>
+struct bin_value_type_traits
+  : bn::iterators::value_type_traits
+{
+    typedef bin_value_type_traits<BCValueType>
+            type_t;
+
+    typedef bin_value<BCValueType>
+            value_type;
+    typedef value_type *
+            value_ptr_type;
+
+    bin_value_type_traits()
+    {}
+
+    bin_value_type_traits(bn::ndarray const & arr)
+      : fields_byte_offsets_(arr.get_dtype().get_fields_byte_offsets())
+    {}
+
+    std::vector<intptr_t> fields_byte_offsets_;
+    bin_value<BCValueType> bin_value_;
+
+    static
+    void
+    dereference(
+        bn::iterators::value_type_traits & vtt_base
+      , value_ptr_type & value_ptr_ref
+      , char * data_ptr
+    )
+    {
+        type_t & vtt = *static_cast<type_t *>(&vtt_base);
+
+        vtt.bin_value_.noe_  = reinterpret_cast<uintptr_t *>(data_ptr);
+        vtt.bin_value_.sow_  = reinterpret_cast<BCValueType *>(data_ptr + vtt.fields_byte_offsets_[1]);
+        vtt.bin_value_.sows_ = reinterpret_cast<BCValueType *>(data_ptr + vtt.fields_byte_offsets_[2]);
+
+        value_ptr_ref = &vtt.bin_value_;
+    }
+};
+template <>
+struct bin_value_type_traits<bp::object>
+  : bn::iterators::value_type_traits
+{
+    typedef bin_value_type_traits<bp::object>
+            type_t;
+
+    typedef bin_value<bp::object>
+            value_type;
+    typedef value_type *
+            value_ptr_type;
+
+    bin_value_type_traits()
+    {}
+
+    bin_value_type_traits(bn::ndarray const & arr)
+      : fields_byte_offsets_(arr.get_dtype().get_fields_byte_offsets())
+    {}
+
+    std::vector<intptr_t> fields_byte_offsets_;
+    bin_value<bp::object> bin_value_;
+
+    static
+    void
+    dereference(
+        bn::iterators::value_type_traits & vtt_base
+      , value_ptr_type & value_ptr_ref
+      , char * data_ptr
+    )
+    {
+        type_t & vtt = *static_cast<type_t *>(&vtt_base);
+        vtt.bin_value_.noe_  = reinterpret_cast<uintptr_t*>(data_ptr);
+
+        vtt.bin_value_.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[1]);
+        bp::object sow_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sow_obj_ptr_)));
+        vtt.bin_value_.sow_obj_ = sow_obj;
+        vtt.bin_value_.sow_ = &vtt.bin_value_.sow_obj_;
+
+        vtt.bin_value_.sows_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[2]);
+        bp::object sows_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sows_obj_ptr_)));
+        vtt.bin_value_.sows_obj_ = sows_obj;
+        vtt.bin_value_.sows_ = &vtt.bin_value_.sows_obj_;
+
+        value_ptr_ref = &vtt.bin_value_;
+    }
+};
+
+template <typename BCValueType>
 static
 void
 flush_oor_cache(
@@ -236,6 +344,72 @@ flush_oor_cache(
     // Finally, clear the stack.
     oorfrstack.clear();
 }
+
+template <typename BCValueType>
+struct iadd_fct_traits
+{
+    static
+    void apply(ndhist & self, ndhist const & other)
+    {
+        if(! self.is_compatible(other))
+        {
+            std::stringstream ss;
+            ss << "The += operator is only defined for two compatible ndhist "
+               << "objects!";
+            throw AssertionError(ss.str());
+        }
+
+        // Add the not-oor bin contents of the two ndhist objects.
+        typedef bn::iterators::multi_flat_iterator<2>::impl<
+                    bin_value_type_traits<BCValueType>
+                  , bin_value_type_traits<BCValueType>
+                >
+                multi_iter_t;
+
+        bp::object data_owner;
+        bn::ndarray self_bc_arr = self.bc_->ConstructNDArray(self.bc_->get_dtype(), 0, &data_owner);
+        bn::ndarray other_bc_arr = other.bc_->ConstructNDArray(other.bc_->get_dtype(), 0, &data_owner);
+        multi_iter_t bc_it(
+            self_bc_arr
+          , other_bc_arr
+          , boost::numpy::detail::iter_operand::flags::READWRITE::value
+          , boost::numpy::detail::iter_operand::flags::READONLY::value);
+        while(! bc_it.is_end())
+        {
+            bc_it.dereference();
+            typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
+            typename multi_iter_t::value_type_1 & other_bin_value = *bc_it.value_ptr_1;
+            *self_bin_value.noe_ += *other_bin_value.noe_;
+            *self_bin_value.sow_ += *other_bin_value.sow_;
+            *self_bin_value.sows_ += *other_bin_value.sows_;
+            bc_it.increment();
+        }
+
+        // Add the oor bin contents of the two ndhist objects.
+        for(size_t i=0; i<self.oor_arr_vec_.size(); ++i)
+        {
+            bn::ndarray self_oor_arr = self.oor_arr_vec_[i]->ConstructNDArray(self.oor_arr_vec_[i]->get_dtype(), 0, &data_owner);
+            bn::ndarray other_oor_arr = other.oor_arr_vec_[i]->ConstructNDArray(other.oor_arr_vec_[i]->get_dtype(), 0, &data_owner);
+
+            multi_iter_t oor_it(
+                self_oor_arr
+              , other_oor_arr
+              , boost::numpy::detail::iter_operand::flags::READWRITE::value
+              , boost::numpy::detail::iter_operand::flags::READONLY::value);
+
+            while(! oor_it.is_end())
+            {
+                oor_it.dereference();
+                typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
+                typename multi_iter_t::value_type_1 & other_bin_value = *oor_it.value_ptr_1;
+                *self_bin_value.noe_ += *other_bin_value.noe_;
+                *self_bin_value.sow_ += *other_bin_value.sow_;
+                *self_bin_value.sows_ += *other_bin_value.sows_;
+                oor_it.increment();
+            }
+        }
+    }
+};
 
 struct generic_nd_traits
 {
@@ -598,7 +772,7 @@ ndhist(
     {
         // nd is greater than NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND.
         #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE)                           \
-            if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))  \
+            if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
             {                                                                       \
                 if(bc_dtype_supported) {                                            \
                     std::stringstream ss;                                           \
@@ -631,6 +805,26 @@ ndhist(
         throw TypeError(ss.str());
     }
 
+    // Setup the iadd_fct_ pointer.
+    #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE) \
+        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
+        {                                                                       \
+            iadd_fct_ = &detail::iadd_fct_traits<BCDTYPE>::apply;                       \
+        }
+    NDHIST_BC_DATA_TYPE_SUPPORT(bool)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int8_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint8_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int16_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint16_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int32_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint32_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(int64_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(uint64_t)
+    NDHIST_BC_DATA_TYPE_SUPPORT(float)
+    NDHIST_BC_DATA_TYPE_SUPPORT(double)
+    NDHIST_BC_DATA_TYPE_SUPPORT(bp::object)
+    #undef NDHIST_BC_DATA_TYPE_SUPPORT
+
     // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
@@ -661,6 +855,13 @@ ndhist(
 
     // Create the out-of-range (oor) arrays.
     create_oor_arrays(nd_, bc_dt, bc_weight_dt_, bc_class_);
+}
+
+ndhist &
+ndhist::operator+=(ndhist const & other)
+{
+    iadd_fct_(*this, other);
+    return *this;
 }
 
 bool
@@ -1134,129 +1335,5 @@ extend_bin_content_array(
         initialize_extended_array_axis(bc_sows_arr, bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
     }
 }
-
-
-
-
-/*
-void
-ndhist::
-handle_struct_array(bp::object const & arr_obj)
-{
-    bn::dtype dt = bn::dtype::new_builtin<void>();
-
-    std::cout << "dt.itemsize = " << dt.get_itemsize() << std::endl;
-    std::cout << "dt.char = " << dt.get_char() << std::endl;
-    std::cout << "dt.num = " << dt.get_type_num() << std::endl;
-    dt.add_field("x", bn::dtype::get_builtin<double>());
-    std::cout << "dt.has_fields() = " << dt.has_fields() << std::endl;
-    bp::tuple field_names = dt.get_field_names();
-    size_t n = bp::len(field_names);
-    for(size_t i=0; i<n; ++i)
-    {
-        bp::object field_name = field_names[i];
-        bp::str field_name_str(field_name);
-        std::string name = bp::extract<std::string>(field_name);
-        std::cout << "field ["<<i<<"] = " << name << std::endl;
-    }
-    std::cout << "dt.itemsize = " << dt.get_itemsize() << std::endl;
-
-    bn::ndarray arr = bn::from_object(arr_obj, 0, 1, bn::ndarray::ALIGNED);
-    bn::dtype arr_dt = arr.get_dtype();
-    std::cout << "arr.nd = " << arr.get_nd() << std::endl;
-    std::cout << "arr_dt.is_flexible() = " << arr_dt.is_flexible() << std::endl;
-    std::cout << "arr_dt.has_fields() = " << arr_dt.has_fields() << std::endl;
-    std::cout << "arr.get_strides = [";
-    std::vector<intptr_t> arr_strides = arr.get_strides_vector();
-    for(size_t j=0; j<arr_strides.size(); ++j)
-    {
-        std::cout << arr_strides[j] << ",";
-    }
-    std::cout << "]"<< std::endl;
-
-    bp::list field_names = arr_dt.get_field_names();
-    size_t n = bp::len(field_names);
-    for(size_t i=0; i<n; ++i)
-    {
-        bp::object field_name = field_names[i];
-        bp::str field_name_str(field_name);
-        std::string name = bp::extract<std::string>(field_name);
-        std::cout << "field ["<<i<<"] = " << name << std::endl;
-        std::cout << "field byte offset = " << arr_dt.get_field_byte_offset(field_name_str) << std::endl;
-        bn::dtype field_dt = arr_dt.get_field_dtype(field_name_str);
-        std::cout << "field_dt.is_flexible() = " << field_dt.is_flexible() << std::endl;
-        std::cout << "field_dt.has_fields() = " << field_dt.has_fields() << std::endl;
-        std::cout << "field_dt.is_array() = " << field_dt.is_array() << std::endl;
-        if(field_dt.is_array())
-        {
-            bn::dtype field_dt_subdtype(field_dt.get_subdtype());
-            std::vector<intptr_t> field_dt_shape = field_dt.get_shape_vector();
-            std::cout << "field_dt_subdtype.is_flexible() = " << field_dt_subdtype.is_flexible() << std::endl;
-            std::cout << "field_dt_subdtype.has_fields() = " << field_dt_subdtype.has_fields() << std::endl;
-            std::cout << "field_dt_subdtype.is_array() = " << field_dt_subdtype.is_array() << std::endl;
-            std::cout << "field_dt_subdtype shape = [";
-            for(size_t j=0; j<field_dt_shape.size(); ++j)
-            {
-                std::cout << field_dt_shape[j] << ",";
-            }
-            std::cout << "]"<< std::endl;
-        }
-        else
-        {
-            if(! field_dt.has_fields() && name == "x")
-            {
-                // The field is a bare data type. So we could iterate over the
-                // elements.
-                // First we get a ndarray slice for the field and then we
-                // iterate over this slice using flat_iterator.
-                bn::ndarray field_arr = arr[field_name_str];
-
-                std::vector<intptr_t> strides = field_arr.get_strides_vector();
-                std::cout << "x_field_arr.get_strides = [";
-                for(size_t j=0; j<strides.size(); ++j)
-                {
-                    std::cout << strides[j] << ",";
-                }
-                std::cout << "]"<< std::endl;
-
-
-                bn::flat_iterator<float> field_arr_iter(field_arr);
-                std::cout << "x_field_arr = [";
-                for(;field_arr_iter != field_arr_iter.end; ++field_arr_iter)
-                {
-                    std::cout << *field_arr_iter << ",";
-                }
-                std::cout << "]"<< std::endl;
-            }
-            if(! field_dt.has_fields() && name == "y")
-            {
-                // The field is a bare data type. So we could iterate over the
-                // elements.
-                // First we get a ndarray slice for the field and then we
-                // iterate over this slice using flat_iterator.
-                bn::ndarray field_arr = arr[field_name_str];
-
-                std::vector<intptr_t> strides = field_arr.get_strides_vector();
-                std::cout << "y_field_arr.get_strides = [";
-                for(size_t j=0; j<strides.size(); ++j)
-                {
-                    std::cout << strides[j] << ",";
-                }
-                std::cout << "]"<< std::endl;
-                std::cout << "sizeof(float) = " << sizeof(float) << std::endl;
-                std::cout << "y_field_arr.get_dtype.get_itemsize() = " << field_arr.get_dtype().get_itemsize() << std::endl;
-                bn::flat_iterator<double> field_arr_iter(field_arr);
-                std::cout << "y_field_arr = [";
-                for(;field_arr_iter != field_arr_iter.end; ++field_arr_iter)
-                {
-                    std::cout << *field_arr_iter << ",";
-                }
-                std::cout << "]"<< std::endl;
-            }
-        }
-    }
-
-}
-*/
 
 }//namespace ndhist

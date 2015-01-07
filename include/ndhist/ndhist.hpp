@@ -29,8 +29,6 @@
 
 #include <boost/numpy/dtype.hpp>
 #include <boost/numpy/ndarray.hpp>
-#include <boost/numpy/indexed_iterator.hpp>
-#include <boost/numpy/multi_indexed_iterator.hpp>
 
 #include <ndhist/error.hpp>
 #include <ndhist/detail/axis.hpp>
@@ -89,6 +87,14 @@ class ndhist
     );
 
     virtual ~ndhist() {}
+
+    // Operator overloads.
+    /**
+     * @brief Adds the given other histogram to this ndhist object and
+     *        returning a reference to this (altered) ndhist object.
+     *        The two histograms need to be compatible to each other.
+     */
+    ndhist & operator+=(ndhist const & other);
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
@@ -296,13 +302,8 @@ class ndhist
 
     /** The bin contents.
      *  bc_ holds the actual data of the bins.
-     *  bc_dt_ is the dtype object describing the data type of the weights.
-     *  bc_noe_arr_ is a ndarray object being a view into the data storage
-     *      for the number of entries.
-     *  bc_sow_arr_ is a ndarray object being a view into the data storage for
-     *      the sum of weights.
-     *  bc_sows_arr_ is a ndarray object being a view into the data storage for
-     *      the sum of weights squared.
+     *  bc_wirght_dt_ is the dtype object describing the data type of the
+     *      weights.
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
     bn::dtype const bc_noe_dt_;
@@ -343,6 +344,7 @@ class ndhist
 
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
+    boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 
     /** The ndarray storage for a nd-dimensional ndarray padded with the
