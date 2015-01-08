@@ -41,19 +41,25 @@ CalcDataOffset(size_t sub_item_byte_offset) const
 }
 
 //______________________________________________________________________________
+void
+ndarray_storage::
+calc_data_strides(std::vector<intptr_t> & strides) const
+{
+    size_t const nd = shape_.size();
+    int const itemsize = dt_.get_itemsize();
+    strides[nd-1] = itemsize;
+    for(intptr_t i=nd-2; i>=0; --i)
+    {
+        strides[i] = ((front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
+    }
+}
+
 std::vector<intptr_t>
 ndarray_storage::
 CalcDataStrides() const
 {
-    const int itemsize = dt_.get_itemsize();
-    std::vector<intptr_t> strides(shape_.size(), itemsize);
-    //std::cout << "strides["<<strides.size()-1<<"] = " << strides[strides.size()-1] << std::endl;
-    for(int i=strides.size()-2; i>=0; --i)
-    {
-        strides[i] = ((front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
-        //std::cout << "strides["<<i<<"] = " << strides[i] << std::endl;
-    }
-
+    std::vector<intptr_t> strides(shape_.size());
+    calc_data_strides(strides);
     return strides;
 }
 

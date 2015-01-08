@@ -149,6 +149,16 @@ struct bc_value_traits
         sow  += weight;
         sows += weight * weight;
     }
+
+    static
+    void
+    set_value_from_data(char * dst_addr, char * src_addr)
+    {
+        BCValueType & dst_value = *reinterpret_cast<BCValueType*>(dst_addr);
+        BCValueType & src_value = *reinterpret_cast<BCValueType*>(src_addr);
+
+        dst_value = src_value;
+    }
 };
 
 template <>
@@ -179,6 +189,16 @@ struct bc_value_traits<bp::object>
         noe  += 1;
         sow  += weight;
         sows += weight * weight;
+    }
+
+    static
+    void
+    set_value_from_data(char * dst_addr, char * src_addr)
+    {
+        uintptr_t * dst_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(dst_addr);
+        uintptr_t * src_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(src_addr);
+        bp::object src_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*src_obj_ptr_ptr)));
+        *dst_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(src_obj.ptr()));
     }
 };
 
@@ -410,6 +430,105 @@ struct iadd_fct_traits
         }
     }
 };
+
+
+template <typename BCValueType>
+std::vector<bn::ndarray>
+get_field_axes_oor_ndarrays(
+    ndhist const & self
+  , axis::out_of_range_t const oortype
+  , size_t const field_idx
+)
+{
+    uintptr_t const nd = self.get_nd();
+    std::vector<bn::ndarray> array_vec;
+    array_vec.reserve(nd);
+    uintptr_t oor_arr_idx;
+    uintptr_t noor_size;
+    uintptr_t oor_size;
+    std::vector<intptr_t> noor_indices(nd);
+    std::vector<intptr_t> oor_indices(nd);
+    std::vector<intptr_t> oor_strides(nd);
+    std::vector<intptr_t> fields_byte_offsets = self.bc_->get_dtype().get_fields_byte_offsets();
+    char * oor_data_addr;
+    for(uintptr_t i=0; i<nd; ++i)
+    {
+        std::vector<intptr_t> const & histshape = self.bc_->get_shape_vector();
+        std::vector<intptr_t> shape(nd);
+        for(uintptr_t j=0; j<nd; ++j)
+        {
+            shape[j] = (j == i ? 1 : histshape[j] + 2);
+        }
+
+        bn::ndarray arr = bn::empty(shape, (field_idx == 0 ? self.bc_noe_dt_ : self.bc_weight_dt_));
+        bn::indexed_iterator<BCValueType> iter(arr, bn::detail::iter_operand::flags::READWRITE::value);
+        std::vector<intptr_t> indices(nd);
+        while(! iter.is_end())
+        {
+            iter.get_multi_index_vector(indices);
+
+            // Determine the oor array index and the data address of the bin.
+            oor_arr_idx = 0;
+            noor_size = 0;
+            oor_size = 0;
+            for(uintptr_t j=0; j<nd; ++j)
+            {
+                // Mark if the axis j is available.
+                if(j != i)
+                {
+                    if(indices[j] == 0)
+                    {
+                        // It's the underflow bin of axis j.
+                        oor_indices[oor_size] = 0;
+                        ++oor_size;
+                    }
+                    else if(indices[j] == histshape[j]+1) // Notice the underflow element.
+                    {
+                        // It's the overflow bin of axis j.
+                        oor_indices[oor_size] = 1;
+                        ++oor_size;
+                    }
+                    else
+                    {
+                        // It's a normal bin of axis j.
+                        oor_arr_idx |= (1<<j);
+                        noor_indices[noor_size] = indices[j] - 1; // Notice the underflow element.
+                        ++noor_size;
+                    }
+                }
+                else
+                {
+                    // It's the out-of-range axis of interest.
+                    oor_indices[oor_size] = (oortype == axis::OOR_UNDERFLOW ? 0 : 1);
+                    ++oor_size;
+
+                }
+            }
+            boost::shared_ptr<detail::ndarray_storage> const & oor_arr_storage = self.oor_arr_vec_[oor_arr_idx];
+            oor_arr_storage->calc_data_strides(oor_strides);
+            oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(fields_byte_offsets[field_idx]);
+            for(size_t j=0; j<noor_size; ++j)
+            {
+                oor_data_addr += noor_indices[j]*oor_strides[j];
+            }
+            for(size_t j=0; j<oor_size; ++j)
+            {
+                oor_data_addr += oor_indices[j]*oor_strides[noor_size+j];
+            }
+
+            // Set the element of the new ndarray to the (sub) element of the
+            // oor array.
+            bc_value_traits<BCValueType>::set_value_from_data(iter.get_detail_iter().get_data(0), oor_data_addr);
+
+            ++iter;
+        }
+
+        array_vec.push_back(arr);
+    }
+
+    return array_vec;
+}
+
 
 struct generic_nd_traits
 {
@@ -809,7 +928,8 @@ ndhist(
     #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE) \
         if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
         {                                                                       \
-            iadd_fct_ = &detail::iadd_fct_traits<BCDTYPE>::apply;                       \
+            iadd_fct_ = &detail::iadd_fct_traits<BCDTYPE>::apply;               \
+            get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<BCDTYPE>;\
         }
     NDHIST_BC_DATA_TYPE_SUPPORT(bool)
     NDHIST_BC_DATA_TYPE_SUPPORT(int8_t)
@@ -864,6 +984,25 @@ ndhist::operator+=(ndhist const & other)
     return *this;
 }
 
+ndhist
+ndhist::
+operator+(ndhist const & rhs) const
+{
+    if(! this->is_compatible(rhs))
+    {
+        std::stringstream ss;
+        ss << "The right-hand-side ndhist object for the + operator must be "
+           << "compatible with this ndhist object!";
+        throw AssertionError(ss.str());
+    }
+
+    ndhist newhist = this->empty_like();
+    newhist += *this;
+    newhist += rhs;
+
+    return newhist;
+}
+
 bool
 ndhist::
 is_compatible(ndhist const & other) const
@@ -885,7 +1024,7 @@ is_compatible(ndhist const & other) const
     return true;
 }
 
-boost::shared_ptr<ndhist>
+ndhist
 ndhist::
 empty_like() const
 {
@@ -903,8 +1042,7 @@ empty_like() const
         axis_list.append(axis);
     }
     bp::tuple axes(axis_list);
-    boost::shared_ptr<ndhist> h(new ndhist(axes, bc_weight_dt_, bc_class_));
-    return h;
+    return ndhist(axes, bc_weight_dt_, bc_class_);
 }
 
 void
@@ -1074,6 +1212,66 @@ py_get_labels() const
     }
     bp::tuple labels_tuple(labels_list);
     return labels_tuple;
+}
+
+bp::tuple
+ndhist::
+py_get_underflow() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_UNDERFLOW, 1);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        underflow_list.append(array_vec[i]);
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_OVERFLOW, 1);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        overflow_list.append(array_vec[i]);
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
+
+bp::tuple
+ndhist::
+py_get_underflow_squaredweights() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_UNDERFLOW, 2);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        underflow_list.append(array_vec[i]);
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow_squaredweights() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_OVERFLOW, 2);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        overflow_list.append(array_vec[i]);
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
 }
 
 bn::ndarray

@@ -97,6 +97,11 @@ class ndhist
     ndhist & operator+=(ndhist const & other);
 
     /**
+     * @brief Implements ndhist = *this + rhs.
+     */
+    ndhist operator+(ndhist const & rhs) const;
+
+    /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
      *        object. This means, the dimensionality, and the bin edges must
      *        match exactly between the two.
@@ -108,7 +113,7 @@ class ndhist
      * @brief Creates a new empty ndhist object that has the same binning as
      *        this histogram.
      */
-    boost::shared_ptr<ndhist>
+    ndhist
     empty_like() const;
 
     /**
@@ -182,7 +187,57 @@ class ndhist
     std::string py_get_title() const                    { return title_; }
     void        py_set_title(std::string const & title) { title_ = title; }
 
-    bp::tuple py_get_labels() const;
+    bp::tuple
+    py_get_labels() const;
+
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the underflow (sum of weights)
+     *        bins for the
+     *        particular axis, where the index of the tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     *        Example: For (3,2) shaped two-dimensional histogram, there will
+     *                 be two tuple elements with a two-dimensional ndarray
+     *                 each. The shape of the first array (i.e. for the first
+     *                 axis) will be (1,4) and the shape of the second array
+     *                 will be (5,1).
+     */
+    bp::tuple
+    py_get_underflow() const;
+
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the overflow (sum of weights)
+     *        bins for the
+     *        particular axis, where the index of the tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_overflow() const;
+
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the underflow (sum of weights
+     *        squared) bins for the particular axis, where the index of the
+     *        tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_underflow_squaredweights() const;
+
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the overflow (sum of weights
+     *        squared) bins for the particular axis, where the index of the
+     *        tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_overflow_squaredweights() const;
 
     /** Fills a given n-dimension value into the histogram's bin content array.
      *  On the Python side, the *ndvalue* is a numpy object array that might
@@ -345,6 +400,7 @@ class ndhist
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
+    boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 
     /** The ndarray storage for a nd-dimensional ndarray padded with the

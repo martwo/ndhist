@@ -76,6 +76,7 @@ class ndarray_storage
 
     /** Calculates the data strides for a ndarray wrapping this ndarray storage.
      */
+    void calc_data_strides(std::vector<intptr_t> & stides) const;
     std::vector<intptr_t> CalcDataStrides() const;
 
     /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage

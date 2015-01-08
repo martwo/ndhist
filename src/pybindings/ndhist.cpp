@@ -84,6 +84,34 @@ void register_ndhist()
               "(one bin on each side of the axis) holding the under- and "
               "overflow bins.")
 
+        //----------------------------------------------------------------------
+        // Out-of-range properties.
+        .add_property("underflow", &ndhist::py_get_underflow
+            , "A tuple of length *ndim* where each element is a *ndim*-dimensional\n"
+              "ndarray holding the underflow (sum of weights) bins for the        \n"
+              "particular axis, where the index of the tuple element specifies    \n"
+              "the axis. The dimension of the particular axis is collapsed to     \n"
+              "one and the lengths of the other dimensions are extended by two.   \n"
+              "                                                                   \n"
+              "Example: For (3,2) shaped two-dimensional histogram, there will    \n"
+              "         be two tuple elements with a two-dimensional ndarray      \n"
+              "         each. The shape of the first array (i.e. for the first    \n"
+              "         axis) will be (1,4) and the shape of the second array     \n"
+              "         will be (5,1).")
+        .add_property("overflow", &ndhist::py_get_overflow
+            , "The overflow (sum-of-weights) bins for each dimension analog to the\n"
+              "``underflow`` property.                                            \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("underflow_squaredweights", &ndhist::py_get_underflow_squaredweights
+            , "The underflow (sum-of-weights-squared) bins for each dimension     \n"
+              "analog to the ``underflow`` property.                              \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("overflow_squaredweights", &ndhist::py_get_overflow_squaredweights
+            , "The overflow (sum-of-weights-squared) bins for each dimension      \n"
+              "analog to the ``underflow`` property.                              \n"
+              "See the documentation of the ``underflow`` property for more details.")
+
+
         .add_property("ndvalues_dtype", &ndhist::get_ndvalues_dtype
             , "The dtype object describing the ndvalues array needed for "
               "filling the histogram. This property can be used in the "
@@ -114,7 +142,10 @@ void register_ndhist()
             , "Checks if the given ndhist object is compatible with this "
               "ndhist object. This means, the dimensionality and the edges of "
               "all axes must match.")
+
+        // Arithmetic operator overloads.
         .def(bp::self += bp::self)
+        .def(bp::self + bp::self)
     ;
 }
 
