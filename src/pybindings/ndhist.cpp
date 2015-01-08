@@ -86,6 +86,14 @@ void register_ndhist()
 
         //----------------------------------------------------------------------
         // Out-of-range properties.
+        .add_property("underflow_entries", &ndhist::py_get_underflow_entries
+            , "The underflow (number of entries) bins for each dimension analog   \n"
+              "to the ``underflow`` property.                                     \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("overflow_entries", &ndhist::py_get_overflow_entries
+            , "The overflow (number of entries) bins for each dimension analog    \n"
+              "to the ``underflow`` property.                                     \n"
+              "See the documentation of the ``underflow`` property for more details.")
         .add_property("underflow", &ndhist::py_get_underflow
             , "A tuple of length *ndim* where each element is a *ndim*-dimensional\n"
               "ndarray holding the underflow (sum of weights) bins for the        \n"

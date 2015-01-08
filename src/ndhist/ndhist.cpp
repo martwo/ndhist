@@ -945,6 +945,8 @@ ndhist(
     NDHIST_BC_DATA_TYPE_SUPPORT(bp::object)
     #undef NDHIST_BC_DATA_TYPE_SUPPORT
 
+    get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
+
     // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
@@ -1216,6 +1218,36 @@ py_get_labels() const
 
 bp::tuple
 ndhist::
+py_get_underflow_entries() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_UNDERFLOW, 0);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        underflow_list.append(array_vec[i]);
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow_entries() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_OVERFLOW, 0);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        overflow_list.append(array_vec[i]);
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
+
+bp::tuple
+ndhist::
 py_get_underflow() const
 {
     std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_UNDERFLOW, 1);
@@ -1273,6 +1305,9 @@ py_get_overflow_squaredweights() const
     bp::tuple overflow(overflow_list);
     return overflow;
 }
+
+
+
 
 bn::ndarray
 ndhist::

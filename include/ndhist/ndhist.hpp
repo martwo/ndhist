@@ -192,6 +192,24 @@ class ndhist
 
     /**
      * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the underflow (number of entries)
+     *        bins for the
+     *        particular axis, where the index of the tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_underflow_entries() const;
+
+    /**
+     * @brief Same as ``py_get_underflow_entries`` but for the overflow (number
+     *        of entries) bins.
+     */
+    bp::tuple
+    py_get_overflow_entries() const;
+
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
      *        *nd*-dimensional ndarray holding the underflow (sum of weights)
      *        bins for the
      *        particular axis, where the index of the tuple element specifies
@@ -400,6 +418,7 @@ class ndhist
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
+    boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_noe_type_field_axes_oor_ndarrays_fct_;
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
 
