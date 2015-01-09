@@ -154,6 +154,7 @@ void register_ndhist()
         // Arithmetic operator overloads.
         .def(bp::self += bp::self)
         .def(bp::self + bp::self)
+        .def(bp::self *= double())
     ;
 }
 

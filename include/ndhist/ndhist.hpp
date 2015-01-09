@@ -90,11 +90,14 @@ class ndhist
 
     // Operator overloads.
     /**
-     * @brief Adds the given other histogram to this ndhist object and
+     * @brief Adds the given right-hand-side histogram to this ndhist object and
      *        returning a reference to this (altered) ndhist object.
      *        The two histograms need to be compatible to each other.
      */
-    ndhist & operator+=(ndhist const & other);
+    ndhist & operator+=(ndhist const & rhs);
+
+    template <typename T>
+    ndhist & operator*=(T const & rhs);
 
     /**
      * @brief Implements ndhist = *this + rhs.
@@ -418,6 +421,7 @@ class ndhist
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
+    boost::function<void (ndhist &, bn::ndarray const &)> imul_fct_;
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_noe_type_field_axes_oor_ndarrays_fct_;
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
@@ -432,6 +436,27 @@ class ndhist
      */
     std::string title_;
 };
+
+template <typename T>
+ndhist &
+ndhist::
+operator*=(T const & rhs)
+{
+    // Create a bp::object from the rhs value and check if it is a scalar.
+    bp::object value_obj(rhs);
+    if(! bn::is_any_scalar(value_obj))
+    {
+        std::stringstream ss;
+        ss << "The *= operator is only defined for scalar values!";
+        throw ValueError(ss.str());
+    }
+
+    // Create a (scalar) ndarray object with a data type of the histogram's
+    // bin content weights (performing automatic type conversion).
+    bn::ndarray value = bn::from_object(value_obj, bc_weight_dt_);
+    imul_fct_(*this, value);
+    return *this;
+}
 
 template <typename BCValueType>
 void
@@ -578,10 +603,9 @@ struct nd_traits<ND>
             BOOST_PP_REPEAT(ND, NDHIST_IN_ARR_SERVICE, ~)
             #undef NDHIST_IN_ARR_SERVICE
             bn::dstream::detail::input_array_service<weight_arr_def> weight_arr_service(weight_arr);
-            #define NDHIST_DEF(z, n, data) \
-                BOOST_PP_COMMA_IF(n) BOOST_PP_CAT(ndvalue_arr_service,n)
-            loop_service_t loop_service(BOOST_PP_REPEAT(ND, NDHIST_DEF, ~), weight_arr_service);
-            #undef NDHIST_DEF
+
+            loop_service_t loop_service(BOOST_PP_ENUM_PARAMS(ND, ndvalue_arr_service), weight_arr_service);
+
             #define NDHIST_DEF(z, n, data) \
                 bn::detail::iter_operand BOOST_PP_CAT(ndvalue_arr_iter_op,n)( BOOST_PP_CAT(ndvalue_arr_service,n).get_arr(), bn::detail::iter_operand::flags::READONLY::value, BOOST_PP_CAT(ndvalue_arr_service,n).get_arr_bcr_data() );
             BOOST_PP_REPEAT(ND, NDHIST_DEF, ~)
@@ -598,8 +622,6 @@ struct nd_traits<ND>
             bn::casting_t casting = bn::NO_CASTING;
             intptr_t buffersize = 0; // Use a default value.
 
-            #define NDHIST_DEF(z, n, data) \
-                , BOOST_PP_CAT(ndvalue_arr_iter_op,n)
             bn::detail::iter iter(
                   iter_flags
                 , order
@@ -607,10 +629,9 @@ struct nd_traits<ND>
                 , loop_service.get_loop_nd()
                 , loop_service.get_loop_shape_data()
                 , buffersize
-                BOOST_PP_REPEAT(ND, NDHIST_DEF, ~)
+                , BOOST_PP_ENUM_PARAMS(ND, ndvalue_arr_iter_op)
                 , weight_arr_iter_op
             );
-            #undef NDHIST_DEF
             iter.init_full_iteration();
 
             // Get a handle to the OOR fill record stack.

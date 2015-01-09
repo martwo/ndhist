@@ -433,6 +433,38 @@ struct iadd_fct_traits
 
 
 template <typename BCValueType>
+struct imul_fct_traits
+{
+    static
+    void apply(ndhist & self, bn::ndarray const & value_arr)
+    {
+        // Multiply the not-oor bin contents of the ndhist object with the
+        // scalar value.
+        typedef bn::iterators::multi_flat_iterator<2>::impl<
+                    bin_value_type_traits<BCValueType>
+                  , bn::iterators::single_value<BCValueType>
+                >
+                multi_iter_t;
+        bp::object data_owner;
+        bn::ndarray self_bc_arr = self.bc_->ConstructNDArray(self.bc_->get_dtype(), 0, &data_owner);
+        multi_iter_t bc_it(
+            self_bc_arr
+          , const_cast<bn::ndarray &>(value_arr)
+          , boost::numpy::detail::iter_operand::flags::READWRITE::value
+          , boost::numpy::detail::iter_operand::flags::READONLY::value);
+        while(! bc_it.is_end())
+        {
+            bc_it.dereference();
+            typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
+            typename multi_iter_t::value_type_1 & value          = *bc_it.value_ptr_1;
+            *self_bin_value.sow_  *= value;
+            *self_bin_value.sows_ *= value * value;
+            ++bc_it;
+        }
+    }
+};
+
+template <typename BCValueType>
 std::vector<bn::ndarray>
 get_field_axes_oor_ndarrays(
     ndhist const & self
@@ -924,11 +956,12 @@ ndhist(
         throw TypeError(ss.str());
     }
 
-    // Setup the iadd_fct_ pointer.
+    // Setup the function pointers, which depend on the bin content weight type.
     #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE) \
         if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
         {                                                                       \
             iadd_fct_ = &detail::iadd_fct_traits<BCDTYPE>::apply;               \
+            imul_fct_ = &detail::imul_fct_traits<BCDTYPE>::apply;               \
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<BCDTYPE>;\
         }
     NDHIST_BC_DATA_TYPE_SUPPORT(bool)
@@ -980,9 +1013,9 @@ ndhist(
 }
 
 ndhist &
-ndhist::operator+=(ndhist const & other)
+ndhist::operator+=(ndhist const & rhs)
 {
-    iadd_fct_(*this, other);
+    iadd_fct_(*this, rhs);
     return *this;
 }
 
