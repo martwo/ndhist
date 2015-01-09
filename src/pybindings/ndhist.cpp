@@ -34,7 +34,7 @@ void register_ndhist()
           , bp::object
           >(
           ( bp::arg("axes")
-          , bp::arg("dtype")
+          , bp::arg("dtype")=bn::dtype::get_builtin<double>()
           , bp::arg("bc_class")=bp::object()
           )
           )
