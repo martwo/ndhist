@@ -30,7 +30,7 @@ void register_ndhist()
         , "The ndhist class provides a multi-dimensional histogram class."
         , bp::init<
             bp::tuple const &
-          , bn::dtype const &
+          , bp::object const &
           , bp::object
           >(
           ( bp::arg("axes")

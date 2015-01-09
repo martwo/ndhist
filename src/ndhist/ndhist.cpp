@@ -828,13 +828,13 @@ struct nd_traits;
 ndhist::
 ndhist(
     bp::tuple const & axes
-  , bn::dtype const & dt
+  , bp::object const & dt
   , bp::object const & bc_class
 )
   : nd_(bp::len(axes))
   , ndvalues_dt_(bn::dtype::new_builtin<void>())
   , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
-  , bc_weight_dt_(dt)
+  , bc_weight_dt_(bn::dtype(dt))
   , bc_class_(bc_class)
   , recreate_oorpadded_bc_(true)
 {

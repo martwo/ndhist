@@ -82,7 +82,7 @@ class ndhist
      */
     ndhist(
         bp::tuple const & axes
-      , bn::dtype const & dt
+      , bp::object const & dt
       , bp::object const & bc_class = bp::object()
     );
 
