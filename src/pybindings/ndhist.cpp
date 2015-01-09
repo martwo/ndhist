@@ -155,6 +155,7 @@ void register_ndhist()
         .def(bp::self += bp::self)
         .def(bp::self + bp::self)
         .def(bp::self *= double())
+        .def(bp::self * double())
     ;
 }
 

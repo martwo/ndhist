@@ -9,3 +9,7 @@ print(h1.bincontent)
 
 h1 *= 3
 print(h1.bincontent)
+
+h2 = h1 * 2
+print(h2.bincontent)
+print(h2.squaredweights)

@@ -96,13 +96,23 @@ class ndhist
      */
     ndhist & operator+=(ndhist const & rhs);
 
+    /**
+     * @brief Scales the sum of weights and the sum of weights squared of this
+     *        histogram by the given scalar value.
+     */
     template <typename T>
     ndhist & operator*=(T const & rhs);
 
     /**
-     * @brief Implements ndhist = *this + rhs.
+     * @brief Implements the operation ``ndhist = *this + rhs``.
      */
     ndhist operator+(ndhist const & rhs) const;
+
+    /**
+     * @brief Implements the operation ``ndhist = *this * rhs``.
+     */
+    template <typename T>
+    ndhist operator*(T const & rhs) const;
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
@@ -456,6 +466,17 @@ operator*=(T const & rhs)
     bn::ndarray value = bn::from_object(value_obj, bc_weight_dt_);
     imul_fct_(*this, value);
     return *this;
+}
+
+template <typename T>
+ndhist
+ndhist::
+operator*(T const & rhs) const
+{
+    ndhist newhist = this->empty_like();
+    newhist += *this;
+    newhist *= rhs;
+    return newhist;
 }
 
 template <typename BCValueType>
