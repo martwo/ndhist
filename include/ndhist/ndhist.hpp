@@ -97,11 +97,18 @@ class ndhist
     ndhist & operator+=(ndhist const & rhs);
 
     /**
-     * @brief Scales the sum of weights and the sum of weights squared of this
-     *        histogram by the given scalar value.
+     * @brief Scales (multiplies) the sum of weights and the sum of weights
+     *        squared of this histogram by the given scalar value.
      */
     template <typename T>
     ndhist & operator*=(T const & rhs);
+
+    /**
+     * @brief Scales (divides) the sum of weights and the sum of weights
+     *        squared of this histogram by the given scalar value.
+     */
+    template <typename T>
+    ndhist & operator/=(T const & rhs);
 
     /**
      * @brief Implements the operation ``ndhist = *this + rhs``.
@@ -113,6 +120,12 @@ class ndhist
      */
     template <typename T>
     ndhist operator*(T const & rhs) const;
+
+    /**
+     * @brief Implements the operation ``ndhist = *this / rhs``.
+     */
+    template <typename T>
+    ndhist operator/(T const & rhs) const;
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
@@ -431,6 +444,7 @@ class ndhist
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
+    boost::function<void (ndhist &, bn::ndarray const &)> idiv_fct_;
     boost::function<void (ndhist &, bn::ndarray const &)> imul_fct_;
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_noe_type_field_axes_oor_ndarrays_fct_;
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
@@ -463,8 +477,29 @@ operator*=(T const & rhs)
 
     // Create a (scalar) ndarray object with a data type of the histogram's
     // bin content weights (performing automatic type conversion).
-    bn::ndarray value = bn::from_object(value_obj, bc_weight_dt_);
-    imul_fct_(*this, value);
+    bn::ndarray value_arr = bn::from_object(value_obj, bc_weight_dt_);
+    imul_fct_(*this, value_arr);
+    return *this;
+}
+
+template <typename T>
+ndhist &
+ndhist::
+operator/=(T const & rhs)
+{
+    // Create a bp::object from the rhs value and check if it is a scalar.
+    bp::object value_obj(rhs);
+    if(! bn::is_any_scalar(value_obj))
+    {
+        std::stringstream ss;
+        ss << "The /= operator is only defined for scalar values!";
+        throw ValueError(ss.str());
+    }
+
+    // Create a (scalar) ndarray object with a data type of the histogram's
+    // bin content weights (performing automatic type conversion).
+    bn::ndarray value_arr = bn::from_object(value_obj, bc_weight_dt_);
+    idiv_fct_(*this, value_arr);
     return *this;
 }
 
@@ -476,6 +511,17 @@ operator*(T const & rhs) const
     ndhist newhist = this->empty_like();
     newhist += *this;
     newhist *= rhs;
+    return newhist;
+}
+
+template <typename T>
+ndhist
+ndhist::
+operator/(T const & rhs) const
+{
+    ndhist newhist = this->empty_like();
+    newhist += *this;
+    newhist /= rhs;
     return newhist;
 }
 

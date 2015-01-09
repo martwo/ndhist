@@ -399,8 +399,8 @@ struct iadd_fct_traits
             bc_it.dereference();
             typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
             typename multi_iter_t::value_type_1 & other_bin_value = *bc_it.value_ptr_1;
-            *self_bin_value.noe_ += *other_bin_value.noe_;
-            *self_bin_value.sow_ += *other_bin_value.sow_;
+            *self_bin_value.noe_  += *other_bin_value.noe_;
+            *self_bin_value.sow_  += *other_bin_value.sow_;
             *self_bin_value.sows_ += *other_bin_value.sows_;
             bc_it.increment();
         }
@@ -422,8 +422,8 @@ struct iadd_fct_traits
                 oor_it.dereference();
                 typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
                 typename multi_iter_t::value_type_1 & other_bin_value = *oor_it.value_ptr_1;
-                *self_bin_value.noe_ += *other_bin_value.noe_;
-                *self_bin_value.sow_ += *other_bin_value.sow_;
+                *self_bin_value.noe_  += *other_bin_value.noe_;
+                *self_bin_value.sow_  += *other_bin_value.sow_;
                 *self_bin_value.sows_ += *other_bin_value.sows_;
                 oor_it.increment();
             }
@@ -445,13 +445,15 @@ struct imul_fct_traits
                   , bn::iterators::single_value<BCValueType>
                 >
                 multi_iter_t;
+
         bp::object data_owner;
         bn::ndarray self_bc_arr = self.bc_->ConstructNDArray(self.bc_->get_dtype(), 0, &data_owner);
         multi_iter_t bc_it(
             self_bc_arr
           , const_cast<bn::ndarray &>(value_arr)
           , boost::numpy::detail::iter_operand::flags::READWRITE::value
-          , boost::numpy::detail::iter_operand::flags::READONLY::value);
+          , boost::numpy::detail::iter_operand::flags::READONLY::value
+        );
         while(! bc_it.is_end())
         {
             bc_it.dereference();
@@ -460,6 +462,87 @@ struct imul_fct_traits
             *self_bin_value.sow_  *= value;
             *self_bin_value.sows_ *= value * value;
             ++bc_it;
+        }
+
+        // Multiply the oor bin contents of the ndhist object by the
+        // scalar value.
+        for(size_t i=0; i<self.oor_arr_vec_.size(); ++i)
+        {
+            bn::ndarray self_oor_arr = self.oor_arr_vec_[i]->ConstructNDArray(self.oor_arr_vec_[i]->get_dtype(), 0, &data_owner);
+
+            multi_iter_t oor_it(
+                self_oor_arr
+              , const_cast<bn::ndarray &>(value_arr)
+              , boost::numpy::detail::iter_operand::flags::READWRITE::value
+              , boost::numpy::detail::iter_operand::flags::READONLY::value);
+
+            while(! oor_it.is_end())
+            {
+                oor_it.dereference();
+                typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
+                typename multi_iter_t::value_type_1 & value          = *oor_it.value_ptr_1;
+                *self_bin_value.sow_  *= value;
+                *self_bin_value.sows_ *= value * value;
+                ++oor_it;
+            }
+        }
+    }
+};
+
+
+template <typename BCValueType>
+struct idiv_fct_traits
+{
+    static
+    void apply(ndhist & self, bn::ndarray const & value_arr)
+    {
+        // Divide the not-oor bin contents of the ndhist object with the
+        // scalar value.
+        typedef bn::iterators::multi_flat_iterator<2>::impl<
+                    bin_value_type_traits<BCValueType>
+                  , bn::iterators::single_value<BCValueType>
+                >
+                multi_iter_t;
+
+        bp::object data_owner;
+        bn::ndarray self_bc_arr = self.bc_->ConstructNDArray(self.bc_->get_dtype(), 0, &data_owner);
+        multi_iter_t bc_it(
+            self_bc_arr
+          , const_cast<bn::ndarray &>(value_arr)
+          , boost::numpy::detail::iter_operand::flags::READWRITE::value
+          , boost::numpy::detail::iter_operand::flags::READONLY::value
+        );
+        while(! bc_it.is_end())
+        {
+            bc_it.dereference();
+            typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
+            typename multi_iter_t::value_type_1 & value          = *bc_it.value_ptr_1;
+            *self_bin_value.sow_  /= value;
+            *self_bin_value.sows_ /= value * value;
+            ++bc_it;
+        }
+
+        // Divide the oor bins contents of the ndhist object by the
+        // scalar value.
+        for(size_t i=0; i<self.oor_arr_vec_.size(); ++i)
+        {
+            bn::ndarray self_oor_arr = self.oor_arr_vec_[i]->ConstructNDArray(self.oor_arr_vec_[i]->get_dtype(), 0, &data_owner);
+
+            multi_iter_t oor_it(
+                self_oor_arr
+              , const_cast<bn::ndarray &>(value_arr)
+              , boost::numpy::detail::iter_operand::flags::READWRITE::value
+              , boost::numpy::detail::iter_operand::flags::READONLY::value);
+
+            while(! oor_it.is_end())
+            {
+                oor_it.dereference();
+                typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
+                typename multi_iter_t::value_type_1 & value          = *oor_it.value_ptr_1;
+                *self_bin_value.sow_  /= value;
+                *self_bin_value.sows_ /= value * value;
+                ++oor_it;
+            }
         }
     }
 };
@@ -961,6 +1044,7 @@ ndhist(
         if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
         {                                                                       \
             iadd_fct_ = &detail::iadd_fct_traits<BCDTYPE>::apply;               \
+            idiv_fct_ = &detail::idiv_fct_traits<BCDTYPE>::apply;               \
             imul_fct_ = &detail::imul_fct_traits<BCDTYPE>::apply;               \
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<BCDTYPE>;\
         }
