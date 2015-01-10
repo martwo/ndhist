@@ -18,7 +18,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <boost/numpy/ndarray.hpp>
-#include <boost/numpy/flat_iterator.hpp>
+#include <boost/numpy/iterators/flat_iterator.hpp>
 
 #include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
@@ -32,8 +32,8 @@ struct GenericAxisData : AxisData
 {
     boost::shared_ptr<ndarray_storage> storage_;
     bp::object arr_;
-    bn::flat_iterator<AxisValueType> iter_;
-    bn::flat_iterator<AxisValueType> iter_end_;
+    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > iter_;
+    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > iter_end_;
 };
 
 template <class Derived, class DerivedData>
@@ -71,8 +71,8 @@ struct GenericAxisBase
             throw MemoryError("Could not copy edge array into internal storage!");
         }
         // Initialize a flat iterator over the axis edges.
-        ddata.iter_ = bn::flat_iterator<typename Derived::axis_value_type>(arr);
-        ddata.iter_end_ = bn::flat_iterator<typename Derived::axis_value_type>(ddata.iter_.end());
+        ddata.iter_ = bn::iterators::flat_iterator< bn::iterators::single_value<typename Derived::axis_value_type> >(arr, bn::detail::iter_operand::flags::READONLY::value);
+        ddata.iter_end_ = ddata.iter_.end();
     }
 
     static
@@ -113,10 +113,10 @@ struct GenericAxis
         // AxisValueType. So we can use the std::upper_bound binary search for
         // getting the upper edge for the given value.
         data.iter_.reset();
-        bn::flat_iterator<AxisValueType> ub = std::upper_bound(data.iter_, data.iter_end_, value);
+        bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > ub = std::upper_bound(data.iter_, data.iter_end_, value);
         if(ub == data.iter_end_)
         {
-            // Overlow.
+            // Overflow.
             *oor_ptr = axis::OOR_OVERFLOW;
             return -2;
         }
@@ -179,7 +179,7 @@ struct GenericAxis<bp::object>
         // AxisValueType. So we can just iterate over the edges values and
         // compare the values.
         data.iter_.reset();
-        bn::flat_iterator<bp::object> ub = std::upper_bound(data.iter_, data.iter_end_, value, &edge_value_compare);
+        bn::iterators::flat_iterator< bn::iterators::single_value<bp::object> > ub = std::upper_bound(data.iter_, data.iter_end_, value, &edge_value_compare);
         if(ub == data.iter_end_)
         {
             // Overlow.

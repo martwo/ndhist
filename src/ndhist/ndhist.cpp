@@ -24,8 +24,8 @@
 
 #include <boost/numpy/limits.hpp>
 #include <boost/numpy/ndarray.hpp>
-#include <boost/numpy/indexed_iterator.hpp>
 #include <boost/numpy/iterators/multi_flat_iterator.hpp>
+#include <boost/numpy/iterators/indexed_iterator.hpp>
 #include <boost/numpy/dstream.hpp>
 #include <boost/numpy/utilities.hpp>
 
@@ -35,6 +35,7 @@
 #include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/generic_axis.hpp>
 #include <ndhist/detail/constant_bin_width_axis.hpp>
+#include <ndhist/detail/multi_axis_iter.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -49,13 +50,12 @@ struct axis_traits
     static bool
     has_constant_bin_width(bn::ndarray const & edges)
     {
-        bn::flat_iterator<AxisValueType> edges_iter(edges);
-        bn::flat_iterator<AxisValueType> const edges_iter_end(edges_iter.end());
+        bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_iter(edges);
         AxisValueType prev_value = *edges_iter;
         ++edges_iter;
         bool is_first_dist = true;
         AxisValueType first_dist;
-        for(; edges_iter != edges_iter_end; ++edges_iter)
+        while(! edges_iter.is_end())
         {
             AxisValueType this_value = *edges_iter;
             AxisValueType this_dist = this_value - prev_value;
@@ -76,6 +76,7 @@ struct axis_traits
                     return false;
                 }
             }
+            ++edges_iter;
         }
 
         return true;
@@ -231,6 +232,8 @@ struct bin_value_type_traits
 
     typedef bin_value<BCValueType>
             value_type;
+    typedef value_type &
+            value_ref_type;
     typedef value_type *
             value_ptr_type;
 
@@ -245,10 +248,9 @@ struct bin_value_type_traits
     bin_value<BCValueType> bin_value_;
 
     static
-    void
+    value_ref_type
     dereference(
         bn::iterators::value_type_traits & vtt_base
-      , value_ptr_type & value_ptr_ref
       , char * data_ptr
     )
     {
@@ -258,7 +260,7 @@ struct bin_value_type_traits
         vtt.bin_value_.sow_  = reinterpret_cast<BCValueType *>(data_ptr + vtt.fields_byte_offsets_[1]);
         vtt.bin_value_.sows_ = reinterpret_cast<BCValueType *>(data_ptr + vtt.fields_byte_offsets_[2]);
 
-        value_ptr_ref = &vtt.bin_value_;
+        return vtt.bin_value_;
     }
 };
 template <>
@@ -270,6 +272,8 @@ struct bin_value_type_traits<bp::object>
 
     typedef bin_value<bp::object>
             value_type;
+    typedef value_type &
+            value_ref_type;
     typedef value_type *
             value_ptr_type;
 
@@ -284,10 +288,9 @@ struct bin_value_type_traits<bp::object>
     bin_value<bp::object> bin_value_;
 
     static
-    void
+    value_ref_type
     dereference(
         bn::iterators::value_type_traits & vtt_base
-      , value_ptr_type & value_ptr_ref
       , char * data_ptr
     )
     {
@@ -304,7 +307,7 @@ struct bin_value_type_traits<bp::object>
         vtt.bin_value_.sows_obj_ = sows_obj;
         vtt.bin_value_.sows_ = &vtt.bin_value_.sows_obj_;
 
-        value_ptr_ref = &vtt.bin_value_;
+        return vtt.bin_value_;
     }
 };
 
@@ -396,13 +399,13 @@ struct iadd_fct_traits
           , boost::numpy::detail::iter_operand::flags::READONLY::value);
         while(! bc_it.is_end())
         {
-            bc_it.dereference();
-            typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
-            typename multi_iter_t::value_type_1 & other_bin_value = *bc_it.value_ptr_1;
+            typename multi_iter_t::multi_references_type multi_value = *bc_it;
+            typename multi_iter_t::value_ref_type_0 self_bin_value  = multi_value.value_0;
+            typename multi_iter_t::value_ref_type_1 other_bin_value = multi_value.value_1;
             *self_bin_value.noe_  += *other_bin_value.noe_;
             *self_bin_value.sow_  += *other_bin_value.sow_;
             *self_bin_value.sows_ += *other_bin_value.sows_;
-            bc_it.increment();
+            ++bc_it;
         }
 
         // Add the oor bin contents of the two ndhist objects.
@@ -419,13 +422,13 @@ struct iadd_fct_traits
 
             while(! oor_it.is_end())
             {
-                oor_it.dereference();
-                typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
-                typename multi_iter_t::value_type_1 & other_bin_value = *oor_it.value_ptr_1;
+                typename multi_iter_t::multi_references_type multi_value = *oor_it;
+                typename multi_iter_t::value_ref_type_0 self_bin_value  = multi_value.value_0;
+                typename multi_iter_t::value_ref_type_1 other_bin_value = multi_value.value_1;
                 *self_bin_value.noe_  += *other_bin_value.noe_;
                 *self_bin_value.sow_  += *other_bin_value.sow_;
                 *self_bin_value.sows_ += *other_bin_value.sows_;
-                oor_it.increment();
+                ++oor_it;
             }
         }
     }
@@ -456,9 +459,9 @@ struct imul_fct_traits
         );
         while(! bc_it.is_end())
         {
-            bc_it.dereference();
-            typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
-            typename multi_iter_t::value_type_1 & value          = *bc_it.value_ptr_1;
+            typename multi_iter_t::multi_references_type multi_value = *bc_it;
+            typename multi_iter_t::value_ref_type_0 self_bin_value = multi_value.value_0;
+            typename multi_iter_t::value_ref_type_1 value          = multi_value.value_1;
             *self_bin_value.sow_  *= value;
             *self_bin_value.sows_ *= value * value;
             ++bc_it;
@@ -478,9 +481,9 @@ struct imul_fct_traits
 
             while(! oor_it.is_end())
             {
-                oor_it.dereference();
-                typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
-                typename multi_iter_t::value_type_1 & value          = *oor_it.value_ptr_1;
+                typename multi_iter_t::multi_references_type multi_value = *oor_it;
+                typename multi_iter_t::value_ref_type_0 self_bin_value = multi_value.value_0;
+                typename multi_iter_t::value_ref_type_1 value          = multi_value.value_1;
                 *self_bin_value.sow_  *= value;
                 *self_bin_value.sows_ *= value * value;
                 ++oor_it;
@@ -514,9 +517,9 @@ struct idiv_fct_traits
         );
         while(! bc_it.is_end())
         {
-            bc_it.dereference();
-            typename multi_iter_t::value_type_0 & self_bin_value = *bc_it.value_ptr_0;
-            typename multi_iter_t::value_type_1 & value          = *bc_it.value_ptr_1;
+            typename multi_iter_t::multi_references_type multi_value = *bc_it;
+            typename multi_iter_t::value_ref_type_0 self_bin_value = multi_value.value_0;
+            typename multi_iter_t::value_ref_type_1 value          = multi_value.value_1;
             *self_bin_value.sow_  /= value;
             *self_bin_value.sows_ /= value * value;
             ++bc_it;
@@ -536,14 +539,86 @@ struct idiv_fct_traits
 
             while(! oor_it.is_end())
             {
-                oor_it.dereference();
-                typename multi_iter_t::value_type_0 & self_bin_value = *oor_it.value_ptr_0;
-                typename multi_iter_t::value_type_1 & value          = *oor_it.value_ptr_1;
+                typename multi_iter_t::multi_references_type multi_value = *oor_it;
+                typename multi_iter_t::value_ref_type_0 self_bin_value = multi_value.value_0;
+                typename multi_iter_t::value_ref_type_1 value          = multi_value.value_1;
                 *self_bin_value.sow_  /= value;
                 *self_bin_value.sows_ /= value * value;
                 ++oor_it;
             }
         }
+    }
+};
+
+template <typename BCValueType>
+struct project_fct_traits
+{
+    static
+    ndhist
+    apply(ndhist const & self, std::set<intptr_t> const & axes)
+    {
+        // Create a ndhist with the dimensions specified by axes.
+        uintptr_t const self_nd = self.get_nd();
+        uintptr_t const proj_nd = axes.size();
+
+        bp::list axis_list;
+        std::set<intptr_t>::const_iterator axes_it = axes.begin();
+        std::set<intptr_t>::const_iterator axes_end = axes.end();
+        for(; axes_it != axes_end; ++axes_it)
+        {
+            axis_list.append(self.get_axis_definition(*axes_it));
+        }
+        bp::tuple axes_tuple(axis_list);
+        ndhist proj(axes_tuple, self.bc_weight_dt_, self.bc_class_);
+
+        typedef multi_axis_iter< bin_value_type_traits<BCValueType> >
+                self_bc_iter_t;
+
+        typedef bn::iterators::indexed_iterator< bin_value_type_traits<BCValueType> >
+                proj_bc_iter_t;
+
+        // Add the not-oor bin.
+        bp::object data_owner;
+        bn::ndarray self_bc_arr = self.bc_->ConstructNDArray(self.bc_->get_dtype(), 0, &data_owner);
+        self_bc_iter_t self_bc_iter(self_bc_arr, bn::detail::iter_operand::flags::READONLY::value);
+        bn::ndarray proj_bc_arr = proj.bc_->ConstructNDArray(proj.bc_->get_dtype(), 0, &data_owner);
+        proj_bc_iter_t proj_bc_iter(proj_bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+        // Iterate over the projection's not-oor bins and for each bin iterate
+        // over the appropriate summation bins of the self histogram.
+        std::vector<intptr_t> fixed_axes_indices(self_nd, -1);
+        std::vector<intptr_t> const iter_axes_range_min(self_nd, 0);
+        std::vector<intptr_t> const & iter_axes_range_max = self.bc_->get_shape_vector();
+        std::vector<intptr_t> proj_indices(proj_nd);
+        while(! proj_bc_iter.is_end())
+        {
+            typename proj_bc_iter_t::value_ref_type proj_bin = *proj_bc_iter;
+
+            // Initialize the new summation iteration.
+            proj_bc_iter.get_indices(proj_indices);
+            axes_it = axes.begin();
+            for(uintptr_t i=0; axes_it != axes_end; ++axes_it, ++i)
+            {
+                fixed_axes_indices[*axes_it] = proj_indices[i];
+            }
+            self_bc_iter.init_iteration(fixed_axes_indices, iter_axes_range_min, iter_axes_range_max);
+            while(! self_bc_iter.is_end())
+            {
+                typename self_bc_iter_t::value_ref_type self_bin = self_bc_iter.dereference();
+
+                // Add the self_bin to the proj_bin.
+                *proj_bin.noe_  += *self_bin.noe_;
+                *proj_bin.sow_  += *self_bin.sow_;
+                *proj_bin.sows_ += *self_bin.sows_;
+
+                self_bc_iter.increment();
+            }
+
+            ++proj_bc_iter;
+        }
+
+        // FIXME: Add also the OOR bins.
+
+        return proj;
     }
 };
 
@@ -576,11 +651,11 @@ get_field_axes_oor_ndarrays(
         }
 
         bn::ndarray arr = bn::empty(shape, (field_idx == 0 ? self.bc_noe_dt_ : self.bc_weight_dt_));
-        bn::indexed_iterator<BCValueType> iter(arr, bn::detail::iter_operand::flags::READWRITE::value);
+        bn::iterators::indexed_iterator< bn::iterators::single_value<BCValueType> > iter(arr, bn::detail::iter_operand::flags::READWRITE::value);
         std::vector<intptr_t> indices(nd);
         while(! iter.is_end())
         {
-            iter.get_multi_index_vector(indices);
+            iter.get_indices(indices);
 
             // Determine the oor array index and the data address of the bin.
             oor_arr_idx = 0;
@@ -730,7 +805,7 @@ struct generic_nd_traits
             // Create an indexed iterator for the bin content array.
             bp::object self_obj(bp::ptr(&self));
             bn::ndarray bc_arr = self.bc_->ConstructNDArray(self.bc_weight_dt_, 1, &self_obj);
-            bn::indexed_iterator<BCValueType> bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+            bn::iterators::indexed_iterator< bn::iterators::single_value<BCValueType> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
             // Do the iteration.
             // Get the byte offsets of the fields and check if the number of fields
@@ -1047,6 +1122,7 @@ ndhist(
             idiv_fct_ = &detail::idiv_fct_traits<BCDTYPE>::apply;               \
             imul_fct_ = &detail::imul_fct_traits<BCDTYPE>::apply;               \
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<BCDTYPE>;\
+            project_fct_ = &detail::project_fct_traits<BCDTYPE>::apply;         \
         }
     NDHIST_BC_DATA_TYPE_SUPPORT(bool)
     NDHIST_BC_DATA_TYPE_SUPPORT(int8_t)
@@ -1069,19 +1145,18 @@ ndhist(
     if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
         bp::object self(bp::ptr(this));
-        bn::ndarray bc_sow_arr  = bc_->ConstructNDArray(bc_weight_dt_, 1, &self);
-        bn::ndarray bc_sows_arr = bc_->ConstructNDArray(bc_weight_dt_, 2, &self);
-        bn::flat_iterator<bp::object> bc_sow_iter(bc_sow_arr);
-        bn::flat_iterator<bp::object> bc_sow_iter_end(bc_sow_iter.end());
-        bn::flat_iterator<bp::object> bc_sows_iter(bc_sows_arr);
-        for(; bc_sow_iter != bc_sow_iter_end; ++bc_sow_iter, ++bc_sows_iter)
+        bn::ndarray bc_arr = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
+        bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > bc_iter(bc_arr);
+        while(! bc_iter.is_end())
         {
-            uintptr_t * sow_obj_ptr_ptr = bc_sow_iter.get_object_ptr_ptr();
-            uintptr_t * sows_obj_ptr_ptr = bc_sows_iter.get_object_ptr_ptr();
+            detail::bin_value_type_traits<bp::object>::value_ref_type bin = *bc_iter;
+
             bp::object sow_obj  = bc_class_();
             bp::object sows_obj = bc_class_();
-            *sow_obj_ptr_ptr  = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sow_obj.ptr()));
-            *sows_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sows_obj.ptr()));
+            *bin.sow_obj_ptr_  = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sow_obj.ptr()));
+            *bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sows_obj.ptr()));
+
+            ++bc_iter;
         }
 
         bc_one_ = bc_class(1);
@@ -1147,21 +1222,28 @@ ndhist
 ndhist::
 empty_like() const
 {
-    bp::tuple axes_name_tuple = ndvalues_dt_.get_field_names();
     bp::list axis_list;
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        bp::tuple axis = bp::make_tuple(
-            axes_[i]->get_edges_ndarray_fct(axes_[i]->data_)
-          , axes_name_tuple[i]
-          , axes_[i]->label_
-          , axes_[i]->extension_max_fcap_
-          , axes_[i]->extension_max_bcap_
-        );
-        axis_list.append(axis);
+        axis_list.append(get_axis_definition(i));
     }
     bp::tuple axes(axis_list);
     return ndhist(axes, bc_weight_dt_, bc_class_);
+}
+
+bp::tuple
+ndhist::
+get_axis_definition(intptr_t axis) const
+{
+    bp::tuple axes_name_tuple = ndvalues_dt_.get_field_names();
+    bp::tuple axis_def = bp::make_tuple(
+               axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data_)
+             , axes_name_tuple[axis]
+             , axes_[axis]->label_
+             , axes_[axis]->extension_max_fcap_
+             , axes_[axis]->extension_max_bcap_
+           );
+    return axis_def;
 }
 
 void
@@ -1217,20 +1299,62 @@ create_oor_arrays(
         // with bc_class() objects.
         if(bn::dtype::equivalent(bc_weight_dt, bn::dtype::get_builtin<bp::object>()))
         {
-            bn::flat_iterator<bp::object> iter_sow(arr_storage->ConstructNDArray(bc_weight_dt, 1, &self));
-            bn::flat_iterator<bp::object> iter_sows(arr_storage->ConstructNDArray(bc_weight_dt, 2, &self));
-            bn::flat_iterator<bp::object> iter_end(iter_sow.end());
-            for(; iter_sow != iter_end; ++iter_sow, ++iter_sows)
+            bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > iter(arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self), bn::detail::iter_operand::flags::WRITEONLY::value);
+            while(! iter.is_end())
             {
-                uintptr_t * obj_ptr_ptr = iter_sow.get_object_ptr_ptr();
+                detail::bin_value_type_traits<bp::object>::value_ref_type bin = *iter;
+
                 bp::object obj_sow = bc_class();
-                *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj_sow.ptr()));
-                obj_ptr_ptr = iter_sows.get_object_ptr_ptr();
+                *bin.sow_obj_ptr_ = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj_sow.ptr()));
+
                 bp::object obj_sows = bc_class();
-                *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj_sows.ptr()));
+                *bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj_sows.ptr()));
+
+                ++iter;
             }
         }
     }
+}
+
+ndhist
+ndhist::
+project(bp::object const & dims) const
+{
+    intptr_t const nd = get_nd();
+    bn::ndarray axes_arr = bn::from_object(dims, bn::dtype::get_builtin<intptr_t>(), 0, 1, bn::ndarray::ALIGNED);
+    std::set<intptr_t> axes;
+    bn::iterators::flat_iterator< bn::iterators::single_value<intptr_t> > axes_arr_iter(axes_arr);
+    while(! axes_arr_iter.is_end())
+    {
+        intptr_t axis = *axes_arr_iter;
+        if(axis < 0) {
+            axis += nd;
+        }
+        if(axis < 0)
+        {
+            std::stringstream ss;
+            ss << "The axis value \""<< *axes_arr_iter <<"\" specifies an "
+               << "axis < 0!";
+            throw IndexError(ss.str());
+        }
+        else if(axis >= nd)
+        {
+            std::stringstream ss;
+            ss << "The axis value \""<< axis <<"\" must be smaller than the "
+               << "dimensionality of the histogram, i.e. smaller than "
+               << nd <<"!";
+            throw IndexError(ss.str());
+        }
+        if(! axes.insert(axis).second)
+        {
+            std::stringstream ss;
+            ss << "The axis value \""<< axis <<"\" has been "
+               << "specified at least twice!";
+            throw ValueError(ss.str());
+        }
+        ++axes_arr_iter;
+    }
+    return project_fct_(*this, axes);
 }
 
 void
@@ -1480,10 +1604,11 @@ fill(bp::object const & ndvalue_obj, bp::object weight_obj)
     fill_fct_(*this, ndvalue_obj, weight_obj);
 }
 
+// TODO: Use the new multi_axis_iter for this.
 static
 void
 initialize_extended_array_axis_range(
-    bn::flat_iterator<bp::object> & iter
+    bn::iterators::flat_iterator< bn::iterators::single_value<bp::object> > & iter
   , intptr_t axis
   , std::vector<intptr_t> const & shape
   , std::vector<intptr_t> const & strides
@@ -1511,10 +1636,10 @@ initialize_extended_array_axis_range(
         for(intptr_t i=0; i<n_iters; ++i)
         {
             //std::cout << "indices = ";
-            for(intptr_t j=0; j<nd; ++j)
-            {
+            //for(intptr_t j=0; j<nd; ++j)
+            //{
                 //std::cout << indices[j] << ",";
-            }
+            //}
             //std::cout << std::endl;
 
             intptr_t iteridx = 0;
@@ -1526,7 +1651,8 @@ initialize_extended_array_axis_range(
             iter.jump_to_iter_index(iteridx);
             //std::cout << "jump done" << std::endl<<std::flush;
 
-            uintptr_t * obj_ptr_ptr = iter.get_object_ptr_ptr();
+            *iter;
+            uintptr_t * obj_ptr_ptr = iter.get_value_type_traits().value_obj_ptr_;
             bp::object obj = obj_class();
             //std::cout << "Setting pointer data ..."<<std::flush;
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
@@ -1589,7 +1715,7 @@ initialize_extended_array_axis(
         b_axis_idx_range_max = shape[axis];
     }
 
-    bn::flat_iterator<bp::object> bc_iter(arr);
+    bn::iterators::flat_iterator< bn::iterators::single_value<bp::object> > bc_iter(arr, bn::detail::iter_operand::flags::WRITEONLY::value);
     intptr_t const nd = arr.get_nd();
     if(nd == 1)
     {
@@ -1599,7 +1725,8 @@ initialize_extended_array_axis(
         for(intptr_t axis_idx = f_axis_idx_range_min; axis_idx < f_axis_idx_range_max; ++axis_idx)
         {
             bc_iter.jump_to_iter_index(axis_idx);
-            uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
+            *bc_iter;
+            uintptr_t * obj_ptr_ptr = bc_iter.get_value_type_traits().value_obj_ptr_;
             bp::object obj = obj_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
         }
@@ -1608,7 +1735,8 @@ initialize_extended_array_axis(
         for(intptr_t axis_idx = b_axis_idx_range_min; axis_idx < b_axis_idx_range_max; ++axis_idx)
         {
             bc_iter.jump_to_iter_index(axis_idx);
-            uintptr_t * obj_ptr_ptr = bc_iter.get_object_ptr_ptr();
+            *bc_iter;
+            uintptr_t * obj_ptr_ptr = bc_iter.get_value_type_traits().value_obj_ptr_;
             bp::object obj = obj_class();
             *obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(obj.ptr()));
         }

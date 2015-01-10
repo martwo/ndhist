@@ -12,31 +12,39 @@
 #ifndef NDHIST_DETAIL_MULTI_AXES_ITER_HPP_INCLUDED
 #define NDHIST_DETAIL_MULTI_AXES_ITER_HPP_INCLUDED 1
 
+#include <cstring>
+#include <vector>
+
 #include <boost/assert.hpp>
+
+#include <boost/numpy/iterators/flat_iterator.hpp>
 
 namespace ndhist {
 namespace detail {
 
 /**
  * @brief Iterates over all array elements of the axes which are not selected
- *        through the *fixed_axes_range_min* vector. The indices of these axes are fixed
- *        and
- *        specified via the *axes_index* vector. The iteration range on the
- *        non-fixed iterated axes can be limited through the *axes_range_min*
- *        and *axes_range_max* vectors. The range is always [min, max).
- *        For each iterated value the callback function is called with the
- *        memory address of that value.
+ *        through the *fixed_axes_indices* vector. The indices of these axes
+ *        are fixed.
+ *        The iteration range on the non-fixed iterated axes can be limited
+ *        through the *iter_axes_range_min* and
+ *        *iter_axes_range_max* vectors. The range is always [min, max).
+ *        For each iterated value the ``dereference`` method can be called to
+ *        get the current value.
  */
-template <typename ValueType>
+template <typename ValueTypeTraits>
 struct multi_axis_iter
 {
+    typedef typename ValueTypeTraits::value_ref_type
+            value_ref_type;
+
     multi_axis_iter(
         bn::ndarray & arr
       , bn::detail::iter_operand_flags_t arr_access_flags = bn::detail::iter_operand::flags::READONLY::value
     )
       : is_end_point_(false)
-      , iter_(bn::flat_iterator<ValueType>(arr, arr_access_flags))
-      , arr_shape_(iter_.get_detail_iter.get_operand(0).get_shape_vector())
+      , iter_(bn::iterators::flat_iterator<ValueTypeTraits>(arr, arr_access_flags))
+      , arr_shape_(arr.get_shape_vector())
     {
         int const nd = arr_shape_.size();
         fixed_axes_mask_.resize(nd);
@@ -47,7 +55,7 @@ struct multi_axis_iter
         iter_strides_[nd-1] = 1;
         for(intptr_t i=nd-2; i>=0; --i)
         {
-            iter_strides[i] = arr_shape_[i+1]*iter_strides[i+1];
+            iter_strides_[i] = arr_shape_[i+1]*iter_strides_[i+1];
         }
     }
 
@@ -92,7 +100,7 @@ struct multi_axis_iter
             }
             else
             {
-                indices_[i] = fixed_axes_index[i];
+                indices_[i] = fixed_axes_indices[i];
             }
         }
 
@@ -102,28 +110,28 @@ struct multi_axis_iter
         }
         p_ = last_iter_axis_;
 
-        // Calculate the iter index of the first value addressed by *indices_*.
-        _calc_iter_index();
-
-        iter_.jump_to_iter_index(iter_index_);
+        iter_.jump_to_iter_index(calc_detail_iter_index());
+        iter_index_ = 0;
 
         is_end_point_ = false;
     }
 
-    void
-    _calc_iter_index()
+    intptr_t
+    calc_detail_iter_index()
     {
         int const nd = arr_shape_.size();
-        iter_index_ = 0;
+        intptr_t iter_index = 0;
         for(intptr_t i=0; i<nd; ++i)
         {
-            iter_index_ += indices_[i]*iter_strides_[i];
+            iter_index += indices_[i]*iter_strides_[i];
         }
+        return iter_index;
     }
 
-    char * get_data() const
+    typename ValueTypeTraits::value_ref_type
+    dereference()
     {
-        return iter.get_detail_iter().get_data(0);
+        return iter_.dereference();
     }
 
     void increment()
@@ -145,7 +153,7 @@ struct multi_axis_iter
         {
             --p_;
         }
-        BOOST_ASSERT(p >= 0);
+        BOOST_ASSERT(p_ >= 0);
         ++indices_[p_];
         while(p_ < last_iter_axis_)
         {
@@ -155,9 +163,8 @@ struct multi_axis_iter
             }
         }
 
-        _calc_iter_index();
-
-        iter_.jump_to_iter_index(iter_index_);
+        iter_.jump_to_iter_index(calc_detail_iter_index());
+        ++iter_index_;
     }
 
     bool is_end() const
@@ -166,7 +173,7 @@ struct multi_axis_iter
     }
 
     bool is_end_point_;
-    bn::flat_iterator<ValueType> iter_;
+    bn::iterators::flat_iterator<ValueTypeTraits> iter_;
     std::vector<intptr_t> const arr_shape_;
     std::vector<intptr_t> iter_strides_;
     // True if the iteration should not iterate over this axis.
@@ -175,7 +182,7 @@ struct multi_axis_iter
     std::vector<intptr_t> iter_axes_range_min_;
     std::vector<intptr_t> iter_axes_range_max_;
     std::vector<intptr_t> indices_;
-    intptr_t last_axis_;
+    intptr_t last_iter_axis_;
     intptr_t n_iterations_;
     intptr_t p_;
     intptr_t iter_index_;

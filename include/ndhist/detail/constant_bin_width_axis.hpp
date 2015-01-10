@@ -13,6 +13,9 @@
 #define NDHIST_DETAIL_CONSTANT_BIN_WIDTH_AXIS_HPP_INCLUDED 1
 
 #include <cmath>
+#include <string>
+
+#include <boost/numpy/iterators/flat_iterator.hpp>
 
 #include <ndhist/detail/axis.hpp>
 
@@ -55,9 +58,7 @@ struct ConstantBinWidthAxis
         data_ = boost::shared_ptr< axis_data_type >(new axis_data_type());
         axis_data_type & ddata = *static_cast<axis_data_type*>(data_.get());
         ddata.n_bins_ = edges.shape(0) - 1;
-        bn::flat_iterator<axis_value_type> edges_iter(edges);
-        bn::flat_iterator<axis_value_type> edges_iter_end(edges_iter.end());
-
+        bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> > edges_iter(edges);
         ddata.min_ = *edges_iter;
         ++edges_iter;
         axis_value_type const value = *edges_iter;
@@ -80,12 +81,15 @@ struct ConstantBinWidthAxis
         intptr_t shape[1];
         shape[0] = data.n_bins_ + 1;
         bn::ndarray edges = bn::empty(1, shape, bn::dtype::get_builtin<axis_value_type>());
-        bn::flat_iterator<axis_value_type> iter(edges);
-        bn::flat_iterator<axis_value_type> iter_end(iter.end());
-        for(intptr_t idx = 0; iter != iter_end; ++idx, ++iter)
+        bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> > iter(edges);
+        intptr_t idx = 0;
+        while(! iter.is_end())
         {
             axis_value_type & value = *iter;
             value = data.min_ + idx*data.bin_width_;
+
+            ++idx;
+            ++iter;
         }
         return edges;
     }

@@ -50,7 +50,7 @@ void register_ndhist()
               "ndarray is returned.")
 
         .add_property("title", &ndhist::py_get_title, &ndhist::py_set_title
-            , "The title of the histgram.")
+            , "The title of the histogram.")
         .add_property("labels", &ndhist::py_get_labels
             , "The tuple holding the labels of the axes.")
 
@@ -124,7 +124,7 @@ void register_ndhist()
             , "The dtype object describing the ndvalues array needed for "
               "filling the histogram. This property can be used in the "
               "ndarray.view method in order to get a view on a MxN array to "
-              "fill it into a N-dimensional histgram with M entries.")
+              "fill it into a N-dimensional histogram with M entries.")
 
         .add_property("max_tuple_fill_ndim", &ndhist::get_max_tuple_fill_nd
             , "The maximal dimensionality of the histogram, which "
@@ -150,6 +150,13 @@ void register_ndhist()
             , "Checks if the given ndhist object is compatible with this "
               "ndhist object. This means, the dimensionality and the edges of "
               "all axes must match.")
+        .def("project", &ndhist::project
+            , (bp::arg("self"), bp::arg("dims"))
+            , "Create a new ndhist object that is the projection of this        \n"
+              "histogram containing only the dimensions, which have been        \n"
+              "specified through the *dims* argument.                           \n"
+              "All other dimensions are collapsed (summed) accordingly into     \n"
+              "the remaining specified dimensions.                              \n")
 
         // Arithmetic operator overloads.
         .def(bp::self += bp::self)

@@ -14,11 +14,11 @@
 #ifndef NDHIST_NDHIST_HPP_INCLUDED
 #define NDHIST_NDHIST_HPP_INCLUDED 1
 
-
-#include <iostream>
 #include <stdint.h>
 
 #include <cstring>
+#include <iostream>
+#include <set>
 #include <vector>
 
 #include <boost/preprocessor/punctuation/comma_if.hpp>
@@ -134,6 +134,13 @@ class ndhist
      */
     bool
     is_compatible(ndhist const & other) const;
+
+    /**
+     * @brief Returns the full defintion of the given axis as specified in the
+     *        constructor.
+     */
+    bp::tuple
+    get_axis_definition(intptr_t axis) const;
 
     /**
      * @brief Creates a new empty ndhist object that has the same binning as
@@ -290,6 +297,13 @@ class ndhist
      */
     void
     fill(bp::object const & ndvalue_obj, bp::object weight_obj);
+
+    /**
+     * @brief Create a new ndhist from this ndhist object, where only the
+     *        specified dimensions are included and the others are summed over.
+     */
+    ndhist
+    project(bp::object const & dims) const;
 
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
@@ -449,6 +463,7 @@ class ndhist
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_noe_type_field_axes_oor_ndarrays_fct_;
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
+    boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
 
     /** The ndarray storage for a nd-dimensional ndarray padded with the
      *  out-of-range bins.
