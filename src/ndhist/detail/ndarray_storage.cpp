@@ -54,15 +54,6 @@ calc_data_strides(std::vector<intptr_t> & strides) const
     }
 }
 
-std::vector<intptr_t>
-ndarray_storage::
-CalcDataStrides() const
-{
-    std::vector<intptr_t> strides(shape_.size());
-    calc_data_strides(strides);
-    return strides;
-}
-
 //______________________________________________________________________________
 bn::ndarray
 ndarray_storage::
@@ -75,7 +66,7 @@ ConstructNDArray(bn::dtype const & dt, size_t field_idx, bp::object const * data
         sub_item_byte_offset = dt_.get_fields_byte_offsets()[field_idx];
     }
     //std::cout << "sub_item_byte_offset = "<<sub_item_byte_offset<<std::endl;
-    return bn::from_data(data_+CalcDataOffset(sub_item_byte_offset), dt, shape_, CalcDataStrides(), data_owner);
+    return bn::from_data(data_+CalcDataOffset(sub_item_byte_offset), dt, shape_, get_data_strides_vector(), data_owner);
 }
 
 //______________________________________________________________________________
@@ -152,7 +143,6 @@ extend_axes(
             }
         }
 
-        //std::cout << "ndarray_storage::extend_axes: reallocate ++++++++++++++++" <<std::endl<<std::flush;
         // At this point shape_, front_capacity_ and back_capacity_ have the
         // right numbers for the new array.
         // Allocate the new array memory.
@@ -217,6 +207,9 @@ extend_axes(
         free_data(data_);
         data_ = new_data;
     }
+
+    // Recalculate the data strides.
+    calc_data_strides(data_strides_);
 }
 
 void

@@ -362,7 +362,7 @@ get_noor_bin(
 {
     uintptr_t const nd = self.get_nd();
     char * data_addr = self.bc_->data_ + self.bc_->CalcDataOffset(0);
-    std::vector<intptr_t> strides = self.bc_->CalcDataStrides(); // FIXME: Use get_data_strides().
+    std::vector<intptr_t> const & strides = self.bc_->get_data_strides_vector();
     for(uintptr_t i=0; i<nd; ++i)
     {
         data_addr += indices[i]*strides[i];
@@ -407,7 +407,7 @@ get_oor_bin(
 
     boost::shared_ptr<detail::ndarray_storage> const & oor_arr_storage = self.oor_arr_vec_[oor_arr_idx];
     char * oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
-    std::vector<intptr_t> oor_strides = oor_arr_storage->CalcDataStrides();
+    std::vector<intptr_t> const & oor_strides = oor_arr_storage->get_data_strides_vector();
 
     // Translate the indices into the oor-indices.
     std::vector<intptr_t> oor_indices(nd);
@@ -440,10 +440,10 @@ template <typename BCValueType>
 static
 void
 flush_oor_cache(
-    ndhist                & self
-  , std::vector<intptr_t> & f_n_extra_bins_vec
-  , uintptr_t               bc_data_offset
-  , std::vector<intptr_t> & bc_data_strides
+    ndhist                          & self
+  , std::vector<intptr_t> const     & f_n_extra_bins_vec
+  , uintptr_t                         bc_data_offset
+  , std::vector<intptr_t> const     & bc_data_strides
   , OORFillRecordStack<BCValueType> & oorfrstack
 )
 {
@@ -462,7 +462,7 @@ flush_oor_cache(
         {
             boost::shared_ptr<detail::ndarray_storage> & oor_arr = self.oor_arr_vec_[rec.oor_arr_idx];
 
-            std::vector<intptr_t> oor_strides = oor_arr->CalcDataStrides();
+            std::vector<intptr_t> const & oor_strides = oor_arr->get_data_strides_vector();
             char * oor_data_addr = oor_arr->data_ + oor_arr->CalcDataOffset(0);
             for(size_t i=0; i<rec.oor_arr_noor_relative_indices_size; ++i)
             {

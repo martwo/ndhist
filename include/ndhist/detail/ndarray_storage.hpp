@@ -53,6 +53,8 @@ class ndarray_storage
       , dt_(dt)
       , data_(NULL)
     {
+        data_strides_.resize(shape_.size());
+        calc_data_strides(data_strides_);
         data_ = create_array_data(shape_, front_capacity_, back_capacity_, dt_.get_itemsize());
     }
 
@@ -74,10 +76,10 @@ class ndarray_storage
      */
     intptr_t CalcDataOffset(size_t sub_item_byte_offset) const;
 
-    /** Calculates the data strides for a ndarray wrapping this ndarray storage.
+    /** Calculates the data strides for the dtype object of this ndarray
+     *  storage.
      */
     void calc_data_strides(std::vector<intptr_t> & stides) const;
-    std::vector<intptr_t> CalcDataStrides() const;
 
     /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
      *  with the correct layout, i.e. offset and strides. If the field_idx
@@ -92,28 +94,34 @@ class ndarray_storage
       , bp::object const * data_owner = NULL
     );
 
-    std::vector<intptr_t> &
-    get_front_capacity_vector()
+    std::vector<intptr_t> const &
+    get_front_capacity_vector() const
     {
         return front_capacity_;
     }
 
-    std::vector<intptr_t> &
-    get_back_capacity_vector()
+    std::vector<intptr_t> const &
+    get_back_capacity_vector() const
     {
         return back_capacity_;
     }
 
-    std::vector<intptr_t> &
-    get_shape_vector()
+    std::vector<intptr_t> const &
+    get_shape_vector() const
     {
         return shape_;
     }
 
-    bn::dtype &
-    get_dtype()
+    bn::dtype const &
+    get_dtype() const
     {
         return dt_;
+    }
+
+    std::vector<intptr_t> const &
+    get_data_strides_vector() const
+    {
+        return data_strides_;
     }
 
     /**
@@ -193,6 +201,12 @@ class ndarray_storage
     /** The numpy data type object, defining the element size in bytes.
      */
     bn::dtype dt_;
+
+    /** The vector holding the strides information for the data type as given
+     *  by the dt_ dtype object.
+     */
+    std::vector<intptr_t> data_strides_;
+
   public:
     /** The pointer to the actual data storage.
      */

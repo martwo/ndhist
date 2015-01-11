@@ -726,8 +726,8 @@ struct nd_traits<ND>
             std::vector<intptr_t> relative_indices(ND, 0);
             std::vector<intptr_t> f_n_extra_bins_vec(ND, 0);
             std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
-            std::vector<intptr_t> & bc_fcap = self.get_bc_storage().get_front_capacity_vector();
-            std::vector<intptr_t> & bc_bcap = self.get_bc_storage().get_back_capacity_vector();
+            std::vector<intptr_t> const & bc_fcap = self.get_bc_storage().get_front_capacity_vector();
+            std::vector<intptr_t> const & bc_bcap = self.get_bc_storage().get_back_capacity_vector();
             bool is_oor;
             uintptr_t oor_arr_idx;
             std::vector<intptr_t> oor_arr_noor_indices(ND);
@@ -745,7 +745,7 @@ struct nd_traits<ND>
             intptr_t bin_idx;
             char * ndvalue_ptr;
             intptr_t bc_data_offset = self.bc_->CalcDataOffset(0);
-            std::vector<intptr_t> bc_data_strides = self.bc_->CalcDataStrides();
+
             char * bc_data_addr;
             bool value_cached;
             do {
@@ -765,6 +765,7 @@ struct nd_traits<ND>
                     oor_arr_noor_size = 0;
                     oor_arr_oor_size = 0;
 
+                    std::vector<intptr_t> const & bc_data_strides = self.bc_->get_data_strides_vector();
                     bc_data_addr = self.bc_->data_ + bc_data_offset;
                     for(i=0; i<ND; ++i)
                     {
@@ -892,9 +893,8 @@ struct nd_traits<ND>
                                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 bc_data_offset = self.bc_->CalcDataOffset(0);
-                                bc_data_strides = self.bc_->CalcDataStrides();
 
-                                flush_oor_cache<BCValueType>(self, f_n_extra_bins_vec, bc_data_offset, bc_data_strides, oorfrstack);
+                                flush_oor_cache<BCValueType>(self, f_n_extra_bins_vec, bc_data_offset, self.bc_->get_data_strides_vector(), oorfrstack);
 
                                 memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                                 memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
@@ -910,12 +910,12 @@ struct nd_traits<ND>
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             bc_data_offset = self.bc_->CalcDataOffset(0);
-                            bc_data_strides = self.bc_->CalcDataStrides();
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
 
                             // Since the strides have changed, we need to
                             // recompute the bc_data_addr.
+                            std::vector<intptr_t> const & bc_data_strides = self.bc_->get_data_strides_vector();
                             bc_data_addr = self.bc_->data_ + bc_data_offset;
                             for(size_t i=0; i<ND; ++i)
                             {
@@ -939,7 +939,7 @@ struct nd_traits<ND>
                             boost::shared_ptr<detail::ndarray_storage> & oor_arr = self.oor_arr_vec_[oor_arr_idx];
 
                             // Calculate the bin address.
-                            std::vector<intptr_t> oor_strides = oor_arr->CalcDataStrides();
+                            std::vector<intptr_t> const & oor_strides = oor_arr->get_data_strides_vector();
                             char * oor_data_addr = oor_arr->data_ + oor_arr->CalcDataOffset(0);
                             for(size_t i=0; i<oor_arr_noor_size; ++i)
                             {
@@ -966,13 +966,12 @@ struct nd_traits<ND>
                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 bc_data_offset = self.bc_->CalcDataOffset(0);
-                bc_data_strides = self.bc_->CalcDataStrides();
 
                 flush_oor_cache<BCValueType>(
                     self
                   , f_n_extra_bins_vec
                   , bc_data_offset
-                  , bc_data_strides
+                  , self.bc_->get_data_strides_vector()
                   , oorfrstack
                 );
             }
