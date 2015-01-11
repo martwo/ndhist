@@ -16,7 +16,7 @@ print("h1.bincontent %s"%str(h1.bincontent))
 print("h1.underflow %s"%str(h1.underflow))
 print("h1.overflow %s"%str(h1.overflow))
 
-h2 = h1.project((0))
+h2 = h1.project((2))
 print("h2.bincontent %s"%str(h2.bincontent))
 print("h2.underflow %s"%str(h2.underflow))
 print("h2.overflow %s"%str(h2.overflow))

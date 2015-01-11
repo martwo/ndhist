@@ -1,5 +1,16 @@
-#ifndef NDHIST_DETAIL_OOR_MULTI_AXIS_INDEX_ITER_HPP_INCLUDED
-#define NDHIST_DETAIL_OOR_MULTI_AXIS_INDEX_ITER_HPP_INCLUDED 1
+/**
+ * $Id$
+ *
+ * Copyright (C)
+ * 2015 - $Date$
+ *     Martin Wolf <ndhist@martin-wolf.org>
+ *
+ * This file is distributed under the BSD 2-Clause Open Source License
+ * (See LICENSE file).
+ *
+ */
+#ifndef NDHIST_DETAIL_FULL_MULTI_AXIS_INDEX_ITER_HPP_INCLUDED
+#define NDHIST_DETAIL_FULL_MULTI_AXIS_INDEX_ITER_HPP_INCLUDED 1
 
 #include <vector>
 
@@ -10,9 +21,14 @@
 namespace ndhist {
 namespace detail {
 
-struct oor_multi_axis_index_iter
+/**
+ * @brief The full_multi_axis_index_iter struct provides a n-dimensional index
+ *        iterator over the full range of each axis. Each axis can be fixed to
+ *        certain value if needed.
+ */
+struct full_multi_axis_index_iter
 {
-    oor_multi_axis_index_iter(
+    full_multi_axis_index_iter(
         std::vector<intptr_t> const & arr_shape
     )
       : is_end_point_(false)
@@ -151,4 +167,4 @@ struct oor_multi_axis_index_iter
 }// namespace detail
 }// namespace ndhist
 
-#endif  // !NDHIST_DETAIL_OOR_MULTI_AXIS_INDEX_ITER_HPP_INCLUDED
+#endif  // !NDHIST_DETAIL_FULL_MULTI_AXIS_INDEX_ITER_HPP_INCLUDED
