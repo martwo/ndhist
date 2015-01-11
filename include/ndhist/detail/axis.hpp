@@ -36,6 +36,12 @@ enum out_of_range_t
     OOR_OVERFLOW  = -2
 };
 
+enum axis_flags_t
+{
+    FLAGS_FIXED_INDEX    = -4,
+    FLAGS_FLOATING_INDEX = -8
+};
+
 }// namespace axis
 
 struct AxisData;

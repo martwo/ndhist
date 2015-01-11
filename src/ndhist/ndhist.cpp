@@ -36,6 +36,7 @@
 #include <ndhist/detail/generic_axis.hpp>
 #include <ndhist/detail/constant_bin_width_axis.hpp>
 #include <ndhist/detail/multi_axis_iter.hpp>
+#include <ndhist/detail/oor_multi_axis_index_iter.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -43,6 +44,21 @@ namespace bn = boost::numpy;
 namespace ndhist {
 
 namespace detail {
+
+static
+uintptr_t
+calc_n_oor_bins(std::vector<intptr_t> const & shape)
+{
+    uintptr_t n = 1;
+    uintptr_t n_shape = 1;
+    for(uintptr_t i=0; i<shape.size(); ++i)
+    {
+        n_shape *= shape[i];
+        n *= shape[i]+2;
+    }
+    n -= n_shape;
+    return n;
+}
 
 template <typename AxisValueType>
 struct axis_traits
@@ -126,6 +142,25 @@ struct axis_traits<bp::object>
 };
 
 template <typename BCValueType>
+struct bin_value
+{
+    uintptr_t   * noe_;
+    BCValueType * sow_;
+    BCValueType * sows_;
+};
+template <>
+struct bin_value<bp::object>
+{
+    uintptr_t  * noe_;
+    uintptr_t  * sow_obj_ptr_;
+    bp::object sow_obj_;
+    bp::object * sow_;
+    uintptr_t  * sows_obj_ptr_;
+    bp::object sows_obj_;
+    bp::object * sows_;
+};
+
+template <typename BCValueType>
 struct bc_value_traits
 {
     typedef BCValueType &
@@ -149,6 +184,15 @@ struct bc_value_traits
         noe  += 1;
         sow  += weight;
         sows += weight * weight;
+    }
+
+    static
+    void
+    get_bin(bin_value<BCValueType> & bin, char * data_addr)
+    {
+        bin.noe_  = reinterpret_cast<uintptr_t*>(data_addr);
+        bin.sow_  = reinterpret_cast<BCValueType*>(data_addr + sizeof(uintptr_t));
+        bin.sows_ = reinterpret_cast<BCValueType*>(data_addr + sizeof(uintptr_t) + sizeof(BCValueType));
     }
 
     static
@@ -194,6 +238,21 @@ struct bc_value_traits<bp::object>
 
     static
     void
+    get_bin(bin_value<bp::object> & bin, char * data_addr)
+    {
+        bin.noe_  = reinterpret_cast<uintptr_t*>(data_addr);
+
+        bin.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_addr + sizeof(uintptr_t));
+        bin.sow_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bin.sow_obj_ptr_)));
+        bin.sow_ = &bin.sow_obj_;
+
+        bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_addr + 2*sizeof(uintptr_t));
+        bin.sows_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bin.sows_obj_ptr_)));
+        bin.sows_ = &bin.sows_obj_;
+    }
+
+    static
+    void
     set_value_from_data(char * dst_addr, char * src_addr)
     {
         uintptr_t * dst_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(dst_addr);
@@ -201,25 +260,6 @@ struct bc_value_traits<bp::object>
         bp::object src_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*src_obj_ptr_ptr)));
         *dst_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(src_obj.ptr()));
     }
-};
-
-template <typename BCValueType>
-struct bin_value
-{
-    uintptr_t   * noe_;
-    BCValueType * sow_;
-    BCValueType * sows_;
-};
-template <>
-struct bin_value<bp::object>
-{
-    uintptr_t  * noe_;
-    uintptr_t  * sow_obj_ptr_;
-    bp::object sow_obj_;
-    bp::object * sow_;
-    uintptr_t  * sows_obj_ptr_;
-    bp::object sows_obj_;
-    bp::object * sows_;
 };
 
 
@@ -310,6 +350,72 @@ struct bin_value_type_traits<bp::object>
         return vtt.bin_value_;
     }
 };
+
+template <typename BCValueType>
+static
+void
+get_oor_bin(
+    ndhist const & self
+  , bin_value<BCValueType> & bin
+  , uintptr_t oor_arr_idx
+  , std::vector<intptr_t> const & indices
+)
+{
+    uintptr_t const nd = self.get_nd();
+
+    // Determine the axes translation from oor indices to normal indices.
+    // Note: This would go away when
+    // having the axis numbering the same a for the non-oor bin array!
+    std::bitset<NDHIST_LIMIT_MAX_ND> bset(oor_arr_idx);
+    std::vector<intptr_t> amap(nd);
+    uintptr_t oor_i = 0;
+    for(uintptr_t i=0; i<nd; ++i)
+    {
+        if(bset.test(i))
+        {
+            amap[oor_i] = i;
+            ++oor_i;
+        }
+    }
+    for(uintptr_t i=0; i<nd; ++i)
+    {
+        if(! bset.test(i))
+        {
+            amap[oor_i] = i;
+            ++oor_i;
+        }
+    }
+
+    boost::shared_ptr<detail::ndarray_storage> const & oor_arr_storage = self.oor_arr_vec_[oor_arr_idx];
+    char * oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
+    std::vector<intptr_t> oor_strides = oor_arr_storage->CalcDataStrides();
+
+    // Translate the indices into the oor-indices.
+    std::vector<intptr_t> oor_indices(nd);
+
+    for(uintptr_t oor_i=0; oor_i<nd; ++oor_i)
+    {
+        if(indices[amap[oor_i]] == axis::OOR_UNDERFLOW) {
+            oor_indices[oor_i] = 0;
+        }
+        else if(indices[amap[oor_i]] == axis::OOR_OVERFLOW) {
+            oor_indices[oor_i] = 1;
+        }
+        else {
+            oor_indices[oor_i] = indices[amap[oor_i]];
+        }
+    }
+
+    // Calculate the data address of the OOR bin.
+    std::cout << "oor_indices = ";
+    for(uintptr_t i=0; i<nd; ++i)
+    {
+        std::cout << oor_indices[i]<<",";
+        oor_data_addr += oor_indices[i]*oor_strides[i];
+    }
+    std::cout << std::endl;
+    bc_value_traits<BCValueType>::get_bin(bin, oor_data_addr);
+}
 
 template <typename BCValueType>
 static
@@ -577,6 +683,8 @@ struct project_fct_traits
         typedef bn::iterators::indexed_iterator< bin_value_type_traits<BCValueType> >
                 proj_bc_iter_t;
 
+        oor_multi_axis_index_iter self_oor_idx_iter(self.bc_->get_shape_vector());
+
         // Add the not-oor bin.
         bp::object data_owner;
         bn::ndarray self_bc_arr = self.bc_->ConstructNDArray(self.bc_->get_dtype(), 0, &data_owner);
@@ -585,7 +693,7 @@ struct project_fct_traits
         proj_bc_iter_t proj_bc_iter(proj_bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         // Iterate over the projection's not-oor bins and for each bin iterate
         // over the appropriate summation bins of the self histogram.
-        std::vector<intptr_t> fixed_axes_indices(self_nd, -1);
+        std::vector<intptr_t> fixed_axes_indices(self_nd, axis::FLAGS_FLOATING_INDEX);
         std::vector<intptr_t> const iter_axes_range_min(self_nd, 0);
         std::vector<intptr_t> const & iter_axes_range_max = self.bc_->get_shape_vector();
         std::vector<intptr_t> proj_indices(proj_nd);
@@ -613,10 +721,163 @@ struct project_fct_traits
                 self_bc_iter.increment();
             }
 
+            // FIXME Add also all the OOR bins to this bin which axes are those
+            // fixed ones and any OOR index in the iterated axes.
+            bin_value<BCValueType> self_bin;
+            self_oor_idx_iter.init_iteration(fixed_axes_indices);
+            while(! self_oor_idx_iter.is_end())
+            {
+                // Skip all non-oor bins.
+                if(! self_oor_idx_iter.is_oor_bin())
+                {
+                    self_oor_idx_iter.increment();
+                    continue;
+                }
+
+                get_oor_bin(self, self_bin, self_oor_idx_iter.get_oor_array_index(), self_oor_idx_iter.get_indices());
+
+                // Add the OOR self_bin to the proj_bin.
+                *proj_bin.noe_  += *self_bin.noe_;
+                *proj_bin.sow_  += *self_bin.sow_;
+                *proj_bin.sows_ += *self_bin.sows_;
+
+                self_oor_idx_iter.increment();
+            }
+
             ++proj_bc_iter;
         }
 
         // FIXME: Add also the OOR bins.
+        // Iterate over the OOR bins of the projection in the indices space.
+        // For every OOR bin, make an other iteration over the OOR bins of the
+        // the self histogram where those indices are fixed and all the indices
+        // of the non-fixed axes are iterated over.
+        proj_indices.assign(proj_nd, axis::OOR_UNDERFLOW);
+        intptr_t ip = 0; // The axis whose index is to be increase next.
+        intptr_t sp = 0; // The axis that is just switching the OOR type.
+        std::vector<intptr_t> const & proj_shape = proj.bc_->get_shape_vector();
+        uintptr_t proj_n_oor_bins = calc_n_oor_bins(proj_shape);
+        uintptr_t n_stouf = 0;
+        bool do_switch = false;
+        fixed_axes_indices.assign(self_nd, axis::FLAGS_FLOATING_INDEX);
+
+        uintptr_t proj_oor_arr_idx;
+        bin_value<BCValueType> proj_bin;
+        bin_value<BCValueType> self_bin;
+        for(uintptr_t proj_i=0; proj_i < proj_n_oor_bins; ++proj_i)
+        {
+            proj_oor_arr_idx = 0;
+            std::cout << "proj_indices = ";
+            for(uintptr_t i=0; i<proj_nd; ++i)
+            {
+                if(proj_indices[i] == axis::OOR_UNDERFLOW) { std::cout << "U,"; }
+                else if(proj_indices[i] == axis::OOR_OVERFLOW) { std::cout << "O,"; }
+                else { std::cout << proj_indices[i]<<","; }
+
+                if(! ((proj_indices[i] == axis::OOR_UNDERFLOW) || (proj_indices[i] == axis::OOR_OVERFLOW)))
+                {
+                    proj_oor_arr_idx |= (1<<i);
+                }
+            }
+            std::cout << std::endl << std::flush;
+
+            // Get the projection's OOR bin.
+            get_oor_bin(proj, proj_bin, proj_oor_arr_idx, proj_indices);
+
+            // Initialize the iteration over the self OOR bins.
+            axes_it = axes.begin();
+            for(uintptr_t i=0; axes_it != axes_end; ++axes_it, ++i)
+            {
+                fixed_axes_indices[*axes_it] = proj_indices[i];
+            }
+
+            std::cout << "fixed_axes_indices = ";
+            for(uintptr_t i=0; i<fixed_axes_indices.size(); ++i)
+            {
+                if(fixed_axes_indices[i] == axis::OOR_UNDERFLOW) { std::cout << "U,"; }
+                else if(fixed_axes_indices[i] == axis::OOR_OVERFLOW) { std::cout << "O,"; }
+                else { std::cout << fixed_axes_indices[i]<<","; }
+            }
+            std::cout << std::endl << std::flush;
+
+            self_oor_idx_iter.init_iteration(fixed_axes_indices);
+            while(! self_oor_idx_iter.is_end())
+            {
+                std::vector<intptr_t> const & self_indices = self_oor_idx_iter.get_indices();
+                std::cout << "self_indices = ";
+                for(uintptr_t i=0; i<self_nd; ++i)
+                {
+                    if(self_indices[i] == axis::OOR_UNDERFLOW) { std::cout << "U,"; }
+                    else if(self_indices[i] == axis::OOR_OVERFLOW) { std::cout << "O,"; }
+                    else { std::cout << self_indices[i]<<","; }
+                }
+                std::cout << std::endl << std::flush;
+
+                // Get the self's OOR bin.
+                get_oor_bin(self, self_bin, self_oor_idx_iter.get_oor_array_index(), self_indices);
+                std::cout << "noe_ = "<< *self_bin.noe_<<std::endl;
+                // Add the self's OOR bin to the projection's OOR bin.
+                *proj_bin.noe_  += *self_bin.noe_;
+                *proj_bin.sow_  += *self_bin.sow_;
+                *proj_bin.sows_ += *self_bin.sows_;
+
+                self_oor_idx_iter.increment();
+            }
+
+
+            if(proj_i == proj_n_oor_bins-1) break;
+
+            // Switch the fixed axis from underflow to overflow when all the
+            // other axes were reset to underflow.
+            if(proj_nd == 1 || do_switch)
+            {
+                if(proj_indices[sp] == axis::OOR_UNDERFLOW)
+                {
+                    // Switch to next oor bin. Reinitialize the proj_indices.
+                    proj_indices.assign(proj_nd, axis::OOR_UNDERFLOW);
+                    proj_indices[sp] = axis::OOR_OVERFLOW;
+                }
+                else // proj_indices[sp] == axis::OOR_OVERFLOW
+                {
+                    proj_indices.assign(proj_nd, axis::OOR_UNDERFLOW);
+                    ++sp;
+                }
+                ip = 0;
+                n_stouf = 0;
+                do_switch = false;
+            }
+
+            // Increment the indices to the next OOR bin.
+            // Note: If proj_nd == 1 we don't have any iteration axis.
+            if(proj_nd > 1)
+            {
+                while(proj_indices[ip] == axis::OOR_OVERFLOW || ip == sp)
+                {
+                    ++ip;
+                }
+                BOOST_ASSERT(ip < intptr_t(proj_nd));
+                if(proj_indices[ip] == proj_shape[ip]-1)
+                {
+                    proj_indices[ip] = axis::OOR_OVERFLOW;
+                    ++n_stouf;
+                }
+                else {
+                    ++proj_indices[ip];
+                }
+                while(ip > 0)
+                {
+                    --ip;
+                    if(ip != sp) {
+                        proj_indices[ip] = axis::OOR_UNDERFLOW;
+                    }
+                }
+            }
+
+            if(n_stouf == proj_nd-1)
+            {
+                do_switch = true;
+            }
+        }
 
         return proj;
     }

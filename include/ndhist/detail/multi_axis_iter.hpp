@@ -9,8 +9,8 @@
  * (See LICENSE file).
  *
  */
-#ifndef NDHIST_DETAIL_MULTI_AXES_ITER_HPP_INCLUDED
-#define NDHIST_DETAIL_MULTI_AXES_ITER_HPP_INCLUDED 1
+#ifndef NDHIST_DETAIL_MULTI_AXIS_ITER_HPP_INCLUDED
+#define NDHIST_DETAIL_MULTI_AXIS_ITER_HPP_INCLUDED 1
 
 #include <cstring>
 #include <vector>
@@ -65,7 +65,7 @@ struct multi_axis_iter
      *        The iteration range on the non-fixed iterated axes can be limited
      *        through the *iter_axes_range_min* and *iter_axes_range_max*
      *        vectors. The range is always [min, max). All vectors must be of
-     *        length *nd* - the dimensionality of the array.
+     *        length *nd* -- the dimensionality of the array.
      */
     void
     init_iteration(
@@ -85,7 +85,7 @@ struct multi_axis_iter
         last_iter_axis_ = -1;
         for(intptr_t i=0; i<nd; ++i)
         {
-            fixed_axes_mask_[i] = (fixed_axes_indices[i] >= 0);
+            fixed_axes_mask_[i] = (fixed_axes_indices[i] != axis::FLAGS_FLOATING_INDEX);
             if(! fixed_axes_mask_[i])
             {
                 if(iter_axes_range_min_[i] < 0) {
@@ -148,7 +148,7 @@ struct multi_axis_iter
         // the index and reset all indices to the right of this
         // increased index to zero. After this operation, the index
         // pointer points to the inner-most axis (excluding the
-        // iteration axis).
+        // fixed axes).
         while((indices_[p_] == iter_axes_range_max_[p_]-1) || fixed_axes_mask_[p_])
         {
             --p_;
@@ -191,4 +191,4 @@ struct multi_axis_iter
 }// namespace detail
 }// namespace ndhist
 
-#endif // !NDHIST_DETAIL_MULTI_AXES_ITER_HPP_INCLUDED
+#endif // !NDHIST_DETAIL_MULTI_AXIS_ITER_HPP_INCLUDED
