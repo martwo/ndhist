@@ -1,0 +1,2 @@
+h = ndhist.ndhist((np.array([str('A'),str('B'),str('C')], dtype=np.object),), np.object)
+Endless loop / seg fault.
