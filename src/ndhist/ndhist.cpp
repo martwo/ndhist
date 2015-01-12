@@ -335,16 +335,25 @@ struct bin_value_type_traits<bp::object>
     )
     {
         type_t & vtt = *static_cast<type_t *>(&vtt_base);
+
         vtt.bin_value_.noe_  = reinterpret_cast<uintptr_t*>(data_ptr);
 
         vtt.bin_value_.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[1]);
-        bp::object sow_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sow_obj_ptr_)));
-        vtt.bin_value_.sow_obj_ = sow_obj;
+        if(*(vtt.bin_value_.sow_obj_ptr_) == 0) {
+            vtt.bin_value_.sow_obj_ = bp::object();
+        }
+        else {
+            vtt.bin_value_.sow_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sow_obj_ptr_)));
+        }
         vtt.bin_value_.sow_ = &vtt.bin_value_.sow_obj_;
 
         vtt.bin_value_.sows_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[2]);
-        bp::object sows_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sows_obj_ptr_)));
-        vtt.bin_value_.sows_obj_ = sows_obj;
+        if(*(vtt.bin_value_.sows_obj_ptr_) == 0) {
+            vtt.bin_value_.sows_obj_ = bp::object();
+        }
+        else {
+            vtt.bin_value_.sows_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sows_obj_ptr_)));
+        }
         vtt.bin_value_.sows_ = &vtt.bin_value_.sows_obj_;
 
         return vtt.bin_value_;
@@ -1275,7 +1284,7 @@ ndhist(
     {
         bp::object self(bp::ptr(this));
         bn::ndarray bc_arr = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
-        bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > bc_iter(bc_arr);
+        bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         while(! bc_iter.is_end())
         {
             detail::bin_value_type_traits<bp::object>::value_ref_type bin = *bc_iter;
@@ -1287,13 +1296,6 @@ ndhist(
 
             ++bc_iter;
         }
-
-        bc_one_ = bc_class(1);
-    }
-    else
-    {
-        bp::object one(1);
-        bc_one_ = bn::from_object(one, bc_weight_dt_, 0, 1, bn::ndarray::ALIGNED).scalarize();
     }
 
     // Create the out-of-range (oor) arrays.
@@ -1428,7 +1430,8 @@ create_oor_arrays(
         // with bc_class() objects.
         if(bn::dtype::equivalent(bc_weight_dt, bn::dtype::get_builtin<bp::object>()))
         {
-            bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > iter(arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self), bn::detail::iter_operand::flags::WRITEONLY::value);
+            bn::ndarray arr = arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self);
+            bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > iter(arr, bn::detail::iter_operand::flags::READWRITE::value);
             while(! iter.is_end())
             {
                 detail::bin_value_type_traits<bp::object>::value_ref_type bin = *iter;
@@ -1728,7 +1731,7 @@ fill(bp::object const & ndvalue_obj, bp::object weight_obj)
     // In case None is given as weight, we will use one.
     if(weight_obj == bp::object())
     {
-        weight_obj = this->get_one();
+        weight_obj = bp::object(1);
     }
     fill_fct_(*this, ndvalue_obj, weight_obj);
 }

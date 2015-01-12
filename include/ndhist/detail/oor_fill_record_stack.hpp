@@ -77,7 +77,7 @@ class OORFillRecordStack
         rec.oor_arr_oor_relative_indices_size = 0;
         rec.relative_indices.resize(nd);
         stack_.resize(base_t::capacity_, rec);
-        std::cout << "OORFillRecordStack size = "<<stack_.size() <<std::endl;
+        //std::cout << "OORFillRecordStack size = "<<stack_.size() <<std::endl;
     }
 
     /** Returns true, when the capacity is reached after adding the record, and

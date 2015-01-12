@@ -333,13 +333,6 @@ class ndhist
         return ndvalues_dt_;
     }
 
-    inline
-    bp::object
-    get_one() const
-    {
-        return bc_one_;
-    }
-
     template <typename BCValueType>
     detail::OORFillRecordStack<BCValueType> &
     get_oor_fill_record_stack()
@@ -449,11 +442,6 @@ class ndhist
      *  content elements if the datatype is object.
      */
     bp::object const bc_class_;
-
-    /** The Python object scalar representation of 1 which will be used for
-     *  filling when no weights are specified.
-     */
-    bp::object bc_one_;
 
     boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
 
