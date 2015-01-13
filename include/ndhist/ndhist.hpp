@@ -185,9 +185,6 @@ class ndhist
     bn::ndarray
     py_get_sow_ndarray();
 
-    bn::ndarray
-    py_get_oorpadded_sow_ndarray();
-
     /**
      * @brief Constructs the sum of weights squared ndarray for releasing
      *        it to Python.
@@ -196,9 +193,6 @@ class ndhist
      */
     bn::ndarray
     py_get_sows_ndarray();
-
-    bn::ndarray
-    py_get_oorpadded_sows_ndarray();
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -376,7 +370,6 @@ class ndhist
       , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
       , bc_weight_dt_(bn::dtype::get_builtin<void>())
       , bc_class_(bp::object())
-      , recreate_oorpadded_bc_(true)
     {};
 
   protected:
@@ -389,8 +382,6 @@ class ndhist
       , bn::dtype const & bc_weight_dt
       , bp::object const & bc_class
     );
-
-    void recreate_oorpadded_bc();
 
   public:
     /** The number of dimenions of this histogram.
@@ -455,12 +446,6 @@ class ndhist
     boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
-
-    /** The ndarray storage for a nd-dimensional ndarray padded with the
-     *  out-of-range bins.
-     */
-    boost::shared_ptr<detail::ndarray_storage> oorpadded_bc_;
-    bool recreate_oorpadded_bc_;
 
     /** The title string of the histogram, useful for plotting purposes.
      */
@@ -916,9 +901,6 @@ struct nd_traits<ND>
 
                 flush_oor_cache<BCValueType>(self, oorfrstack, f_n_extra_bins_vec, bc_data_offset);
             }
-
-            // Trigger the recreation of temporary properties.
-            self.recreate_oorpadded_bc_ = true;
         }
     };
 };

@@ -977,9 +977,6 @@ struct generic_nd_traits
                     iter.add_inner_loop_strides_to_data_ptrs();
                 }
             } while(iter.next());
-
-            // Trigger the recreation of temporary properties.
-            self.recreate_oorpadded_bc_ = true;
         }
     }; // struct fill_traits
 }; // struct generic_nd_traits
@@ -1004,7 +1001,6 @@ ndhist(
   , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
   , bc_weight_dt_(bn::dtype(dt))
   , bc_class_(bc_class)
-  , recreate_oorpadded_bc_(true)
 {
     std::vector<intptr_t> shape(nd_);
     axes_extension_max_fcap_vec_.resize(nd_);
@@ -1444,30 +1440,6 @@ project(bp::object const & dims) const
     return project_fct_(*this, axes);
 }
 
-void
-ndhist::
-recreate_oorpadded_bc()
-{
-    bn::dtype const & bc_dt = bc_->get_dtype();
-    std::vector<intptr_t> const & bc_shape = bc_->get_shape_vector();
-    std::vector<intptr_t> shape(nd_);
-    std::vector<intptr_t> fcap(nd_, 0);
-    std::vector<intptr_t> bcap(nd_, 0);
-    for(uintptr_t i=0; i<nd_; ++i)
-    {
-        shape[i] = bc_shape[i] + 2;
-    }
-    oorpadded_bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, fcap, bcap, bc_dt));
-
-    // Copy the bin content data over to the new storage.
-    bp::object data_owner;
-    bn::ndarray src_arr = bc_->ConstructNDArray(bc_dt, 0, &data_owner);
-    std::vector<intptr_t> shape_offset_vec(nd_, 1);
-    oorpadded_bc_->copy_from(src_arr, shape_offset_vec);
-
-    // TODO: Copy also the out-of-range bins to their correct location.
-}
-
 bp::tuple
 ndhist::
 py_get_nbins() const
@@ -1498,37 +1470,9 @@ py_get_sow_ndarray()
 
 bn::ndarray
 ndhist::
-py_get_oorpadded_sow_ndarray()
-{
-    // Check if we need to (re-)create the storage for this array.
-    if(recreate_oorpadded_bc_)
-    {
-        recreate_oorpadded_bc();
-        recreate_oorpadded_bc_ = false;
-    }
-
-    return oorpadded_bc_->ConstructNDArray(bc_weight_dt_, 1);
-}
-
-bn::ndarray
-ndhist::
 py_get_sows_ndarray()
 {
     return bc_->ConstructNDArray(bc_weight_dt_, 2);
-}
-
-bn::ndarray
-ndhist::
-py_get_oorpadded_sows_ndarray()
-{
-    // Check if we need to (re-)create the storage for this array.
-    if(recreate_oorpadded_bc_)
-    {
-        recreate_oorpadded_bc();
-        recreate_oorpadded_bc_ = false;
-    }
-
-    return oorpadded_bc_->ConstructNDArray(bc_weight_dt_, 2);
 }
 
 bp::tuple

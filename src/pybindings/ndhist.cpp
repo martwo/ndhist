@@ -65,24 +65,10 @@ void register_ndhist()
             , bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents (sum of weights) for "
               "each bin.")
-        .add_property("_h_bincontent", bp::make_function(
-              &ndhist::py_get_oorpadded_sow_ndarray
-            , bn::ndarray_accessor_return())
-            , "The ndarray holding the bin contents (sum of weights) for "
-              "each bin. The number of bins for each axis is increased by 2 "
-              "(one bin on each side of the axis) holding the under- and "
-              "overflow bins.")
         .add_property("squaredweights", bp::make_function(
               &ndhist::py_get_sows_ndarray
             , bn::ndarray_accessor_return())
             , "The ndarray holding the sum of weights for each bin.")
-        .add_property("_h_squaredweights", bp::make_function(
-              &ndhist::py_get_oorpadded_sows_ndarray
-            , bn::ndarray_accessor_return())
-            , "The ndarray holding the sum of weights for each bin."
-              "The number of bins for each axis is increased by 2 "
-              "(one bin on each side of the axis) holding the under- and "
-              "overflow bins.")
 
         //----------------------------------------------------------------------
         // Out-of-range properties.
