@@ -391,50 +391,28 @@ get_oor_bin(
 {
     uintptr_t const nd = self.get_nd();
 
-    // Determine the axes translation from oor indices to normal indices.
-    // Note: This would go away when
-    // having the axis numbering the same a for the non-oor bin array!
-    std::bitset<NDHIST_LIMIT_MAX_ND> bset(oor_arr_idx);
-    std::vector<intptr_t> amap(nd);
-    uintptr_t oor_i = 0;
-    for(uintptr_t i=0; i<nd; ++i)
-    {
-        if(bset.test(i))
-        {
-            amap[oor_i] = i;
-            ++oor_i;
-        }
-    }
-    for(uintptr_t i=0; i<nd; ++i)
-    {
-        if(! bset.test(i))
-        {
-            amap[oor_i] = i;
-            ++oor_i;
-        }
-    }
-
     boost::shared_ptr<detail::ndarray_storage> const & oor_arr_storage = self.oor_arr_vec_[oor_arr_idx];
-    char * oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
-    std::vector<intptr_t> const & oor_strides = oor_arr_storage->get_data_strides_vector();
 
     // Translate the indices into the oor-indices.
+    // TODO: Have the vector living in some ndhist place.
     std::vector<intptr_t> oor_indices(nd);
 
     for(uintptr_t oor_i=0; oor_i<nd; ++oor_i)
     {
-        if(indices[amap[oor_i]] == axis::OOR_UNDERFLOW) {
+        if(indices[oor_i] == axis::OOR_UNDERFLOW) {
             oor_indices[oor_i] = 0;
         }
-        else if(indices[amap[oor_i]] == axis::OOR_OVERFLOW) {
+        else if(indices[oor_i] == axis::OOR_OVERFLOW) {
             oor_indices[oor_i] = 1;
         }
         else {
-            oor_indices[oor_i] = indices[amap[oor_i]];
+            oor_indices[oor_i] = indices[oor_i];
         }
     }
 
     // Calculate the data address of the OOR bin.
+    char * oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
+    std::vector<intptr_t> const & oor_strides = oor_arr_storage->get_data_strides_vector();
     //std::cout << "oor_indices = ";
     for(uintptr_t i=0; i<nd; ++i)
     {
@@ -450,10 +428,9 @@ static
 void
 flush_oor_cache(
     ndhist                          & self
-  , std::vector<intptr_t> const     & f_n_extra_bins_vec
-  , uintptr_t                         bc_data_offset
-  , std::vector<intptr_t> const     & bc_data_strides
   , OORFillRecordStack<BCValueType> & oorfrstack
+  , std::vector<intptr_t> const     & f_n_extra_bins_vec
+  , uintptr_t const                   bc_data_offset
 )
 {
     typedef typename bc_value_traits<BCValueType>::ref_type
@@ -462,40 +439,36 @@ flush_oor_cache(
     intptr_t const nd = f_n_extra_bins_vec.size();
 
     // Fill in the cached values.
-    char * bc_data_addr;
+    std::vector<intptr_t> const * arr_strides_ptr;
+    char * bin_data_addr;
     intptr_t idx = oorfrstack.get_size();
     while(idx--)
     {
         typename OORFillRecordStack<BCValueType>::oor_fill_record_type const & rec = oorfrstack.get_record(idx);
+        arr_strides_ptr = NULL;
+        bin_data_addr = NULL;
         if(rec.is_oor)
         {
-            boost::shared_ptr<detail::ndarray_storage> & oor_arr = self.oor_arr_vec_[rec.oor_arr_idx];
+            boost::shared_ptr<detail::ndarray_storage> & oor_arr_storage = self.oor_arr_vec_[rec.oor_arr_idx];
 
-            std::vector<intptr_t> const & oor_strides = oor_arr->get_data_strides_vector();
-            char * oor_data_addr = oor_arr->data_ + oor_arr->CalcDataOffset(0);
-            for(size_t i=0; i<rec.oor_arr_noor_relative_indices_size; ++i)
-            {
-                oor_data_addr += (rec.oor_arr_noor_relative_indices[i] + f_n_extra_bins_vec[rec.oor_arr_noor_axes_indices[i]]) * oor_strides[i];
-            }
-            for(size_t i=0; i<rec.oor_arr_oor_relative_indices_size; ++i)
-            {
-                oor_data_addr += rec.oor_arr_oor_relative_indices[i] * oor_strides[rec.oor_arr_noor_relative_indices_size + i];
-            }
+            arr_strides_ptr = &oor_arr_storage->get_data_strides_vector();
+            bin_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
 
-            detail::bc_value_traits<BCValueType>::increment_bin(oor_data_addr, rec.weight);
         }
         else
         {
-            // Translate the relative indices into an absolute
-            // data address for the extended bin content array.
-            bc_data_addr = self.bc_->data_ + bc_data_offset;
-            for(intptr_t axis=0; axis<nd; ++axis)
-            {
-                bc_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * bc_data_strides[axis];
-            }
-
-            detail::bc_value_traits<BCValueType>::increment_bin(bc_data_addr, rec.weight);
+            arr_strides_ptr = &self.bc_->get_data_strides_vector();
+            bin_data_addr = self.bc_->data_ + bc_data_offset;
         }
+
+        // Translate the relative indices into an absolute
+        // data address for the extended bin content array.
+        for(intptr_t axis=0; axis<nd; ++axis)
+        {
+            bin_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * (*arr_strides_ptr)[axis];
+        }
+
+        detail::bc_value_traits<BCValueType>::increment_bin(bin_data_addr, rec.weight);
     }
 
     // Finally, clear the stack.
@@ -772,17 +745,14 @@ get_field_axes_oor_ndarrays(
     std::vector<bn::ndarray> array_vec;
     array_vec.reserve(nd);
     uintptr_t oor_arr_idx;
-    uintptr_t noor_size;
-    uintptr_t oor_size;
-    std::vector<intptr_t> noor_indices(nd);
-    std::vector<intptr_t> oor_indices(nd);
-    std::vector<intptr_t> oor_strides(nd);
-    std::vector<intptr_t> fields_byte_offsets = self.bc_->get_dtype().get_fields_byte_offsets();
+    std::vector<intptr_t> indices(nd);
+    std::vector<intptr_t> oor_arr_indices(nd);
+    std::vector<intptr_t> shape(nd);
+    std::vector<intptr_t> const fields_byte_offsets = self.bc_->get_dtype().get_fields_byte_offsets();
     char * oor_data_addr;
     for(uintptr_t i=0; i<nd; ++i)
     {
         std::vector<intptr_t> const & histshape = self.bc_->get_shape_vector();
-        std::vector<intptr_t> shape(nd);
         for(uintptr_t j=0; j<nd; ++j)
         {
             shape[j] = (j == i ? 1 : histshape[j] + 2);
@@ -790,15 +760,12 @@ get_field_axes_oor_ndarrays(
 
         bn::ndarray arr = bn::empty(shape, (field_idx == 0 ? self.bc_noe_dt_ : self.bc_weight_dt_));
         bn::iterators::indexed_iterator< bn::iterators::single_value<BCValueType> > iter(arr, bn::detail::iter_operand::flags::READWRITE::value);
-        std::vector<intptr_t> indices(nd);
         while(! iter.is_end())
         {
             iter.get_indices(indices);
 
             // Determine the oor array index and the data address of the bin.
             oor_arr_idx = 0;
-            noor_size = 0;
-            oor_size = 0;
             for(uintptr_t j=0; j<nd; ++j)
             {
                 // Mark if the axis j is available.
@@ -807,41 +774,30 @@ get_field_axes_oor_ndarrays(
                     if(indices[j] == 0)
                     {
                         // It's the underflow bin of axis j.
-                        oor_indices[oor_size] = 0;
-                        ++oor_size;
+                        oor_arr_indices[j] = 0;
                     }
                     else if(indices[j] == histshape[j]+1) // Notice the underflow element.
                     {
                         // It's the overflow bin of axis j.
-                        oor_indices[oor_size] = 1;
-                        ++oor_size;
+                        oor_arr_indices[j] = 1;
                     }
                     else
                     {
                         // It's a normal bin of axis j.
                         oor_arr_idx |= (1<<j);
-                        noor_indices[noor_size] = indices[j] - 1; // Notice the underflow element.
-                        ++noor_size;
+                        oor_arr_indices[j] = indices[j] - 1; // Notice the underflow element.
                     }
                 }
-                else
-                {
-                    // It's the out-of-range axis of interest.
-                    oor_indices[oor_size] = (oortype == axis::OOR_UNDERFLOW ? 0 : 1);
-                    ++oor_size;
+            }
+            // Set the index of the out-of-range axis of interest.
+            oor_arr_indices[i] = (oortype == axis::OOR_UNDERFLOW ? 0 : 1);
 
-                }
-            }
             boost::shared_ptr<detail::ndarray_storage> const & oor_arr_storage = self.oor_arr_vec_[oor_arr_idx];
-            oor_arr_storage->calc_data_strides(oor_strides);
+            std::vector<intptr_t> const & oor_arr_strides = oor_arr_storage->get_data_strides_vector();
             oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(fields_byte_offsets[field_idx]);
-            for(size_t j=0; j<noor_size; ++j)
+            for(size_t j=0; j<nd; ++j)
             {
-                oor_data_addr += noor_indices[j]*oor_strides[j];
-            }
-            for(size_t j=0; j<oor_size; ++j)
-            {
-                oor_data_addr += oor_indices[j]*oor_strides[noor_size+j];
+                oor_data_addr += oor_arr_indices[j]*oor_arr_strides[j];
             }
 
             // Set the element of the new ndarray to the (sub) element of the
@@ -945,7 +901,6 @@ struct generic_nd_traits
             bn::ndarray bc_arr = self.bc_->ConstructNDArray(self.bc_weight_dt_, 1, &self_obj);
             bn::iterators::indexed_iterator< bn::iterators::single_value<BCValueType> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
 
-            // Do the iteration.
             // Get the byte offsets of the fields and check if the number of fields
             // match the dimensionality of the histogram.
             std::vector<intptr_t> ndvalue_byte_offsets = ndvalue_arr.get_dtype().get_fields_byte_offsets();
@@ -960,8 +915,8 @@ struct generic_nd_traits
                 {
                     std::stringstream ss;
                     ss << "The dimensionality of the histogram is " << nd
-                    << ", i.e. greater than 1, so the value ndarray must be a "
-                    << "structured ndarray!";
+                       << ", i.e. greater than 1, so the value ndarray must be a "
+                       << "structured ndarray!";
                     throw ValueError(ss.str());
                 }
             }
@@ -1299,7 +1254,7 @@ ndhist(
     }
 
     // Create the out-of-range (oor) arrays.
-    create_oor_arrays(nd_, bc_dt, bc_weight_dt_, bc_class_);
+    create_oor_arrays(oor_arr_vec_, nd_, axes_, bc_dt, bc_weight_dt_, bc_class_);
 }
 
 ndhist &
@@ -1380,15 +1335,17 @@ get_axis_definition(intptr_t axis) const
 void
 ndhist::
 create_oor_arrays(
-    uintptr_t nd
+    std::vector< boost::shared_ptr<detail::ndarray_storage> > & oor_arr_storage_vec
+  , uintptr_t const nd
+  , std::vector< boost::shared_ptr<detail::Axis> > const & axes
   , bn::dtype const & bc_dt
   , bn::dtype const & bc_weight_dt
   , bp::object const & bc_class
 )
 {
-    bp::object self(bp::ptr(this));
+    bp::object data_owner;
     uintptr_t const n_arrays = std::pow(2, nd) - 1;
-    oor_arr_vec_.reserve(n_arrays);
+    oor_arr_storage_vec.reserve(n_arrays);
     for(uintptr_t idx=0; idx<n_arrays; ++idx)
     {
         //std::cout << "idx = " << idx << std::endl<<std::flush;
@@ -1400,37 +1357,35 @@ create_oor_arrays(
         shape.reserve(nd);
         axes_extension_max_fcap_vec.reserve(nd);
         axes_extension_max_bcap_vec.reserve(nd);
-        // First set the shapes of the not-oor axes.
         for(uintptr_t i=0; i<nd; ++i)
         {
             if(bset.test(i))
             {
                 //std::cout << "axis = " << i <<" bit is set."<< std::endl<<std::flush;
-                boost::shared_ptr<detail::Axis> const & axis = axes_[i];
+                boost::shared_ptr<detail::Axis> const & axis = axes[i];
                 shape.push_back(axis->get_n_bins_fct(axis->data_));
                 axes_extension_max_fcap_vec.push_back(axis->extension_max_fcap_);
                 axes_extension_max_bcap_vec.push_back(axis->extension_max_bcap_);
             }
+            else
+            {
+                // This axis is OOR.
+                shape.push_back(2);
+                axes_extension_max_fcap_vec.push_back(0);
+                axes_extension_max_bcap_vec.push_back(0);
+            }
         }
-        // Now add the shape elements for the oor axes.
-        uintptr_t i = nd - shape.size();
-        while(i--)
-        {
-            shape.push_back(2);
-            axes_extension_max_fcap_vec.push_back(0);
-            axes_extension_max_bcap_vec.push_back(0);
-            //std::cout << "Add 2 to shape." << std::endl<<std::flush;
-        }
+
         // Now create the array.
         //std::cout << "Create arr " << std::endl<<std::flush;
         boost::shared_ptr<detail::ndarray_storage> arr_storage(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec, axes_extension_max_bcap_vec, bc_dt));
-        oor_arr_vec_.push_back(arr_storage);
+        oor_arr_storage_vec.push_back(arr_storage);
 
         // In case the dtype is object, we need to initialize the array's values
         // with bc_class() objects.
         if(bn::dtype::equivalent(bc_weight_dt, bn::dtype::get_builtin<bp::object>()))
         {
-            bn::ndarray arr = arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &self);
+            bn::ndarray arr = arr_storage->ConstructNDArray(arr_storage->get_dtype(), 0, &data_owner);
             bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > iter(arr, bn::detail::iter_operand::flags::READWRITE::value);
             while(! iter.is_end())
             {
@@ -1678,9 +1633,6 @@ py_get_overflow_squaredweights() const
     bp::tuple overflow(overflow_list);
     return overflow;
 }
-
-
-
 
 bn::ndarray
 ndhist::
@@ -1939,7 +1891,7 @@ extend_bin_content_array(
     bn::ndarray bc_sow_arr  = bc_->ConstructNDArray(bc_weight_dt_, 1, &self);
     bn::ndarray bc_sows_arr = bc_->ConstructNDArray(bc_weight_dt_, 2, &self);
     int const nd = this->get_nd();
-    for(int axis=0; axis<nd; ++axis)
+    for(intptr_t axis=0; axis<nd; ++axis)
     {
         initialize_extended_array_axis(bc_sow_arr,  bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
         initialize_extended_array_axis(bc_sows_arr, bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);

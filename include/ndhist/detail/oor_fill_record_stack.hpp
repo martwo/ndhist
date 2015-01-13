@@ -22,12 +22,12 @@ struct oor_fill_record
 {
     bool is_oor;
     uintptr_t oor_arr_idx;
-    std::vector<intptr_t> oor_arr_noor_relative_indices;
-    std::vector<intptr_t> oor_arr_noor_axes_indices;
-    uintptr_t oor_arr_noor_relative_indices_size;
-    std::vector<intptr_t> oor_arr_oor_relative_indices;
-    std::vector<intptr_t> oor_arr_oor_axes_indices;
-    uintptr_t oor_arr_oor_relative_indices_size;
+    //std::vector<intptr_t> oor_arr_noor_relative_indices;
+    //std::vector<intptr_t> oor_arr_noor_axes_indices;
+    //uintptr_t oor_arr_noor_relative_indices_size;
+    //std::vector<intptr_t> oor_arr_oor_relative_indices;
+    //std::vector<intptr_t> oor_arr_oor_axes_indices;
+    //uintptr_t oor_arr_oor_relative_indices_size;
     std::vector<intptr_t> relative_indices;
     BCValueType weight;
 };
@@ -37,15 +37,10 @@ struct OORFillRecordStackBase
     OORFillRecordStackBase(intptr_t nd, intptr_t capacity)
       : nd_(nd)
       , capacity_(capacity)
-    {
-        nd_mem0_.resize(nd);
-    }
+    {}
 
     intptr_t nd_;
     intptr_t capacity_;
-
-    // Memory that can be used as temporary memory of size ND.
-    std::vector<intptr_t> nd_mem0_;
 };
 
 
@@ -69,12 +64,12 @@ class OORFillRecordStack
         oor_fill_record_type rec;
         rec.is_oor = false;
         rec.oor_arr_idx = 0;
-        rec.oor_arr_noor_relative_indices.resize(nd);
-        rec.oor_arr_noor_axes_indices.resize(nd);
-        rec.oor_arr_noor_relative_indices_size = 0;
-        rec.oor_arr_oor_relative_indices.resize(nd);
-        rec.oor_arr_oor_axes_indices.resize(nd);
-        rec.oor_arr_oor_relative_indices_size = 0;
+        //rec.oor_arr_noor_relative_indices.resize(nd);
+        //rec.oor_arr_noor_axes_indices.resize(nd);
+        //rec.oor_arr_noor_relative_indices_size = 0;
+        //rec.oor_arr_oor_relative_indices.resize(nd);
+        //rec.oor_arr_oor_axes_indices.resize(nd);
+        //rec.oor_arr_oor_relative_indices_size = 0;
         rec.relative_indices.resize(nd);
         stack_.resize(base_t::capacity_, rec);
         //std::cout << "OORFillRecordStack size = "<<stack_.size() <<std::endl;
@@ -87,32 +82,20 @@ class OORFillRecordStack
     push_back(
         bool is_oor
       , uintptr_t oor_arr_idx
-      , std::vector<intptr_t> const & oor_arr_noor_relative_indices
-      , std::vector<intptr_t> const & oor_arr_noor_axes_indices
-      , uintptr_t oor_arr_noor_relative_indices_size
-      , std::vector<intptr_t> const & oor_arr_oor_relative_indices
-      , std::vector<intptr_t> const & oor_arr_oor_axes_indices
-      , uintptr_t oor_arr_oor_relative_indices_size
+      //, std::vector<intptr_t> const & oor_arr_noor_relative_indices
+      //, std::vector<intptr_t> const & oor_arr_noor_axes_indices
+      //, uintptr_t oor_arr_noor_relative_indices_size
+      //, std::vector<intptr_t> const & oor_arr_oor_relative_indices
+      //, std::vector<intptr_t> const & oor_arr_oor_axes_indices
+      //, uintptr_t oor_arr_oor_relative_indices_size
       , std::vector<intptr_t> const & relative_indices
       , BCValueType weight
     )
     {
         std::cout << "OORFillRecordStack::push_back at "<< size_ << std::endl<<std::flush;
         stack_[size_].is_oor = is_oor;
-        if(is_oor)
-        {
-            stack_[size_].oor_arr_idx = oor_arr_idx;
-            memcpy(&stack_[size_].oor_arr_noor_relative_indices[0], &oor_arr_noor_relative_indices[0], oor_arr_noor_relative_indices_size*sizeof(intptr_t));
-            memcpy(&stack_[size_].oor_arr_noor_axes_indices[0], &oor_arr_noor_axes_indices[0], oor_arr_noor_relative_indices_size*sizeof(intptr_t));
-            stack_[size_].oor_arr_noor_relative_indices_size = oor_arr_noor_relative_indices_size;
-            memcpy(&stack_[size_].oor_arr_oor_relative_indices[0], &oor_arr_oor_relative_indices[0], oor_arr_oor_relative_indices_size*sizeof(intptr_t));
-            memcpy(&stack_[size_].oor_arr_oor_axes_indices[0], &oor_arr_oor_axes_indices[0], oor_arr_oor_relative_indices_size*sizeof(intptr_t));
-            stack_[size_].oor_arr_oor_relative_indices_size = oor_arr_oor_relative_indices_size;
-        }
-        else
-        {
-            memcpy(&stack_[size_].relative_indices[0], &relative_indices[0], relative_indices.size()*sizeof(intptr_t));
-        }
+        stack_[size_].oor_arr_idx = oor_arr_idx;
+        memcpy(&stack_[size_].relative_indices[0], &relative_indices[0], relative_indices.size()*sizeof(intptr_t));
         stack_[size_].weight = weight;
         ++size_;
         return (size_ == base_t::capacity_);
