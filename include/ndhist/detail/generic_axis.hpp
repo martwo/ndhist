@@ -169,7 +169,7 @@ struct GenericAxis<bp::object>
     intptr_t
     get_bin_index(boost::shared_ptr<AxisData> & axisdata, char * obj_ptr, axis::out_of_range_t * oor_ptr)
     {
-        std::cout << "GenericAxis<bp::object>::get_bin_index" << std::endl;
+        //std::cout << "GenericAxis<bp::object>::get_bin_index" << std::endl;
         GenericAxisData<bp::object> & data = *static_cast<GenericAxisData<bp::object> *>(axisdata.get());
         uintptr_t * obj_ptr_data = reinterpret_cast<uintptr_t*>(obj_ptr);
         bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*obj_ptr_data)));

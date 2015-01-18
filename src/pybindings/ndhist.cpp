@@ -144,6 +144,12 @@ void register_ndhist()
               "All other dimensions are collapsed (summed) accordingly into     \n"
               "the remaining specified dimensions.                              \n")
 
+        // Slicing.
+        .def("__getitem__", &ndhist::operator[]
+            , (bp::arg("self"), bp::arg("index"))
+            , "Creates a new ndhist object with only the axes (and their        \n"
+              "elements) defined by the given index.")
+
         // Arithmetic operator overloads.
         .def(bp::self += bp::self)
         .def(bp::self + bp::self)

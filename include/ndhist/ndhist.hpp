@@ -128,6 +128,13 @@ class ndhist
     ndhist operator/(T const & rhs) const;
 
     /**
+     * @brief Gets a "sub"-histogram of this histogram specified through bin
+     *        index slices, one for each dimension.
+     *
+     */
+    ndhist operator[](bp::object dim_slices) const;
+
+    /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
      *        object. This means, the dimensionality, and the bin edges must
      *        match exactly between the two.
@@ -139,6 +146,9 @@ class ndhist
      * @brief Returns the full defintion of the given axis as specified in the
      *        constructor.
      */
+    bp::tuple
+    get_axis_definition(intptr_t axis, bn::ndarray const & edges_arr) const;
+
     bp::tuple
     get_axis_definition(intptr_t axis) const;
 

@@ -15,6 +15,8 @@
 #include <cmath>
 #include <string>
 
+#include <boost/python/slice.hpp>
+
 #include <boost/numpy/iterators/flat_iterator.hpp>
 
 #include <ndhist/detail/axis.hpp>
@@ -49,11 +51,12 @@ struct ConstantBinWidthAxis
       : Axis(edges.get_dtype(), label, extension_max_fcap, extension_max_bcap)
     {
         // Set up the axis's function pointers.
-        get_bin_index_fct     = &get_bin_index;
-        request_extension_fct = &request_extension;
-        extend_fct            = &extend;
-        get_edges_ndarray_fct = &get_edges_ndarray;
-        get_n_bins_fct        = &get_n_bins;
+        get_bin_index_fct        = &get_bin_index;
+        request_extension_fct    = &request_extension;
+        extend_fct               = &extend;
+        get_edges_ndarray_fct    = &get_edges_ndarray;
+        get_n_bins_fct           = &get_n_bins;
+        //get_subedges_ndarray_fct = &get_subedges_ndarray;
 
         data_ = boost::shared_ptr< axis_data_type >(new axis_data_type());
         axis_data_type & ddata = *static_cast<axis_data_type*>(data_.get());
@@ -77,7 +80,7 @@ struct ConstantBinWidthAxis
     bn::ndarray
     get_edges_ndarray(boost::shared_ptr<AxisData> & axisdata)
     {
-        axis_data_type & data = *static_cast<axis_data_type*>(axisdata.get());
+        axis_data_type const & data = *static_cast<axis_data_type const *>(axisdata.get());
         intptr_t shape[1];
         shape[0] = data.n_bins_ + 1;
         bn::ndarray edges = bn::empty(1, shape, bn::dtype::get_builtin<axis_value_type>());
@@ -93,6 +96,26 @@ struct ConstantBinWidthAxis
         }
         return edges;
     }
+
+//     static
+//     bn::ndarray
+//     get_subedges_ndarray(boost::shared_ptr<AxisData> & axisdata, boost::python::slice const & slice)
+//     {
+//         typedef bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> >
+//                 edges_iter_t;
+//         bn::ndarray edges_arr = axes_[i]->get_edges_ndarray_fct(axisdata);
+//         edges_iter_t edges_begin(edges_arr);
+//         edges_iter_t edges_end = edges_begin.end();
+//         bp::slice::range<edges_iter_t> subedges_range = slice.get_indices(edges_begin, edges_end);
+//         bp::slice::range<edges_iter_t> subedges_range2(subedges_range);
+//         // First we need to count the elements that will make it into the
+//         // subedges, in order to create the subedges arr
+//         while(! subedges_range.start.is_end())
+//         {
+//
+//             std::advance(subedges_range.start, subedges_range.step);
+//         }
+//     }
 
     static
     intptr_t

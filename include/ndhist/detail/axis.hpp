@@ -27,6 +27,9 @@ namespace detail {
 
 namespace axis {
 
+intptr_t const UNDERFLOW_INDEX = -1;
+intptr_t const OVERFLOW_INDEX  = -2;
+
 /** The enum type for describing the type of an out of range event.
  */
 enum out_of_range_t
@@ -89,6 +92,8 @@ struct Axis
         get_n_bins_fct;
     boost::function<bn::ndarray (boost::shared_ptr<AxisData> &)>
         get_edges_ndarray_fct;
+//     boost::function<bn::ndarray (boost::shared_ptr<AxisData> &, boost::python::slice const &)>
+//         get_subedges_ndarray_fct;
     boost::shared_ptr<AxisData> data_;
 };
 

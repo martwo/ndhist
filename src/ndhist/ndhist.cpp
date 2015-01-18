@@ -19,6 +19,7 @@
 
 #include <boost/python/list.hpp>
 #include <boost/python/refcount.hpp>
+#include <boost/python/slice.hpp>
 #include <boost/python/str.hpp>
 #include <boost/python/tuple.hpp>
 
@@ -32,11 +33,12 @@
 #include <ndhist/limits.hpp>
 #include <ndhist/ndhist.hpp>
 #include <ndhist/detail/axis.hpp>
+#include <ndhist/detail/axis_index_iter.hpp>
 #include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/generic_axis.hpp>
 #include <ndhist/detail/constant_bin_width_axis.hpp>
-//#include <ndhist/detail/multi_axis_iter.hpp>
 #include <ndhist/detail/full_multi_axis_index_iter.hpp>
+#include <ndhist/detail/utils.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -1279,6 +1281,111 @@ operator+(ndhist const & rhs) const
     return newhist;
 }
 
+ndhist
+ndhist::
+operator[](bp::object dim_slices) const
+{
+    // TODO: convert single object to list of length 1 first.
+    if(! PyTuple_Check(dim_slices.ptr()))
+    {
+        dim_slices = bp::make_tuple(dim_slices);
+    }
+
+    // Determine the bin edges arrays of the new histogram.
+    uintptr_t const dim = bp::len(dim_slices);
+    if(dim > nd_)
+    {
+        std::stringstream ss;
+        ss << "The number of given slices must not exceed "<< nd_ << "!";
+        throw IndexError(ss.str());
+    }
+
+    if(dim < nd_)
+    {
+        // If all specified axes are intergers, the user has selected a certain
+        // sub-histogram of this histogram which those indices fixed and full
+        // axis range for the remaining axes.
+
+        // But if one of 
+    }
+
+    std::cout << "Got "<< dim << " axes indices." << std::endl;
+    bp::list newaxes_list;
+    for(uintptr_t i=0; i<dim; ++i)
+    {
+        bp::object dim_slice_obj = dim_slices[i];
+        if(bn::is_any_scalar(dim_slice_obj))
+        {
+            intptr_t const start = bp::extract<intptr_t>(dim_slice_obj);
+            std::cout << "Got scalar '"<<start<<"' for axis '"<<i<<"'"<<std::endl;
+            dim_slice_obj = bp::slice(start, start+1, 1);
+        }
+
+        if(detail::py::are_same_type_objects(dim_slice_obj, bp::slice()))
+        {
+            // Note: The dim_slice_obj is supposed to include the underflow (0) and
+            // overflow bin (nbin) but the edges array does not have an explicit
+            // underflow (-inf) and overflow (+inf) edge.
+            uintptr_t const axis_size = axes_[i]->get_n_bins_fct(axes_[i]->data_);
+
+            bp::slice axis_slice = bp::extract<bp::slice>(dim_slice_obj);
+            detail::axis_index_iter axis_idx_iter(axis_size, detail::axis::UNDERFLOW_INDEX, detail::axis::OVERFLOW_INDEX);
+            detail::axis_index_iter axis_idx_iter_end = axis_idx_iter.end();
+            bp::slice::range<detail::axis_index_iter> axis_iter_range = axis_slice.get_indices(axis_idx_iter, axis_idx_iter_end);
+
+            std::cout << "axis="<<i<<", sliced indices=";
+            while(axis_iter_range.start != axis_iter_range.stop)
+            {
+                intptr_t idx = *axis_iter_range.start;
+                if(idx == detail::axis::UNDERFLOW_INDEX) {
+                    std::cout << "U,";
+                }
+                else if(idx == detail::axis::OVERFLOW_INDEX) {
+                    std::cout << "O,";
+                }
+                else {
+                    std::cout << idx << ",";
+                }
+                std::advance(axis_iter_range.start, axis_iter_range.step);
+            }
+            intptr_t idx = *axis_iter_range.start;
+            if(idx == detail::axis::UNDERFLOW_INDEX) {
+                std::cout << "U,";
+            }
+            else if(idx == detail::axis::OVERFLOW_INDEX) {
+                std::cout << "O,";
+            }
+            else {
+                std::cout << idx << ",";
+            }
+
+            std::cout << std::endl << std::flush;
+        }
+        else if(bn::is_ndarray(dim_slice_obj))
+        {
+            throw TypeError("ndarray indexing is not supported yet.");
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "The dimension slices must be given either as integer or "
+               << "slice objects!";
+            throw IndexError(ss.str());
+        }
+
+
+
+
+
+        // Create the axis definition for the new sub-axis.
+//         bn::ndarray edges_arr = axes_[i]->get_edges_ndarray_fct(axes_[i]->data_);
+//         bn::ndarray subedges_arr = edges_arr[dim_slice_obj];
+//         newaxes_list.append(get_axis_definition(i, subedges_arr));
+    }
+    bp::tuple newaxes(newaxes_list);
+    return empty_like();
+}
+
 bool
 ndhist::
 is_compatible(ndhist const & other) const
@@ -1300,6 +1407,28 @@ is_compatible(ndhist const & other) const
     return true;
 }
 
+bp::tuple
+ndhist::
+get_axis_definition(intptr_t axis, bn::ndarray const & edges_arr) const
+{
+    bp::tuple axes_name_tuple = ndvalues_dt_.get_field_names();
+    bp::tuple axis_def = bp::make_tuple(
+               edges_arr
+             , axes_name_tuple[axis]
+             , axes_[axis]->label_
+             , axes_[axis]->extension_max_fcap_
+             , axes_[axis]->extension_max_bcap_
+           );
+    return axis_def;
+}
+
+bp::tuple
+ndhist::
+get_axis_definition(intptr_t axis) const
+{
+    return get_axis_definition(axis, axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data_));
+}
+
 ndhist
 ndhist::
 empty_like() const
@@ -1311,21 +1440,6 @@ empty_like() const
     }
     bp::tuple axes(axis_list);
     return ndhist(axes, bc_weight_dt_, bc_class_);
-}
-
-bp::tuple
-ndhist::
-get_axis_definition(intptr_t axis) const
-{
-    bp::tuple axes_name_tuple = ndvalues_dt_.get_field_names();
-    bp::tuple axis_def = bp::make_tuple(
-               axes_[axis]->get_edges_ndarray_fct(axes_[axis]->data_)
-             , axes_name_tuple[axis]
-             , axes_[axis]->label_
-             , axes_[axis]->extension_max_fcap_
-             , axes_[axis]->extension_max_bcap_
-           );
-    return axis_def;
 }
 
 void
