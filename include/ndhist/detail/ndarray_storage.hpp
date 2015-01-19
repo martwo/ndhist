@@ -157,22 +157,6 @@ class ndarray_storage
       , bp::object const * data_owner
     );
 
-    /** Allocates capacity*elsize number of bytes of new memory, initialized to
-     *  zero. It returns the pointer to the new allocated memory after success
-     *  and NULL otherwise. It uses the
-     *  calloc C function, which is faster than malloc + memset for large chunks
-     *  of memory allocation, due to OS specific memory management.
-     *  (cf. http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc)
-     */
-    static
-    char *
-    calloc_data(size_t capacity, size_t elsize);
-
-    /** Calls free on the given data.
-     */
-    static
-    void free_data(char * data);
-
   protected:
     /** Creates (i.e. allocates) data for the given array layout. It returns
      *  the pointer to the new allocated memory.
@@ -208,9 +192,17 @@ class ndarray_storage
     std::vector<intptr_t> data_strides_;
 
   public:
-    /** The pointer to the actual data storage.
+    /** The shared pointer to the bytearray, that might be shared between
+     *  different ndarray_storage objects.
      */
-    char * data_;
+    boost::shared_ptr<bytearray> bytearray_;
+
+    /** The owner of the bytearray. If that is non-NULL, this ndarray_storage
+     *  object does not own the data and is not allowed to change it. In case
+     *  changes (e.g. the shape) are required, the bytearray needs to be copied
+     *  before.
+     */
+    boost::shared_ptr<ndarray_storage> bytearray_owner_;
 };
 
 }// namespace detail

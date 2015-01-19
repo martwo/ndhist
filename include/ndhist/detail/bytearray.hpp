@@ -14,8 +14,6 @@
 
 #include <iostream>
 
-#include <boost/noncopyable.hpp>
-
 namespace ndhist {
 namespace detail {
 
@@ -23,28 +21,45 @@ namespace detail {
  * @brief The bytearray class provides a very generic byte memory.
  */
 class bytearray
-  : public boost::noncopyable
 {
   public:
-    /** Allocates capacity*elsize number of bytes of new memory, initialized to
-     *  zero. It returns the pointer to the new allocated memory after success
-     *  and NULL otherwise. It uses the
-     *  calloc C function, which is faster than malloc + memset for large chunks
-     *  of memory allocation, due to OS specific memory management.
-     *  (cf. http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc)
+    /**
+     * @brief Allocates capacity*elsize number of bytes of new memory,
+     *        initialized to zero. It returns the pointer to the new allocated
+     *        memory after success and NULL otherwise. It uses the calloc C
+     *        function, which is faster than malloc + memset for large chunks
+     *        of memory allocation, due to OS specific memory management.
+     *        (cf. http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc)
      */
     static
     char *
     calloc_data(size_t capacity, size_t elsize);
 
-    /** Calls free on the given data.
+    /**
+     * @brief Calls free on the given data.
      */
     static
     void free_data(char * data);
 
+    /**
+     * @brief Constructor for creating a new array of a certain capacity and
+     *        element size.
+     */
     bytearray(size_t capacity, size_t elsize)
       : data_(calloc_data(capacity, elsize))
+      , bytesize_(capacity*elsize)
     {}
+
+    /**
+     * @brief Copy constructor for copying data from a given bytearray object.
+     */
+    bytearray(bytearray const & ba)
+      : data_(calloc_data(ba.bytesize_, 1))
+      , bytesize_(ba.bytesize_)
+    {
+        std::cout << "Copying bytearray" << std::endl;
+        memcpy(data_, ba.data_, bytesize_);
+    }
 
     virtual
     ~bytearray()
@@ -60,6 +75,10 @@ class bytearray
      */
     char * const data_;
 
+    /** The size in bytes of this byte array.
+     */
+    size_t const bytesize_;
+
     /**
      * @brief Returns the pointer to the beginning of the byte array.
      */
@@ -68,6 +87,7 @@ class bytearray
   private:
     bytearray()
       : data_(NULL)
+      , bytesize_(0)
     {}
 };
 

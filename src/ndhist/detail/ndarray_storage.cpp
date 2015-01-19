@@ -257,31 +257,6 @@ copy_from(
 //______________________________________________________________________________
 char *
 ndarray_storage::
-calloc_data(size_t capacity, size_t elsize)
-{
-    //std::cout << "Calloc " << capacity << " elements of size " << elsize << std::endl;
-    char * data = (char*)calloc(capacity, elsize);
-    if(data == NULL)
-    {
-        std::stringstream ss;
-        ss << "Unable to allocate " << capacity << " elements of size "
-           << elsize <<" of memory!";
-        throw MemoryError(ss.str());
-    }
-    return data;
-}
-
-//______________________________________________________________________________
-void
-ndarray_storage::
-free_data(char * data)
-{
-    free(data);
-}
-
-//______________________________________________________________________________
-char *
-ndarray_storage::
 create_array_data(
     std::vector<intptr_t> const & shape
   , std::vector<intptr_t> const & front_capacity
