@@ -99,6 +99,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
     )
 
     list(APPEND ${PROJECT_NAME}_libndhist_SOURCE_FILES
+        src/ndhist/detail/bytearray.cpp
         src/ndhist/detail/ndarray_storage.cpp
         src/ndhist/ndhist.cpp
         src/ndhist/ndtable.cpp
