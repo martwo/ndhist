@@ -47,8 +47,6 @@ enum axis_flags_t
 
 }// namespace axis
 
-struct AxisData;
-
 struct Axis
 {
     Axis()
@@ -82,23 +80,17 @@ struct Axis
     intptr_t extension_max_fcap_;
     intptr_t extension_max_bcap_;
 
-    boost::function<intptr_t (boost::shared_ptr<AxisData> &, char *, axis::out_of_range_t *)>
+    boost::function<intptr_t (boost::shared_ptr<Axis> &, char *, axis::out_of_range_t *)>
         get_bin_index_fct;
-    boost::function<intptr_t (boost::shared_ptr<AxisData> &, char *, axis::out_of_range_t)>
+    boost::function<intptr_t (boost::shared_ptr<Axis> &, char *, axis::out_of_range_t)>
         request_extension_fct;
-    boost::function<void (boost::shared_ptr<AxisData> &, intptr_t, intptr_t)>
+    boost::function<void (boost::shared_ptr<Axis> &, intptr_t, intptr_t)>
         extend_fct;
-    boost::function<intptr_t (boost::shared_ptr<AxisData> &)>
+    boost::function<intptr_t (boost::shared_ptr<Axis> &)>
         get_n_bins_fct;
-    boost::function<bn::ndarray (boost::shared_ptr<AxisData> &)>
+    boost::function<bn::ndarray (boost::shared_ptr<Axis> &)>
         get_edges_ndarray_fct;
-//     boost::function<bn::ndarray (boost::shared_ptr<AxisData> &, boost::python::slice const &)>
-//         get_subedges_ndarray_fct;
-    boost::shared_ptr<AxisData> data_;
 };
-
-struct AxisData
-{};
 
 }// namespace detail
 }// namespace ndhist

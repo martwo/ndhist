@@ -55,15 +55,21 @@ class ndhist
      *
      *    (edges_ndarry[, axis_name[, autoscale_front_capacity, autoscale_back_capacity]]).
      *
-     *    * The edges_ndarry must be a one-dimensional ndarray objects with N+1
+     *    * The edges_ndarry must be a one-dimensional ndarray objects with N+3
      *      elements in ascending order, beeing the bin edges, where N is the number
-     *      of bins for this dimension. The axis_name, if given, must be a str
-     *      object specifying the name of the axis. The default name of an axis is
+     *      of bins for this dimension. The first bin (edge 1 and 2) specifies
+     *      the underflow bin, whereas the last bin (edge N+2 and N+3) specifies
+     *      the overflow bin. In case the axis is extendable (i.e.
+     *      autoscale_front_capacity or autoscale_back_capacity is set to a
+     *      positive integer values, there are no out-of-range bins, and the
+     *      edges array is supposed to be N+1.
+     *      The axis_name, if given, must be a str object specifying the name of
+     *      the axis. The default name of an axis is
      *      "a{I}", where {I} is the index of the axis starting at zero.
      *    * The extra front and back capacities specify the number of extra
      *      bins in the front and at the back of the axis, respectively.
      *      The default is zero. If one of both values is set to a positive
-     *      non-zero value and the bins have equal widths, the the number of
+     *      non-zero value and the bins have equal widths, the number of
      *      bins of the axis will automatically be scaled, when values are
      *      filled outside the current axis range.
      *      Whenever bins need to be added to an axis, the memory of the bin
@@ -73,7 +79,7 @@ class ndhist
      *  - The different dimensions can have different edge types, e.g. integer
      *    or float, or any other Python type, i.e. objects.
      *
-     *  The dt dtype object defines the data type for the bin contents. For a
+     *  The dt dtype object defines the data type for the bin content. For a
      *  histogram this is usually an integer or float type.
      *
      *  In case the bin contents are generic Python objects, the bc_class
@@ -356,13 +362,6 @@ class ndhist
       , std::vector<intptr_t> const & b_n_extra_bins_vec
     );
 
-    template <typename BCValueType>
-    void
-    extend_oor_arrays(
-        std::vector<intptr_t> const & f_n_extra_bins_vec
-      , std::vector<intptr_t> const & b_n_extra_bins_vec
-    );
-
     static
     void
     initialize_extended_array_axis(
@@ -381,17 +380,6 @@ class ndhist
       , bc_weight_dt_(bn::dtype::get_builtin<void>())
       , bc_class_(bp::object())
     {};
-
-  protected:
-    static
-    void create_oor_arrays(
-        std::vector< boost::shared_ptr<detail::ndarray_storage> > & oor_arr_storage_vec
-      , uintptr_t const nd
-      , std::vector< boost::shared_ptr<detail::Axis> > const & axes
-      , bn::dtype const & bc_dt
-      , bn::dtype const & bc_weight_dt
-      , bp::object const & bc_class
-    );
 
   public:
     /** The number of dimenions of this histogram.
@@ -412,35 +400,12 @@ class ndhist
 
     /** The bin contents.
      *  bc_ holds the actual data of the bins.
-     *  bc_wirght_dt_ is the dtype object describing the data type of the
+     *  bc_weight_dt_ is the dtype object describing the data type of the
      *      weights.
      */
     boost::shared_ptr<detail::ndarray_storage> bc_;
     bn::dtype const bc_noe_dt_;
     bn::dtype const bc_weight_dt_;
-
-    /** The vector holding n-dimensional ndarrays holding the out-of-range (oor)
-     *  bins. We separete the oor bins for different amounts of oor axes for a
-     *  fill value, because in case an axis is extended, we don't have to move
-     *  oor bin values and can just extend the appropriate arrays.
-     *  The index of this vectors determines through a bit mask what axes of a
-     *  fill value is out-of-range. A bit set to 0 means the axis is oor and 1
-     *  otherwise. The shapes of these n-dim. arrays depend on the number of
-     *  oor axes. So for instance for n=3, if all axes are oor, ie. index 0, the
-     *  shape is (2,2,2) an represents the corners of the cube. It's 2 because
-     *  there are always one underflow and one overflow bin per axis.
-     *  Continuing with n=3 and two axes are oor, the shape of the n-dim. array
-     *  is (S, 2, 2) where S is the length of the axis that was not oor.
-     *  Finally, if two axes are not oor, the shape is (S1, S2, 2) where S1 and
-     *  S2 are the lengths of the not-oor axes. Note, that the order of the
-     *  dimenions of the n-dim. oor arrays is (by definition) ordered ascending
-     *  w.r.t. the dimensions of the histogram, so i.e. x,y if the z-axis is oor
-     *  and x,z if the y axis is oor.
-     *  In total, there are (2^n - 1) oor arrays in this vector.
-     *  The bits of the bit mask are (by definition) ordered from right to left,
-     *  i.e. zyx.
-     */
-    std::vector< boost::shared_ptr<detail::ndarray_storage> > oor_arr_vec_;
 
     /** The Python object holding the class object to initialize the bin
      *  content elements if the datatype is object.

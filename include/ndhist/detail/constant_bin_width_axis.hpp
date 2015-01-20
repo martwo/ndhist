@@ -24,23 +24,20 @@
 namespace ndhist {
 namespace detail {
 
-template<typename AxisValueType>
-struct ConstantBinWidthAxisData
-  : AxisData
-{
-    intptr_t      n_bins_;
-    AxisValueType bin_width_;
-    AxisValueType min_;
-};
-
 template <typename AxisValueType>
 struct ConstantBinWidthAxis
   : Axis
 {
     typedef AxisValueType
             axis_value_type;
-    typedef ConstantBinWidthAxisData<AxisValueType>
-            axis_data_type;
+    typedef ConstantBinWidthAxis<AxisValueType>
+            axis_type;
+
+    intptr_t        n_bins_;
+    axis_value_type bin_width_;
+    axis_value_type min_;
+    axis_value_type underflow_edge_;
+    axis_value_type overflow_edge_;
 
     ConstantBinWidthAxis(
         bn::ndarray const & edges
@@ -56,66 +53,89 @@ struct ConstantBinWidthAxis
         extend_fct               = &extend;
         get_edges_ndarray_fct    = &get_edges_ndarray;
         get_n_bins_fct           = &get_n_bins;
-        //get_subedges_ndarray_fct = &get_subedges_ndarray;
 
-        data_ = boost::shared_ptr< axis_data_type >(new axis_data_type());
-        axis_data_type & ddata = *static_cast<axis_data_type*>(data_.get());
-        ddata.n_bins_ = edges.shape(0) - 1;
+        if(is_extendable())
+        {
+            n_bins_ = edges.shape(0) - 1;
+        }
+        else
+        {
+            n_bins_ = edges.shape(0) - 3;
+        }
+        if(n_bins_ <= 0)
+        {
+            std::stringstream ss;
+            ss << "The edges array does not contain enough edges! Remember "
+               << "that the edges of the out-or-range bins, need to be "
+               << "specified as well, when the axis is not extendable.";
+            throw ValueError(ss.str());
+        }
         bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> > edges_iter(edges);
-        ddata.min_ = *edges_iter;
+        if(! is_extendable())
+        {
+            // Set and skip the underflow edge.
+            underflow_edge_ = *edges_iter;
+            ++edges_iter;
+        }
+        min_ = *edges_iter;
         ++edges_iter;
         axis_value_type const value = *edges_iter;
-        ddata.bin_width_ = value - ddata.min_;
+        bin_width_ = value - min_;
+        if(! is_extendable())
+        {
+            // Set the overflow edge.
+            overflow_edge_ = *(edges_iter.advance(edges_iter.distance_to(edges_iter.end()) - 1));
+        }
     }
 
     static
     intptr_t
-    get_n_bins(boost::shared_ptr<AxisData> & axisdata)
+    get_n_bins(boost::shared_ptr<Axis> & axisptr)
     {
-        axis_data_type & data = *static_cast<axis_data_type*>(axisdata.get());
-        return data.n_bins_;
+        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        return axis.n_bins_;
     }
 
     static
     bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<AxisData> & axisdata)
+    get_edges_ndarray(boost::shared_ptr<Axis> & axisptr)
     {
-        axis_data_type const & data = *static_cast<axis_data_type const *>(axisdata.get());
+        axis_type const & axis = *static_cast<axis_type const *>(axisptr.get());
         intptr_t shape[1];
-        shape[0] = data.n_bins_ + 1;
+        if(axis.is_extendable()) {
+            shape[0] = axis.n_bins_ + 1;
+        }
+        else {
+            shape[0] = axis.n_bins_ + 3;
+        }
         bn::ndarray edges = bn::empty(1, shape, bn::dtype::get_builtin<axis_value_type>());
         bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> > iter(edges);
+        if(! axis.is_extendable())
+        {
+            // Set the underflow edge.
+            axis_value_type & value = *iter;
+            value = axis.underflow_edge_;
+            ++iter;
+        }
         intptr_t idx = 0;
         while(! iter.is_end())
         {
             axis_value_type & value = *iter;
-            value = data.min_ + idx*data.bin_width_;
+            value = axis.min_ + idx*axis.bin_width_;
 
             ++idx;
             ++iter;
         }
+        if(! axis.is_extendable())
+        {
+            // Set the overflow edge.
+            iter.advance(-1);
+            axis_value_type & value = *iter;
+            value = axis.overflow_edge_;
+        }
+
         return edges;
     }
-
-//     static
-//     bn::ndarray
-//     get_subedges_ndarray(boost::shared_ptr<AxisData> & axisdata, boost::python::slice const & slice)
-//     {
-//         typedef bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> >
-//                 edges_iter_t;
-//         bn::ndarray edges_arr = axes_[i]->get_edges_ndarray_fct(axisdata);
-//         edges_iter_t edges_begin(edges_arr);
-//         edges_iter_t edges_end = edges_begin.end();
-//         bp::slice::range<edges_iter_t> subedges_range = slice.get_indices(edges_begin, edges_end);
-//         bp::slice::range<edges_iter_t> subedges_range2(subedges_range);
-//         // First we need to count the elements that will make it into the
-//         // subedges, in order to create the subedges arr
-//         while(! subedges_range.start.is_end())
-//         {
-//
-//             std::advance(subedges_range.start, subedges_range.step);
-//         }
-//     }
 
     static
     intptr_t
