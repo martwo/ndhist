@@ -139,20 +139,20 @@ struct ConstantBinWidthAxis
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> & axisdata, char * value_ptr, axis::out_of_range_t * oor_ptr)
+    get_bin_index(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t * oor_ptr)
     {
-        axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
+        axis_type const & axis = *static_cast<axis_type const *>(axisptr.get());
         axis_value_type const & value = *reinterpret_cast<axis_value_type*>(value_ptr);
 
         //std::cout << "Got value: " << value << std::endl;
-        if(value - data.min_ < 0)
+        if(value < axis.min_)
         {
             //std::cout << "underflow: " << value << ", min = "<< data.min_ << std::endl;
             *oor_ptr = axis::OOR_UNDERFLOW;
             return -1;
         }
-        intptr_t const idx = (value - data.min_)/data.bin_width_;
-        if(idx >= data.n_bins_)
+        intptr_t const idx = (value - axis.min_)/axis.bin_width_;
+        if(idx >= axis.n_bins_)
         {
             //std::cout << "overflow: " << value << ", idx = "<< idx << std::endl;
             *oor_ptr = axis::OOR_OVERFLOW;
@@ -168,20 +168,20 @@ struct ConstantBinWidthAxis
     // range.
     static
     intptr_t
-    request_extension(boost::shared_ptr<AxisData> & axisdata, char * value_ptr, axis::out_of_range_t oor)
+    request_extension(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t const oor)
     {
-        axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
-        axis_value_type const value = *reinterpret_cast<axis_value_type*>(value_ptr);
+        axis_type & axis = *static_cast< axis_data_type *>(axisdata.get());
+        axis_value_type const & value = *reinterpret_cast<axis_value_type const *>(value_ptr);
 
         if(oor == axis::OOR_UNDERFLOW)
         {
-            intptr_t const n_extra_bins = std::ceil((std::abs(value - data.min_) / data.bin_width_));
+            intptr_t const n_extra_bins = std::ceil((std::abs(value - axis.min_) / axis.bin_width_));
             //std::cout << "request_autoscale (underflow): " << n_extra_bins << " extra bins." << std::endl<< std::flush;
             return -n_extra_bins;
         }
         else if(oor == axis::OOR_OVERFLOW)
         {
-            intptr_t const n_extra_bins = intptr_t((value - data.min_)/data.bin_width_) - (data.n_bins_-1);
+            intptr_t const n_extra_bins = intptr_t((value - axis.min_)/axis.bin_width_) - (axis.n_bins_-1);
             //std::cout << "request_autoscale (overflow): " << n_extra_bins << " extra bins." << std::endl<< std::flush;
             return n_extra_bins;
         }
@@ -194,23 +194,19 @@ struct ConstantBinWidthAxis
     // added to the left or to the right of the range.
     static
     void
-    extend(boost::shared_ptr<AxisData> & axisdata, intptr_t f_n_extra_bins, intptr_t b_n_extra_bins)
+    extend(boost::shared_ptr<Axis> & axisptr, intptr_t f_n_extra_bins, intptr_t b_n_extra_bins)
     {
-        axis_data_type & data = *static_cast< axis_data_type *>(axisdata.get());
+        axis_type & axis = *static_cast< axis_type *>(axisptr.get());
 
         if(f_n_extra_bins > 0)
         {
-            data.n_bins_ += f_n_extra_bins;
-            data.min_    -= f_n_extra_bins * data.bin_width_;
+            axis.n_bins_ += f_n_extra_bins;
+            axis.min_    -= f_n_extra_bins * axis.bin_width_;
         }
         if(b_n_extra_bins > 0)
         {
-            data.n_bins_ += b_n_extra_bins;
+            axis.n_bins_ += b_n_extra_bins;
         }
-
-        //std::cout << "extend: " << f_n_extra_bins << " extra front bins, "<<b_n_extra_bins<<" extra back bins." << std::endl<< std::flush;
-        //std::cout << "    new n_bins_ = "<< data.n_bins_ << std::endl<< std::flush;
-        //std::cout << "    new min_ = "<< data.min_ << std::endl<< std::flush;
     }
 };
 

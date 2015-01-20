@@ -66,9 +66,15 @@ template <typename AxisValueType>
 struct axis_traits
 {
     static bool
-    has_constant_bin_width(bn::ndarray const & edges)
+    has_constant_bin_width(bn::ndarray const & edges, bool const is_extendable)
     {
         bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_iter(edges);
+        bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_iter_end = edges_iter.end();
+        if(! is_extendable)
+        {
+            // Skip the underflow edge.
+            ++edges_iter;
+        }
         AxisValueType prev_value = *edges_iter;
         ++edges_iter;
         bool is_first_dist = true;
@@ -91,7 +97,16 @@ struct axis_traits
                 }
                 else
                 {
-                    return false;
+                    // The current distance is not equal to the previous
+                    // distance, so return false if the axis is extendable or
+                    // if the axis is not extendable and it's not the last (i.e.
+                    // overflow) bin.
+                    if(is_extendable) {
+                        return false;
+                    }
+                    else if(edges_iter.distance_to(edges_iter_end) > 1) {
+                        return false;
+                    }
                 }
             }
             ++edges_iter;
@@ -106,16 +121,17 @@ struct axis_traits
         ndhist * self
       , bn::ndarray const & edges
       , std::string const & label
-      , intptr_t autoscale_fcap=0
-      , intptr_t autoscale_bcap=0
+      , intptr_t autoscale_max_fcap=0
+      , intptr_t autoscale_max_bcap=0
     )
     {
         // Check if the edges have a constant bin width,
         // thus the axis is linear.
-        if(has_constant_bin_width(edges))
+        bool is_extendable = (autoscale_max_fcap > 0 || autoscale_max_bcap > 0);
+        if(has_constant_bin_width(edges, is_extendable))
         {
             //std::cout << "+++++++++++++ Detected const bin width of "  << std::endl;
-            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges, label, autoscale_fcap, autoscale_bcap));
+            return boost::shared_ptr<detail::ConstantBinWidthAxis<AxisValueType> >(new detail::ConstantBinWidthAxis<AxisValueType>(edges, label, autoscale_max_fcap, autoscale_max_bcap));
         }
 
         return boost::shared_ptr< detail::GenericAxis<AxisValueType> >(new detail::GenericAxis<AxisValueType>(self, edges, label));
@@ -1136,7 +1152,7 @@ ndhist(
         ndvalues_dt_.add_field(field_name, axes_[i]->get_dtype());
 
         // Add the bin content shape information for this axis.
-        shape[i] = n_bin_dim - 1;
+        shape[i] = axes_[i]->get_n_bins_fct(*axes_[i]);
 
         // Set the extra front and back capacity for this axis if the axis has
         // an autoscale.

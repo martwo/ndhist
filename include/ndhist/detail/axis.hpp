@@ -17,8 +17,6 @@
 
 #include <boost/numpy/ndarray.hpp>
 
-#include <ndhist/detail/ndarray_storage.hpp>
-
 namespace bp = boost::python;
 namespace bn = boost::numpy;
 
