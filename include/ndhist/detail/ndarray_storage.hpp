@@ -21,6 +21,7 @@
 #include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/error.hpp>
+#include <ndhist/detail/bytearray.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -41,6 +42,10 @@ class ndarray_storage
   : public boost::noncopyable
 {
   public:
+    /**
+     * @brief Constructs a new ndarray_storage with new allocated data with the
+     *     specified shape and data type.
+     */
     ndarray_storage(
         std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
@@ -51,25 +56,77 @@ class ndarray_storage
       , front_capacity_(front_capacity)
       , back_capacity_(back_capacity)
       , dt_(dt)
-      , data_(NULL)
+      , bytearray_(create_bytearray(shape_, front_capacity_, back_capacity_, dt_.get_itemsize()))
     {
         data_strides_.resize(shape_.size());
         calc_data_strides(data_strides_);
-        data_ = create_array_data(shape_, front_capacity_, back_capacity_, dt_.get_itemsize());
     }
 
-    virtual
-    ~ndarray_storage()
+    /**
+     * @brief Constructs a new ndarray_storage that shares data with an other
+     *     ndarray_storage, i.e. the new created ndarray_storage is just a view
+     *     into the data that is owned by the given ndarray_storage object (or
+     *     its data owner).
+     */
+    ndarray_storage(
+        std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
+      , boost::numpy::dtype   const & dt
+      , boost::shared_ptr<ndarray_storage> const & parent
+    )
+      : shape_(shape)
+      , front_capacity_(front_capacity)
+      , back_capacity_(back_capacity)
+      , dt_(dt)
+      , bytearray_(parent->bytearray_)
+      , bytearray_owner_(parent->bytearray_owner_.get() == NULL ? parent : parent->bytearray_owner_)
     {
-        //std::cout << "Destructing ndarray_storage" << std::endl;
-        if(data_)
+        // Check if the dimensionality of the view is not greater than one of
+        // the parent.
+        size_t const nd = get_nd();
+        if(nd > bytearray_owner_->get_nd())
         {
-            free_data(data_);
-            data_ = NULL;
+            std::stringstream ss;
+            ss << "The dimensionality of the child array layout ("<< nd
+               <<") must be "
+               << "smaller or equal than the dimensionality of the parent "
+               << "array layout ("<< bytearray_owner_->get_nd() <<")!";
+            throw ValueError(ss.str());
         }
+
+        // Check if the view-shape is smaller or equal than the one of the
+        // parent.
+        for(size_t i=0; i<nd; ++i)
+        {
+            if((front_capacity_[i] + shape_[i] + back_capacity_[i]) >
+               (bytearray_owner_->front_capacity_[i] + bytearray_owner_->shape_[i] + bytearray_owner_->back_capacity_[i])
+              )
+            {
+                std::stringstream ss;
+                ss << "The front capacity + shape + back capacity of the child "
+                   << "array layout must be smaller or equal than that of the "
+                   << "parent array layout for axis "<<i<<"!";
+                throw ValueError(ss.str());
+            }
+        }
+
+        // Check if the item size of the view is not greater than the one of
+        // the parent.
+        if(dt_.get_itemsize() > bytearray_owner_->dt_.get_itemsize())
+        {
+            std::stringstream ss;
+            ss << "The item size of the view data type must not be greater "
+               << "than the one of data type of the parent array layout ("
+               << bytearray_owner_->dt_.get_itemsize() <<")!";
+            throw TypeError(ss.str());
+        }
+
+        data_strides_.resize(shape_.size());
+        calc_data_strides(data_strides_);
     }
 
-    int get_nd() const { return shape_.size(); }
+    size_t get_nd() const { return shape_.size(); }
 
     /** Calculates the offset of the data pointer needed for a ndarray wrapping
      *  this ndarray storage.
@@ -157,20 +214,6 @@ class ndarray_storage
       , bp::object const * data_owner
     );
 
-  protected:
-    /** Creates (i.e. allocates) data for the given array layout. It returns
-     *  the pointer to the new allocated memory.
-     */
-    static
-    char *
-    create_array_data(
-        std::vector<intptr_t> const & shape
-      , std::vector<intptr_t> const & front_capacity
-      , std::vector<intptr_t> const & back_capacity
-      , size_t itemsize
-    );
-
-  private:
     /** The shape defines the number of dimensions and how many elements each
      *  dimension has.
      */
@@ -191,7 +234,6 @@ class ndarray_storage
      */
     std::vector<intptr_t> data_strides_;
 
-  public:
     /** The shared pointer to the bytearray, that might be shared between
      *  different ndarray_storage objects.
      */
@@ -203,6 +245,19 @@ class ndarray_storage
      *  before.
      */
     boost::shared_ptr<ndarray_storage> bytearray_owner_;
+
+  protected:
+    /** Creates (i.e. allocates data) bytearray object for the given array
+     *  layout. It returns a shared pointer to the new created bytearray object.
+     */
+    static
+    boost::shared_ptr<bytearray>
+    create_bytearray(
+        std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
+      , size_t itemsize
+    );
 };
 
 }// namespace detail

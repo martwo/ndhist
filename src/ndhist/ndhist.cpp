@@ -118,7 +118,7 @@ struct axis_traits
     static
     boost::shared_ptr<Axis>
     construct_axis(
-        ndhist * self
+        ndhist & self
       , bn::ndarray const & edges
       , std::string const & label
       , intptr_t autoscale_max_fcap=0
@@ -145,7 +145,7 @@ struct axis_traits<bp::object>
     static
     boost::shared_ptr<Axis>
     construct_axis(
-        ndhist * self
+        ndhist & self
       , bn::ndarray const & edges
       , std::string const & label
       , intptr_t
@@ -1124,7 +1124,7 @@ ndhist(
                        << "possible C++ data type! This is an internal error!";     \
                     throw TypeError(ss.str());                                      \
                 }                                                                   \
-                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(this, edges_arr, axis_label, axis_extension_max_fcap, axis_extension_max_bcap));\
+                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(*this, edges_arr, axis_label, axis_extension_max_fcap, axis_extension_max_bcap));\
                 axis_dtype_supported = true;                                        \
             }
         NDHIST_AXIS_DATA_TYPE_SUPPORT(int8_t)
@@ -1266,9 +1266,6 @@ ndhist(
             ++bc_iter;
         }
     }
-
-    // Create the out-of-range (oor) arrays.
-    create_oor_arrays(oor_arr_vec_, nd_, axes_, bc_dt, bc_weight_dt_, bc_class_);
 }
 
 ndhist &

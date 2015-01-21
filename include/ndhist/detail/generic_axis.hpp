@@ -27,21 +27,17 @@
 namespace ndhist {
 namespace detail {
 
-template<typename AxisValueType>
-struct GenericAxisData : AxisData
+template <class Derived>
+struct GenericAxisBase
+  : Axis
 {
     boost::shared_ptr<ndarray_storage> storage_;
     bp::object arr_;
     bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > iter_;
     bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > iter_end_;
-};
 
-template <class Derived, class DerivedData>
-struct GenericAxisBase
-  : Axis
-{
     GenericAxisBase(
-        ::ndhist::ndhist * h
+        ndhist & h
       , bn::ndarray const & edges
       , std::string const & label
     )
@@ -51,18 +47,23 @@ struct GenericAxisBase
         get_bin_index_fct     = &Derived::get_bin_index;
         get_edges_ndarray_fct = &Derived::get_edges_ndarray;
 
-        data_ = boost::shared_ptr< DerivedData >(new DerivedData());
-        DerivedData & ddata = *static_cast<DerivedData*>(data_.get());
-        intptr_t const nbins = edges.get_size();
+        intptr_t const nbins = edges.get_size() - 3;
+        if(nbins < 1)
+        {
+            std::stringstream ss;
+            ss << "The edges array need to have at least 4 elements! But it "
+               << "contains only "<<edges.get_size()<<" edges!";
+            throw ValueError(ss.str());
+        }
         std::vector<intptr_t> shape(1, nbins);
         // With a generic axis, i.e. with a non-constant bin width, autoscaling
         // is not possible. So no need for extra front and back capacity.
         std::vector<intptr_t> front_capacity_vec(1, 0);
         std::vector<intptr_t> back_capacity_vec(1, 0);
-        ddata.storage_ = boost::shared_ptr<detail::ndarray_storage>(
+        storage_ = boost::shared_ptr<detail::ndarray_storage>(
             new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
         // Copy the data from the user provided edge array to the storage array.
-        bp::object owner(bp::ptr(h));
+        bp::object owner(bp::ptr(&h));
         ddata.arr_ = ddata.storage_->ConstructNDArray(ddata.storage_->get_dtype(), 0, &owner);
         bn::ndarray & arr = *static_cast<bn::ndarray*>(&ddata.arr_);
         if(!bn::copy_into(arr, edges))
@@ -77,10 +78,10 @@ struct GenericAxisBase
 
     static
     bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<AxisData> & axisdata)
+    get_edges_ndarray(boost::shared_ptr<Axis> & axisbase)
     {
-        DerivedData & data = *static_cast<DerivedData*>(axisdata.get());
-        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&data.arr_);
+        Derived & axis = *static_cast<Derived*>(axisbase.get());
+        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&axis.arr_);
         return edges_arr.copy();
     }
 };

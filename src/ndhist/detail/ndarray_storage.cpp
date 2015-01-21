@@ -254,10 +254,10 @@ copy_from(
     }
 }
 
-//______________________________________________________________________________
-char *
+
+boost::shared_ptr<bytearray>
 ndarray_storage::
-create_array_data(
+create_bytearray(
     std::vector<intptr_t> const & shape
   , std::vector<intptr_t> const & front_capacity
   , std::vector<intptr_t> const & back_capacity
@@ -291,7 +291,8 @@ create_array_data(
         throw AssertionError(
             "The capacity is less or equal 0!");
     }
-    return calloc_data(capacity, itemsize);
+
+    return boost::shared_ptr<bytearray>(new bytearray(capacity, itemsize));
 }
 
 }// namespace detail
