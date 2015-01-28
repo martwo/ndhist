@@ -50,6 +50,8 @@ class ndhist
      *  automatically from the length of the edges (minus 1) arrays.
      *
      *  The axes tuple specifies the different dimensions of the histogram.
+     *  Each element of that tuple is supposed to be an object of (a derived)
+     *  class of ndhist::Axis.
      *  - Each tuple entry can either be a single ndarray specifying the bin
      *    edges, or a tuple of the form
      *
