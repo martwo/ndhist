@@ -19,15 +19,6 @@ namespace axis {
 intptr_t const UNDERFLOW_INDEX = -1;
 intptr_t const OVERFLOW_INDEX  = -2;
 
-/** The enum type for describing the type of an out of range event.
- */
-enum out_of_range_t
-{
-    OOR_NONE      =  0,
-    OOR_UNDERFLOW = -1,
-    OOR_OVERFLOW  = -2
-};
-
 enum axis_flags_t
 {
     FLAGS_FIXED_INDEX    = -4,

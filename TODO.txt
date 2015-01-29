@@ -1,0 +1,5 @@
+- Adapt GenericAxis to the new axis scheme.
+- Add pybindings for Axis, ConstantBinWidthAxis, and GenericAxis.
+- Write python utility (factory) functions that create the Axis objects easily
+  for the user.
+- Adapt the ndhist constructor to use a tuple of Axis objects.
