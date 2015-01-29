@@ -129,9 +129,10 @@ class ndarray_storage
     size_t get_nd() const { return shape_.size(); }
 
     /** Calculates the offset of the data pointer needed for a ndarray wrapping
-     *  this ndarray storage.
+     *  this ndarray storage. If given, the sub_item_byte_offset is added to
+     *  the address.
      */
-    intptr_t CalcDataOffset(size_t sub_item_byte_offset) const;
+    intptr_t calc_data_offset(size_t sub_item_byte_offset=0) const;
 
     /** Calculates the data strides for the dtype object of this ndarray
      *  storage.
@@ -145,7 +146,7 @@ class ndarray_storage
      *  automatically to select the field having the given index.
      */
     bn::ndarray
-    ConstructNDArray(
+    construct_ndarray(
         bn::dtype const &  dt
       , size_t             field_idx = 0
       , bp::object const * data_owner = NULL

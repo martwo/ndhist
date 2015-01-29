@@ -2,157 +2,59 @@
  * $Id$
  *
  * Copyright (C)
- * 2014 - $Date$
+ * 2015 - $Date$
  *     Martin Wolf <ndhist@martin-wolf.org>
+ *
+ * @brief This file defines the GenericAxis template for a histogram axis with
+ *        irregular bin widths. Due to the irregularity of the bin widths, such
+ *        an axis cannot be extendable.
  *
  * This file is distributed under the BSD 2-Clause Open Source License
  * (See LICENSE file).
  *
  */
-#ifndef NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED
-#define NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED 1
+#ifndef NDHIST_AXES_GENERIC_AXIS_HPP_INCLUDED
+#define NDHIST_AXES_GENERIC_AXIS_HPP_INCLUDED 1
 
 #include <algorithm>
+#include <sstream>
 
-#include <boost/python.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/python.hpp>
 
 #include <boost/numpy/ndarray.hpp>
 #include <boost/numpy/iterators/flat_iterator.hpp>
 
-#include <ndhist/detail/axis.hpp>
+#include <ndhist/axis.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
 #include <ndhist/ndhist.hpp>
+#include <ndhist/error.hpp>
+
+namespace bp = boost::python;
+namespace bn = boost::numpy;
 
 namespace ndhist {
+namespace axes {
+
 namespace detail {
 
-template <class Derived>
-struct GenericAxisBase
-  : Axis
-{
-    boost::shared_ptr<ndarray_storage> storage_;
-    bp::object arr_;
-    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > iter_;
-    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > iter_end_;
-
-    GenericAxisBase(
-        ndhist & h
-      , bn::ndarray const & edges
-      , std::string const & label
-    )
-      : Axis(edges.get_dtype(), label)
-    {
-        // Set up the axis's function pointers.
-        get_bin_index_fct     = &Derived::get_bin_index;
-        get_edges_ndarray_fct = &Derived::get_edges_ndarray;
-
-        intptr_t const nbins = edges.get_size() - 3;
-        if(nbins < 1)
-        {
-            std::stringstream ss;
-            ss << "The edges array need to have at least 4 elements! But it "
-               << "contains only "<<edges.get_size()<<" edges!";
-            throw ValueError(ss.str());
-        }
-        std::vector<intptr_t> shape(1, nbins);
-        // With a generic axis, i.e. with a non-constant bin width, autoscaling
-        // is not possible. So no need for extra front and back capacity.
-        std::vector<intptr_t> front_capacity_vec(1, 0);
-        std::vector<intptr_t> back_capacity_vec(1, 0);
-        storage_ = boost::shared_ptr<detail::ndarray_storage>(
-            new detail::ndarray_storage(shape, front_capacity_vec, back_capacity_vec, edges.get_dtype()));
-        // Copy the data from the user provided edge array to the storage array.
-        bp::object owner(bp::ptr(&h));
-        ddata.arr_ = ddata.storage_->ConstructNDArray(ddata.storage_->get_dtype(), 0, &owner);
-        bn::ndarray & arr = *static_cast<bn::ndarray*>(&ddata.arr_);
-        if(!bn::copy_into(arr, edges))
-        {
-            // TODO: Get the error string from the already set BP error.
-            throw MemoryError("Could not copy edge array into internal storage!");
-        }
-        // Initialize a flat iterator over the axis edges.
-        ddata.iter_ = bn::iterators::flat_iterator< bn::iterators::single_value<typename Derived::axis_value_type> >(arr, bn::detail::iter_operand::flags::READONLY::value);
-        ddata.iter_end_ = ddata.iter_.end();
-    }
-
-    static
-    bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<Axis> & axisbase)
-    {
-        Derived & axis = *static_cast<Derived*>(axisbase.get());
-        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&axis.arr_);
-        return edges_arr.copy();
-    }
-};
-
 template <typename AxisValueType>
-struct GenericAxis
-  : GenericAxisBase< GenericAxis<AxisValueType>, GenericAxisData<AxisValueType> >
+struct GenericAxisValueCompare
 {
-    typedef GenericAxisBase< GenericAxis<AxisValueType>, GenericAxisData<AxisValueType> >
-            base_t;
-    typedef AxisValueType axis_value_type;
-
-    GenericAxis(
-        ::ndhist::ndhist * h
-      , bn::ndarray const & edges
-      , std::string const & label
-    )
-      : base_t(h, edges, label)
-    {}
-
-    static
-    intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> & axisdata, char * value_ptr, axis::out_of_range_t * oor_ptr)
-    {
-        GenericAxisData<AxisValueType> & data = *static_cast< GenericAxisData<AxisValueType> *>(axisdata.get());
-        AxisValueType const & value = *reinterpret_cast<AxisValueType*>(value_ptr);
-
-        // We know that edges is 1-dimensional by construction and the edges are
-        // ordered ascedently. Also we know that the value type of the edges is
-        // AxisValueType. So we can use the std::upper_bound binary search for
-        // getting the upper edge for the given value.
-        data.iter_.reset();
-        bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > ub = std::upper_bound(data.iter_, data.iter_end_, value);
-        if(ub == data.iter_end_)
-        {
-            // Overflow.
-            *oor_ptr = axis::OOR_OVERFLOW;
-            return -2;
-        }
-        intptr_t const idx = ub.get_iter_index();
-        if(idx == 0)
-        {
-            // Underflow. ub points to the first element.
-            *oor_ptr = axis::OOR_UNDERFLOW;
-            return -1;
-        }
-        *oor_ptr = axis::OOR_NONE;
-        return idx - 1;
-    }
-};
-
-// Specialization for object axis types.
-template <>
-struct GenericAxis<bp::object>
-  : GenericAxisBase< GenericAxis<bp::object>, GenericAxisData<bp::object> >
-{
-    typedef GenericAxisBase< GenericAxis<bp::object>, GenericAxisData<bp::object> >
-            base_t;
-    typedef bp::object axis_value_type;
-
-    GenericAxis(
-        ::ndhist::ndhist * h
-      , bn::ndarray const & edges
-      , std::string const & label
-    )
-      : base_t(h, edges, label)
-    {}
-
     static
     bool
-    edge_value_compare(bp::object const & value, bp::object const & edge)
+    apply(AxisValueType const & value, AxisValueType const & edge)
+    {
+        return (value < edge);
+    }
+};
+
+template <>
+struct GenericAxisValueCompare<bp::object>
+{
+    static
+    bool
+    apply(bp::object const & value, bp::object const & edge)
     {
         bp::object edge_type(bp::handle<>(bp::borrowed(bp::downcast<PyTypeObject>(PyObject_Type(edge.ptr())))));
         if(! PyObject_TypeCheck(value.ptr(), (PyTypeObject*)edge_type.ptr()))
@@ -165,41 +67,129 @@ struct GenericAxis<bp::object>
         }
         return (value < edge);
     }
+};
+
+}//namespace detail
+
+template <typename AxisValueType>
+class GenericAxis
+  : public Axis
+{
+  protected:
+    boost::shared_ptr<ndarray_storage> edges_arr_storage_;
+    bp::object edges_arr_;
+    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_arr_iter_;
+    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_arr_iter_end_;
+
+  public:
+    typedef AxisValueType
+            axis_value_type;
+
+    typedef GenericAxis<AxisValueType>
+            axis_type;
+
+    GenericAxisBase(
+      , bn::ndarray const & edges
+      , std::string const & label
+      , bool     // is_extendable
+      , intptr_t // extension_max_fcap
+      , intptr_t // extension_max_bcap
+    )
+      : Axis(
+            edges.get_dtype()
+          , label
+          , false // is_extendable
+          , 0     // extension_max_fcap
+          , 0     // extension_max_bcap
+        )
+    {
+        // Set up the axis's function pointers.
+        get_bin_index_fct_     = &get_bin_index;
+        get_edges_ndarray_fct_ = &get_edges_ndarray;
+        get_n_bins_fct_        = &get_n_bins;
+        request_extension_fct_ = NULL;
+        extend_fct_            = NULL;
+
+        intptr_t const nbins = edges.get_size() - 1;
+        if(nbins < 1)
+        {
+            std::stringstream ss;
+            ss << "The edges array need to have at least 2 elements! But it "
+               << "contains only "<<edges.get_size()<<" edge values!";
+            throw ValueError(ss.str());
+        }
+        std::vector<intptr_t> shape(1, nbins);
+        std::vector<intptr_t> front_capacity(1, 0);
+        std::vector<intptr_t> back_capacity(1, 0);
+        edges_arr_storage_ = boost::shared_ptr<detail::ndarray_storage>(
+            new detail::ndarray_storage(shape, front_capacity, back_capacity, edges.get_dtype()));
+        // Copy the data from the user provided edge array to the storage array.
+        bp::object owner;
+        edges_arr_ = edges_arr_storage_->construct_ndarray(edges_arr_storage_->get_dtype(), 0, &owner);
+        bn::ndarray & arr = *static_cast<bn::ndarray*>(&edges_arr_);
+        if(! bn::copy_into(arr, edges))
+        {
+            // TODO: Get the error string from the already set BP error.
+            std::stringstream ss;
+            ss << "Could not copy edge array into internal storage!";
+            throw MemoryError(ss.str());
+        }
+        // Initialize a flat iterator over the axis edges.
+        edges_arr_iter_ = bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> >(arr, bn::detail::iter_operand::flags::READONLY::value);
+        edges_arr_iter_end_ = edges_arr_iter_.end();
+    }
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<AxisData> & axisdata, char * obj_ptr, axis::out_of_range_t * oor_ptr)
+    get_bin_index(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t & oor_flag)
     {
-        //std::cout << "GenericAxis<bp::object>::get_bin_index" << std::endl;
-        GenericAxisData<bp::object> & data = *static_cast<GenericAxisData<bp::object> *>(axisdata.get());
-        uintptr_t * obj_ptr_data = reinterpret_cast<uintptr_t*>(obj_ptr);
-        bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*obj_ptr_data)));
+        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+
+        axis_value_type_traits avtt;
+        axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
 
         // We know that edges is 1-dimensional by construction and the edges are
         // ordered ascedently. Also we know that the value type of the edges is
-        // AxisValueType. So we can just iterate over the edges values and
-        // compare the values.
-        data.iter_.reset();
-        bn::iterators::flat_iterator< bn::iterators::single_value<bp::object> > ub = std::upper_bound(data.iter_, data.iter_end_, value, &edge_value_compare);
-        if(ub == data.iter_end_)
+        // AxisValueType. So we can use the std::upper_bound binary search for
+        // getting the upper edge for the given value.
+        axis.edges_arr_iter_.reset();
+        bn::iterators::flat_iterator< axis_value_type_traits > ub = std::upper_bound(axis.edges_arr_iter_, axis.edges_arr_iter_end_, value, &GenericAxisValueCompare<axis_value_type>::apply);
+        if(ub == axis.edges_arr_iter_end_)
         {
-            // Overlow.
-            *oor_ptr = axis::OOR_OVERFLOW;
-            return -2;
+            // Overflow.
+            oor_flag = axis::OOR_OVERFLOW;
+            return -1;
         }
         intptr_t const idx = ub.get_iter_index();
         if(idx == 0)
         {
             // Underflow. ub points to the first element.
-            *oor_ptr = axis::OOR_UNDERFLOW;
+            oor_flag = axis::OOR_UNDERFLOW;
             return -1;
         }
-        *oor_ptr = axis::OOR_NONE;
+        oor_flag = axis::OOR_NONE;
         return idx - 1;
+    }
+
+    static
+    bn::ndarray
+    get_edges_ndarray(boost::shared_ptr<Axis> & axisptr)
+    {
+        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&axis.edges_arr_);
+        return edges_arr.copy();
+    }
+
+    static
+    intptr_t
+    get_n_bins_fct_(boost::shared_ptr<Axis> & axisptr)
+    {
+        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        return axis.edges_arr_.get_size();
     }
 };
 
-}//namespace detail
+}//namespace axes
 }//namespace ndhist
 
-#endif // !NDHIST_DETAIL_GENERIC_AXIS_HPP_INCLUDED
+#endif // !NDHIST_AXES_GENERIC_AXIS_HPP_INCLUDED

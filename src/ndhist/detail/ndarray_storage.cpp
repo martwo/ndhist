@@ -25,12 +25,12 @@ namespace detail {
 //______________________________________________________________________________
 intptr_t
 ndarray_storage::
-CalcDataOffset(size_t sub_item_byte_offset) const
+calc_data_offset(size_t sub_item_byte_offset) const
 {
     const int nd = shape_.size();
     intptr_t offset = front_capacity_[nd-1];
     intptr_t dim_offsets = 1;
-    for(int i=nd-2; i>=0; --i)
+    for(intptr_t i=nd-2; i>=0; --i)
     {
         dim_offsets *= (front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]);
         offset += front_capacity_[i]*dim_offsets;
@@ -57,7 +57,7 @@ calc_data_strides(std::vector<intptr_t> & strides) const
 //______________________________________________________________________________
 bn::ndarray
 ndarray_storage::
-ConstructNDArray(bn::dtype const & dt, size_t field_idx, bp::object const * data_owner)
+construct_ndarray(bn::dtype const & dt, size_t field_idx, bp::object const * data_owner)
 {
     //std::cout << "ConstructNDArray for field_idx "<< field_idx << std::endl;
     size_t sub_item_byte_offset = 0;

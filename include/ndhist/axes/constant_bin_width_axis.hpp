@@ -44,8 +44,6 @@ class ConstantBinWidthAxis
 
     typedef constant_bin_width_axis<axis_value_type>
             axis_type;
-    typedef axis_type
-            type;
 
     /// The number of bins, including the possible under- and overflow bins.
     intptr_t n_bins_;
