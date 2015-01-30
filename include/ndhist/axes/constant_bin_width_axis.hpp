@@ -43,7 +43,7 @@ class ConstantBinWidthAxis
             axis_value_type_traits;
 
     typedef constant_bin_width_axis<axis_value_type>
-            axis_type;
+            type;
 
     /// The number of bins, including the possible under- and overflow bins.
     intptr_t n_bins_;
@@ -64,7 +64,8 @@ class ConstantBinWidthAxis
 
     ConstantBinWidthAxis(
         bn::ndarray const & edges
-      , std::string const & label
+      , std::string const & label=std::string("")
+      , std::string const & name=std::string("")
       , bool is_extendable=false
       , intptr_t extension_max_fcap=0
       , intptr_t extension_max_bcap=0
@@ -72,6 +73,7 @@ class ConstantBinWidthAxis
       : Axis(
             edges.get_dtype()
           , label
+          , name
           , is_extendable
           , extension_max_fcap
           , extension_max_bcap
@@ -119,7 +121,7 @@ class ConstantBinWidthAxis
     intptr_t
     get_n_bins(boost::shared_ptr<Axis> & axisptr)
     {
-        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        type & axis = *static_cast<type*>(axisptr.get());
         return axis.n_bins_;
     }
 
@@ -127,7 +129,7 @@ class ConstantBinWidthAxis
     bn::ndarray
     get_edges_ndarray(boost::shared_ptr<Axis> & axisptr)
     {
-        axis_type const & axis = *static_cast<axis_type const *>(axisptr.get());
+        type const & axis = *static_cast<type const *>(axisptr.get());
 
         intptr_t shape[1];
         shape[0] = axis.n_bins_ + 1;
@@ -164,7 +166,7 @@ class ConstantBinWidthAxis
     intptr_t
     get_bin_index(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t & oor_flag)
     {
-        axis_type const & axis = *static_cast<axis_type const *>(axisptr.get());
+        type const & axis = *static_cast<type const *>(axisptr.get());
 
         axis_value_type_traits avtt;
         axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
@@ -234,7 +236,7 @@ class ConstantBinWidthAxis
     intptr_t
     request_extension(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t const oor_flag)
     {
-        axis_type & axis = *static_cast< axis_data_type *>(axisdata.get());
+        type & axis = *static_cast< axis_data_type *>(axisdata.get());
 
         axis_value_type_traits avtt;
         axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
@@ -259,7 +261,7 @@ class ConstantBinWidthAxis
     void
     extend(boost::shared_ptr<Axis> & axisptr, intptr_t f_n_extra_bins, intptr_t b_n_extra_bins)
     {
-        axis_type & axis = *static_cast< axis_type *>(axisptr.get());
+        type & axis = *static_cast< type *>(axisptr.get());
 
         if(f_n_extra_bins > 0)
         {
@@ -309,48 +311,8 @@ struct select_ConstantBinWidthAxis_type
 // parameter to avoid several Python classes, one for each axis value type.
 namespace py {
 
-class constant_bin_width_axis
-  : public Axis
-{
-  protected:
-    // This is the actual axis object which is type sensitive.
-    boost::shared_ptr<Axis> axis_;
-
-  public:
-    constant_bin_width_axis(
-        bn::ndarray const & edges
-      , std::string const & label
-      , bool is_extendable=false
-      , intptr_t extension_max_fcap=0
-      , intptr_t extension_max_bcap=0
-    )
-    {
-        // Create the ConstantBinWidthAxis<AxisValueType> object on the heap
-        // and save a pointer to it. Then copy the API function pointers into
-        // this Axis object. So we don't have to do type lookups whenever
-        // calling an API function.
-        bool axis_dtype_is_supported = false;
-        bn::dtype axis_dtype = edges.get_dtype();
-        #define NDHIST_AXES_PY_AXIS_DTYPE_SUPPORT(r, data, AXIS_VALUE_TYPE)           \
-            if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<AXIS_VALUE_TYPE>()))\
-            {                                                                         \
-                if(axis_dtype_is_supported)                                           \
-                {                                                                     \
-                    std::stringstream ss;                                             \
-                    ss << "The axis value data type is supported by more than one "   \
-                       << "possible C++ data type! This is an internal error!";       \
-                    throw TypeError(ss.str());                                        \
-                }                                                                     \
-                axis_ = boost::shared_ptr< select_ConstantBinWidthAxis_type<AXIS_VALUE_TYPE>::type >(new select_ConstantBinWidthAxis_type<AXIS_VALUE_TYPE>::type(edges, label, is_extendable, extension_max_fcap, axis_extension_max_bcap));\
-                axis_dtype_is_supported = true;                                       \
-            }
-        BOOST_PP_SEQ_FOR_EACH(NDHIST_AXES_PY_AXIS_DTYPE_SUPPORT, ~, NDHIST_SUPPORTED_AXIS_VALUE_TYPES)
-        #undef NDHIST_AXES_PY_AXIS_DTYPE_SUPPORT
-
-        // Wrap the axis_ Axis object.
-        wrap_axis(*axis_);
-    }
-};
+typedef detail::PyAxisWrapper<select_ConstantBinWidthAxis_type>
+        constant_bin_width_axis;
 
 }//namespace py
 

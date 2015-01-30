@@ -86,11 +86,12 @@ class GenericAxis
             axis_value_type;
 
     typedef GenericAxis<AxisValueType>
-            axis_type;
+            type;
 
     GenericAxisBase(
       , bn::ndarray const & edges
-      , std::string const & label
+      , std::string const & label=std::string("")
+      , std::string const & name=std::string("")
       , bool     // is_extendable
       , intptr_t // extension_max_fcap
       , intptr_t // extension_max_bcap
@@ -98,6 +99,7 @@ class GenericAxis
       : Axis(
             edges.get_dtype()
           , label
+          , name
           , false // is_extendable
           , 0     // extension_max_fcap
           , 0     // extension_max_bcap
@@ -143,7 +145,7 @@ class GenericAxis
     intptr_t
     get_bin_index(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t & oor_flag)
     {
-        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        type & axis = *static_cast<type*>(axisptr.get());
 
         axis_value_type_traits avtt;
         axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
@@ -175,7 +177,7 @@ class GenericAxis
     bn::ndarray
     get_edges_ndarray(boost::shared_ptr<Axis> & axisptr)
     {
-        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        type & axis = *static_cast<type*>(axisptr.get());
         bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&axis.edges_arr_);
         return edges_arr.copy();
     }
@@ -184,10 +186,17 @@ class GenericAxis
     intptr_t
     get_n_bins_fct_(boost::shared_ptr<Axis> & axisptr)
     {
-        axis_type & axis = *static_cast<axis_type*>(axisptr.get());
+        type & axis = *static_cast<type*>(axisptr.get());
         return axis.edges_arr_.get_size();
     }
 };
+
+namespace py {
+
+typedef detail::PyAxisWrapper<GenericAxis>
+        generic_axis;
+
+}//namespace py
 
 }//namespace axes
 }//namespace ndhist
