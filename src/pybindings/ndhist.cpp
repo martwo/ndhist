@@ -31,7 +31,7 @@ void register_ndhist()
         , bp::init<
             bp::tuple const &
           , bp::object const &
-          , bp::object
+          , bp::object const &
           >(
           ( bp::arg("axes")
           , bp::arg("dtype")=bn::dtype::get_builtin<double>()
@@ -70,40 +70,40 @@ void register_ndhist()
             , bn::ndarray_accessor_return())
             , "The ndarray holding the sum of weights for each bin.")
 
-        //----------------------------------------------------------------------
-        // Out-of-range properties.
-        .add_property("underflow_entries", &ndhist::py_get_underflow_entries
-            , "The underflow (number of entries) bins for each dimension analog   \n"
-              "to the ``underflow`` property.                                     \n"
-              "See the documentation of the ``underflow`` property for more details.")
-        .add_property("overflow_entries", &ndhist::py_get_overflow_entries
-            , "The overflow (number of entries) bins for each dimension analog    \n"
-              "to the ``underflow`` property.                                     \n"
-              "See the documentation of the ``underflow`` property for more details.")
-        .add_property("underflow", &ndhist::py_get_underflow
-            , "A tuple of length *ndim* where each element is a *ndim*-dimensional\n"
-              "ndarray holding the underflow (sum of weights) bins for the        \n"
-              "particular axis, where the index of the tuple element specifies    \n"
-              "the axis. The dimension of the particular axis is collapsed to     \n"
-              "one and the lengths of the other dimensions are extended by two.   \n"
-              "                                                                   \n"
-              "Example: For (3,2) shaped two-dimensional histogram, there will    \n"
-              "         be two tuple elements with a two-dimensional ndarray      \n"
-              "         each. The shape of the first array (i.e. for the first    \n"
-              "         axis) will be (1,4) and the shape of the second array     \n"
-              "         will be (5,1).")
-        .add_property("overflow", &ndhist::py_get_overflow
-            , "The overflow (sum-of-weights) bins for each dimension analog to the\n"
-              "``underflow`` property.                                            \n"
-              "See the documentation of the ``underflow`` property for more details.")
-        .add_property("underflow_squaredweights", &ndhist::py_get_underflow_squaredweights
-            , "The underflow (sum-of-weights-squared) bins for each dimension     \n"
-              "analog to the ``underflow`` property.                              \n"
-              "See the documentation of the ``underflow`` property for more details.")
-        .add_property("overflow_squaredweights", &ndhist::py_get_overflow_squaredweights
-            , "The overflow (sum-of-weights-squared) bins for each dimension      \n"
-              "analog to the ``underflow`` property.                              \n"
-              "See the documentation of the ``underflow`` property for more details.")
+//         //----------------------------------------------------------------------
+//         // Out-of-range properties.
+//         .add_property("underflow_entries", &ndhist::py_get_underflow_entries
+//             , "The underflow (number of entries) bins for each dimension analog   \n"
+//               "to the ``underflow`` property.                                     \n"
+//               "See the documentation of the ``underflow`` property for more details.")
+//         .add_property("overflow_entries", &ndhist::py_get_overflow_entries
+//             , "The overflow (number of entries) bins for each dimension analog    \n"
+//               "to the ``underflow`` property.                                     \n"
+//               "See the documentation of the ``underflow`` property for more details.")
+//         .add_property("underflow", &ndhist::py_get_underflow
+//             , "A tuple of length *ndim* where each element is a *ndim*-dimensional\n"
+//               "ndarray holding the underflow (sum of weights) bins for the        \n"
+//               "particular axis, where the index of the tuple element specifies    \n"
+//               "the axis. The dimension of the particular axis is collapsed to     \n"
+//               "one and the lengths of the other dimensions are extended by two.   \n"
+//               "                                                                   \n"
+//               "Example: For (3,2) shaped two-dimensional histogram, there will    \n"
+//               "         be two tuple elements with a two-dimensional ndarray      \n"
+//               "         each. The shape of the first array (i.e. for the first    \n"
+//               "         axis) will be (1,4) and the shape of the second array     \n"
+//               "         will be (5,1).")
+//         .add_property("overflow", &ndhist::py_get_overflow
+//             , "The overflow (sum-of-weights) bins for each dimension analog to the\n"
+//               "``underflow`` property.                                            \n"
+//               "See the documentation of the ``underflow`` property for more details.")
+//         .add_property("underflow_squaredweights", &ndhist::py_get_underflow_squaredweights
+//             , "The underflow (sum-of-weights-squared) bins for each dimension     \n"
+//               "analog to the ``underflow`` property.                              \n"
+//               "See the documentation of the ``underflow`` property for more details.")
+//         .add_property("overflow_squaredweights", &ndhist::py_get_overflow_squaredweights
+//             , "The overflow (sum-of-weights-squared) bins for each dimension      \n"
+//               "analog to the ``underflow`` property.                              \n"
+//               "See the documentation of the ``underflow`` property for more details.")
 
 
         .add_property("ndvalues_dtype", &ndhist::get_ndvalues_dtype
@@ -122,11 +122,11 @@ void register_ndhist()
             , (bp::arg("self"), bp::arg("axis")=0)
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
-        .def("fill", &ndhist::fill
-            , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
-            , "Fills the histogram with the given n-dimensional numbers, "
-              "weighted by the given weights. If no weights are specified, "
-              "``1`` will be used for each entry.")
+//         .def("fill", &ndhist::fill
+//             , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
+//             , "Fills the histogram with the given n-dimensional numbers, "
+//               "weighted by the given weights. If no weights are specified, "
+//               "``1`` will be used for each entry.")
         .def("empty_like", &ndhist::empty_like
             , (bp::arg("self"))
             , "Creates a new empty ndhist object having the same binning and "
@@ -136,27 +136,27 @@ void register_ndhist()
             , "Checks if the given ndhist object is compatible with this "
               "ndhist object. This means, the dimensionality and the edges of "
               "all axes must match.")
-        .def("project", &ndhist::project
-            , (bp::arg("self"), bp::arg("dims"))
-            , "Create a new ndhist object that is the projection of this        \n"
-              "histogram containing only the dimensions, which have been        \n"
-              "specified through the *dims* argument.                           \n"
-              "All other dimensions are collapsed (summed) accordingly into     \n"
-              "the remaining specified dimensions.                              \n")
+//         .def("project", &ndhist::project
+//             , (bp::arg("self"), bp::arg("dims"))
+//             , "Create a new ndhist object that is the projection of this        \n"
+//               "histogram containing only the dimensions, which have been        \n"
+//               "specified through the *dims* argument.                           \n"
+//               "All other dimensions are collapsed (summed) accordingly into     \n"
+//               "the remaining specified dimensions.                              \n")
 
-        // Slicing.
-        .def("__getitem__", &ndhist::operator[]
-            , (bp::arg("self"), bp::arg("index"))
-            , "Creates a new ndhist object with only the axes (and their        \n"
-              "elements) defined by the given index.")
-
-        // Arithmetic operator overloads.
-        .def(bp::self += bp::self)
-        .def(bp::self + bp::self)
-        .def(bp::self *= double())
-        .def(bp::self * double())
-        .def(bp::self /= double())
-        .def(bp::self / double())
+//         // Slicing.
+//         .def("__getitem__", &ndhist::operator[]
+//             , (bp::arg("self"), bp::arg("index"))
+//             , "Creates a new ndhist object with only the axes (and their        \n"
+//               "elements) defined by the given index.")
+//
+//         // Arithmetic operator overloads.
+//         .def(bp::self += bp::self)
+//         .def(bp::self + bp::self)
+//         .def(bp::self *= double())
+//         .def(bp::self * double())
+//         .def(bp::self /= double())
+//         .def(bp::self / double())
     ;
 }
 

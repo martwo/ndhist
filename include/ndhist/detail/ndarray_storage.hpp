@@ -176,6 +176,16 @@ class ndarray_storage
         return dt_;
     }
 
+    /**
+     * @brief Returns the raw pointer to the beginning of the data junk used by
+     *     this ndarray_storage object.
+     */
+    char *
+    get_data()
+    {
+        return bytearray_->data_;
+    }
+
     std::vector<intptr_t> const &
     get_data_strides_vector() const
     {
@@ -195,16 +205,20 @@ class ndarray_storage
       , std::vector<intptr_t> const & shape_offset_vec
     );
 
-    /** Extends the memory of this ndarray storage by at least the given number
-     *  of elements for each axis. The f_n_elements_vec argument must hold the
-     *  number of extra front elements (can be zero) for each axis. The
-     *  b_n_elements_vec argument must hold the number of extra back elements
-     *  (can be zero) for each axis. If all the axes
-     *  have still enough capacity to hold the new elements, no reallocation of
-     *  memory is performed. Otherwise a complete new junk of memory is
-     *  allocated that can fit the extended array plus the specified extra font
-     *  (max_fcap_vec) and back (max_bcap_vec) capacity. The data from the old
-     *  array is copied to the new array.
+    /**
+     * @brief Extends the memory of this ndarray storage by at least the given
+     *     number of elements for each axis. The f_n_elements_vec argument must
+     *     hold the number of extra front elements (can be zero) for each axis.
+     *     The b_n_elements_vec argument must hold the number of extra back
+     *     elements (can be zero) for each axis. If all the axes have still
+     *     enough capacity to hold the new elements, no reallocation of
+     *     memory is performed. Otherwise a complete new junk of memory is
+     *     allocated that can fit the extended array plus the specified extra
+     *     font (max_fcap_vec) and back (max_bcap_vec) capacity.
+     *     The data from the old array is copied to the new array.
+     * @note: If this ndarray_storage does not own the bytearray, i.e. the data,
+     *     this function will reallocate the data anyways and this
+     *     ndarray_storage will own the data.
      */
     void
     extend_axes(
@@ -212,7 +226,6 @@ class ndarray_storage
       , std::vector<intptr_t> const & b_n_elements_vec
       , std::vector<intptr_t> const & max_fcap_vec
       , std::vector<intptr_t> const & max_bcap_vec
-      , bp::object const * data_owner
     );
 
     /** The shape defines the number of dimensions and how many elements each
@@ -257,7 +270,7 @@ class ndarray_storage
         std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
       , std::vector<intptr_t> const & back_capacity
-      , size_t itemsize
+      , size_t const itemsize
     );
 };
 

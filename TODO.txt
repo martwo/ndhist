@@ -1,5 +1,15 @@
-- Add pybindings for Axis, ConstantBinWidthAxis, and GenericAxis.
+- Add pybindings for GenericAxis.
 - Write python utility (factory) functions that create the Axis objects easily
   for the user.
 - Adapt the ndhist constructor to use a tuple of Axis objects.
 - Rename the oor_fill_record_stack template to fill_value_cache
+- Rename bc_value_traits to bin_utils and move it into its own header file.
+- Move bin_value from ndhist.cpp into its own header file.
+- Move bin_value_type_traits from ndhist.cpp into its own header file.
+- Integrate get_noor_bin into bin_utils as get_bin_from_indices function.
+- Rename flush_oor_cache function to flush_fill_value_cache.
+- Rename detail::nd_traits to detail::specific_nd_traits.
+- Implement the most up-to-date fill procedure also for a structured ndarray
+  given as ndvalues object. (generic_nd_trais)
+- A la dashi, the nbins property is supposed to be the number of bins of each
+  axis without the under- and overflow bins. So adapt that here too.

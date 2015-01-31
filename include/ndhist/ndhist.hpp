@@ -30,8 +30,8 @@
 #include <boost/numpy/dtype.hpp>
 #include <boost/numpy/ndarray.hpp>
 
+#include <ndhist/axis.hpp>
 #include <ndhist/error.hpp>
-#include <ndhist/detail/axis.hpp>
 #include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
 #include <ndhist/detail/oor_fill_record_stack.hpp>
@@ -125,16 +125,6 @@ class ndhist
      */
     bool
     is_compatible(ndhist const & other) const;
-
-    /**
-     * @brief Returns the full defintion of the given axis as specified in the
-     *        constructor.
-     */
-    bp::tuple
-    get_axis_definition(intptr_t axis, bn::ndarray const & edges_arr) const;
-
-    bp::tuple
-    get_axis_definition(intptr_t axis) const;
 
     /**
      * @brief Creates a new empty ndhist object that has the same binning as
@@ -294,7 +284,7 @@ class ndhist
 //     project(bp::object const & dims) const;
 
     inline
-    std::vector< boost::shared_ptr<detail::Axis> > &
+    std::vector< boost::shared_ptr<Axis> > &
     get_axes()
     {
         return axes_;
@@ -371,7 +361,7 @@ class ndhist
 
     /** The list of pointers to the Axis object for each dimension.
      */
-    std::vector< boost::shared_ptr<detail::Axis> > axes_;
+    std::vector< boost::shared_ptr<Axis> > axes_;
 
     std::vector<intptr_t> axes_extension_max_fcap_vec_;
     std::vector<intptr_t> axes_extension_max_bcap_vec_;
@@ -395,8 +385,8 @@ class ndhist
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
     boost::function<void (ndhist &, bn::ndarray const &)> idiv_fct_;
     boost::function<void (ndhist &, bn::ndarray const &)> imul_fct_;
-    boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_noe_type_field_axes_oor_ndarrays_fct_;
-    boost::function<std::vector<bn::ndarray> (ndhist const &, detail::axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
+    boost::function<std::vector<bn::ndarray> (ndhist const &, axis::out_of_range_t const, size_t const)> get_noe_type_field_axes_oor_ndarrays_fct_;
+    boost::function<std::vector<bn::ndarray> (ndhist const &, axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
 
@@ -478,6 +468,7 @@ operator/(T const & rhs) const
 
 #define ND BOOST_PP_ITERATION()
 
+/*
 template <>
 struct nd_traits<ND>
 {
@@ -779,6 +770,7 @@ struct nd_traits<ND>
         }
     };
 };
+*/
 
 #undef ND
 #else
@@ -796,7 +788,7 @@ struct nd_traits<ND>
             throw TypeError(ss.str());                                         \
         }                                                                      \
         oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
-        fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;        \
+        /*fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;*/    \
         bc_dtype_supported = true;                                             \
     }
 

@@ -13,7 +13,12 @@
 #include <cstdlib>
 
 #include <iostream>
+#include <sstream>
+#include <vector>
 
+#include <boost/shared_ptr.hpp>
+
+#include <ndhist/error.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
 
 namespace bp = boost::python;
@@ -66,7 +71,7 @@ construct_ndarray(bn::dtype const & dt, size_t field_idx, bp::object const * dat
         sub_item_byte_offset = dt_.get_fields_byte_offsets()[field_idx];
     }
     //std::cout << "sub_item_byte_offset = "<<sub_item_byte_offset<<std::endl;
-    return bn::from_data(data_+CalcDataOffset(sub_item_byte_offset), dt, shape_, get_data_strides_vector(), data_owner);
+    return bn::from_data(bytearray_->data_ + calc_data_offset(sub_item_byte_offset), dt, shape_, get_data_strides_vector(), data_owner);
 }
 
 //______________________________________________________________________________
@@ -77,7 +82,6 @@ extend_axes(
   , std::vector<intptr_t> const & b_n_elements_vec
   , std::vector<intptr_t> const & max_fcap_vec
   , std::vector<intptr_t> const & max_bcap_vec
-  , bp::object const * data_owner
 )
 {
     int const nd = this->get_nd();
@@ -93,7 +97,13 @@ extend_axes(
     }
 
     // First check if a memory reallocation is actually required.
+    // In cases where we don't own the bytearray, we need to reallocate it
+    // anyways, since we are going to change it.
     bool reallocate = false;
+    if(bytearray_owner_ != NULL)
+    {
+        reallocate = true;
+    }
     for(int axis=0; axis<=nd; ++axis)
     {
         intptr_t const f_n_elements = f_n_elements_vec[axis];
@@ -118,8 +128,6 @@ extend_axes(
         }
     }
 
-    //std::cout << "ndarray_storage::extend_axes" <<std::endl<<std::flush;
-
     if(reallocate)
     {
         std::vector<intptr_t> old_shape = shape_;
@@ -143,18 +151,21 @@ extend_axes(
             }
         }
 
+        intptr_t const itemsize = dt_.get_itemsize();
+
         // At this point shape_, front_capacity_ and back_capacity_ have the
         // right numbers for the new array.
-        // Allocate the new array memory.
-        char * new_data = create_array_data(shape_, front_capacity_, back_capacity_, dt_.get_itemsize());
+        // Create a new bytearray.
+        boost::shared_ptr<bytearray> new_bytearray = create_bytearray(shape_, front_capacity_, back_capacity_, itemsize);
 
         // Copy the data from the old memory to the new one. We do this by
-        // creating two ndarrays having the same layout. The first is the old
-        // array layout on the new memory and the second is the old array on the
-        // old memory. Then we just use the copy_into function to copy the data.
+        // creating two ndarray objects having the same layout. The first is the
+        // old array layout on the new memory and the second is the old array on
+        // the old memory. Then we just use the copy_into function to copy the
+        // data.
         // We assume that the numpy people implemented the PyArray_CopyInto
         // C-API function efficient enough ;)
-        const int itemsize = dt_.get_itemsize();
+        bp::object data_owner;
 
         // Calculate data offset of the old array inside the new memory.
         intptr_t new_offset = front_capacity_[nd-1] + f_n_elements_vec[nd-1];
@@ -174,7 +185,7 @@ extend_axes(
         }
 
         // Create the old array from the new memory.
-        bn::ndarray new_data_arr = bn::from_data(new_data+new_offset, dt_, old_shape, new_strides, data_owner);
+        bn::ndarray new_data_arr = bn::from_data(new_bytearray->data_+new_offset, dt_, old_shape, new_strides, &data_owner);
 
         // Calculate the data offset of the old array inside the old memory.
         intptr_t old_offset = old_fcap[nd-1];
@@ -194,18 +205,22 @@ extend_axes(
         }
 
         // Create the old array from the old memory.
-        bn::ndarray old_data_arr = bn::from_data(data_+old_offset, dt_, old_shape, old_strides, data_owner);
+        bn::ndarray old_data_arr = bn::from_data(bytearray_->data_+old_offset, dt_, old_shape, old_strides, &data_owner);
 
         // Now we just copy the old data to the new data.
         if(! bn::copy_into(new_data_arr, old_data_arr))
         {
-            throw MemoryError("Unable to copy the old data from the old memory "
-                              "into the new memory!");
+            std::stringstream ss;
+            ss << "Unable to copy the old data from the old memory into the "
+               << "new memory!";
+            throw MemoryError(ss.str());
         }
 
-        // Deallocate the old data and assign the new data to this storage.
-        free_data(data_);
-        data_ = new_data;
+        // Assign the new bytearray to this ndarray_storage. The old bytearray
+        // will be destroyed automatically, if its boost::shared_ptr reference
+        // count reaches zero.
+        bytearray_owner_ = boost::shared_ptr<ndarray_storage>();
+        bytearray_ = new_bytearray;
     }
 
     // Recalculate the data strides.
@@ -219,10 +234,10 @@ copy_from(
   , std::vector<intptr_t> const & shape_offset_vec
 )
 {
-    int const nd = this->get_nd();
-    int const itemsize = dt_.get_itemsize();
+    int const nd = get_nd();
+    intptr_t const itemsize = dt_.get_itemsize();
 
-    std::vector<intptr_t> const & dst_shape = this->get_shape_vector();
+    std::vector<intptr_t> const & dst_shape = get_shape_vector();
     std::vector<intptr_t> const src_shape = src_arr.get_shape_vector();
 
     // Calculate the data offset of the given source array within this storage.
@@ -239,21 +254,21 @@ copy_from(
     std::vector<intptr_t> strides(nd, itemsize);
     for(int i=nd-2; i>=0; --i)
     {
-        strides[i] = ((front_capacity_[i+1]+ shape_offset_vec[i+1] + src_shape[i+1] + (dst_shape[i+1] - shape_offset_vec[i+1] - src_shape[i+1]) + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
+        strides[i] = ((front_capacity_[i+1] + shape_offset_vec[i+1] + src_shape[i+1] + (dst_shape[i+1] - shape_offset_vec[i+1] - src_shape[i+1]) + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
     }
 
     // Create the destination array from this storage.
     bp::object data_owner; // We use the None object as an owner proxy.
-    bn::ndarray dst_arr = bn::from_data(data_+offset, dt_, src_shape, strides, &data_owner);
+    bn::ndarray dst_arr = bn::from_data(bytearray_->data_+offset, dt_, src_shape, strides, &data_owner);
 
     // Now we just copy the src array to the dst array.
     if(! bn::copy_into(dst_arr, src_arr))
     {
-        throw MemoryError("Unable to copy the source array into the this "
-                          "ndarray storage!");
+        std::stringstream ss;
+        ss << "Unable to copy the source array into the this ndarray storage!";
+        throw MemoryError(ss.str());
     }
 }
-
 
 boost::shared_ptr<bytearray>
 ndarray_storage::
@@ -261,7 +276,7 @@ create_bytearray(
     std::vector<intptr_t> const & shape
   , std::vector<intptr_t> const & front_capacity
   , std::vector<intptr_t> const & back_capacity
-  , size_t itemsize
+  , size_t const itemsize
 )
 {
     size_t const nd = shape.size();

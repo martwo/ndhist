@@ -23,6 +23,7 @@
 #include <boost/python.hpp>
 
 #include <boost/numpy/ndarray.hpp>
+#include <boost/numpy/iterators/value_type_traits.hpp>
 #include <boost/numpy/iterators/flat_iterator.hpp>
 
 #include <ndhist/axis.hpp>
@@ -75,26 +76,27 @@ template <typename AxisValueType>
 class GenericAxis
   : public Axis
 {
-  protected:
-    boost::shared_ptr<ndarray_storage> edges_arr_storage_;
-    bp::object edges_arr_;
-    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_arr_iter_;
-    bn::iterators::flat_iterator< bn::iterators::single_value<AxisValueType> > edges_arr_iter_end_;
-
   public:
     typedef AxisValueType
             axis_value_type;
 
+    typedef bn::iterators::single_value<axis_value_type>
+            axis_value_type_traits;
+
     typedef GenericAxis<AxisValueType>
             type;
 
-    GenericAxisBase(
-      , bn::ndarray const & edges
+  protected:
+    boost::shared_ptr< ::ndhist::detail::ndarray_storage > edges_arr_storage_;
+    bp::object edges_arr_;
+    bn::iterators::flat_iterator< axis_value_type_traits > edges_arr_iter_;
+    bn::iterators::flat_iterator< axis_value_type_traits > edges_arr_iter_end_;
+
+  public:
+    GenericAxis(
+        bn::ndarray const & edges
       , std::string const & label=std::string("")
       , std::string const & name=std::string("")
-      , bool     // is_extendable
-      , intptr_t // extension_max_fcap
-      , intptr_t // extension_max_bcap
     )
       : Axis(
             edges
@@ -104,6 +106,35 @@ class GenericAxis
           , 0     // extension_max_fcap
           , 0     // extension_max_bcap
         )
+    {
+        init(edges);
+    }
+
+    // This constructor is used, when a specialized axis needs to fall back to
+    // the GenericAxis class, e.g. because it does not support
+    // boost::python::object axis value types.
+    GenericAxis(
+        bn::ndarray const & edges
+      , std::string const & label=std::string("")
+      , std::string const & name=std::string("")
+      , bool     /*is_extendable*/=false
+      , intptr_t /*extension_max_fcap*/=0
+      , intptr_t /*extension_max_bcap*/=0
+    )
+      : Axis(
+            edges
+          , label
+          , name
+          , false // is_extendable
+          , 0     // extension_max_fcap
+          , 0     // extension_max_bcap
+        )
+    {
+        init(edges);
+    }
+
+    inline
+    void init(bn::ndarray const & edges)
     {
         // Set up the axis's function pointers.
         get_bin_index_fct_     = &get_bin_index;
@@ -123,8 +154,8 @@ class GenericAxis
         std::vector<intptr_t> shape(1, nbins);
         std::vector<intptr_t> front_capacity(1, 0);
         std::vector<intptr_t> back_capacity(1, 0);
-        edges_arr_storage_ = boost::shared_ptr<detail::ndarray_storage>(
-            new detail::ndarray_storage(shape, front_capacity, back_capacity, edges.get_dtype()));
+        edges_arr_storage_ = boost::shared_ptr< ::ndhist::detail::ndarray_storage >(
+            new ::ndhist::detail::ndarray_storage(shape, front_capacity, back_capacity, edges.get_dtype()));
         // Copy the data from the user provided edge array to the storage array.
         bp::object owner;
         edges_arr_ = edges_arr_storage_->construct_ndarray(edges_arr_storage_->get_dtype(), 0, &owner);
@@ -143,19 +174,19 @@ class GenericAxis
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t & oor_flag)
+    get_bin_index(Axis const & axisbase, char * value_ptr, axis::out_of_range_t & oor_flag)
     {
-        type & axis = *static_cast<type*>(axisptr.get());
+        type & axis = *static_cast<type *>(const_cast<Axis *>( &axisbase ));
 
         axis_value_type_traits avtt;
-        axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
 
         // We know that edges is 1-dimensional by construction and the edges are
         // ordered ascedently. Also we know that the value type of the edges is
         // AxisValueType. So we can use the std::upper_bound binary search for
         // getting the upper edge for the given value.
         axis.edges_arr_iter_.reset();
-        bn::iterators::flat_iterator< axis_value_type_traits > ub = std::upper_bound(axis.edges_arr_iter_, axis.edges_arr_iter_end_, value, &GenericAxisValueCompare<axis_value_type>::apply);
+        bn::iterators::flat_iterator< axis_value_type_traits > ub = std::upper_bound(axis.edges_arr_iter_, axis.edges_arr_iter_end_, value, &detail::GenericAxisValueCompare<axis_value_type>::apply);
         if(ub == axis.edges_arr_iter_end_)
         {
             // Overflow.
@@ -175,25 +206,26 @@ class GenericAxis
 
     static
     bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<Axis> & axisptr)
+    get_edges_ndarray(Axis const & axisbase)
     {
-        type & axis = *static_cast<type*>(axisptr.get());
-        bn::ndarray & edges_arr = *static_cast<bn::ndarray*>(&axis.edges_arr_);
+        type const & axis = *static_cast<type const *>(&axisbase);
+        bn::ndarray const & edges_arr = *static_cast<bn::ndarray const *>(&axis.edges_arr_);
         return edges_arr.copy();
     }
 
     static
     intptr_t
-    get_n_bins_fct_(boost::shared_ptr<Axis> & axisptr)
+    get_n_bins(Axis const & axisbase)
     {
-        type & axis = *static_cast<type*>(axisptr.get());
-        return axis.edges_arr_.get_size();
+        type const & axis = *static_cast<type const *>(&axisbase);
+        bn::ndarray const & edges_arr = *static_cast<bn::ndarray const *>(&axis.edges_arr_);
+        return edges_arr.get_size();
     }
 };
 
 namespace py {
 
-typedef detail::PyAxisWrapper<GenericAxis>
+typedef PyNonExtendableAxisWrapper<GenericAxis>
         generic_axis;
 
 }//namespace py

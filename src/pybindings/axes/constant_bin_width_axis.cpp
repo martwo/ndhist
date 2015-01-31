@@ -17,17 +17,19 @@
 #include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/axis.hpp>
+#include <ndhist/axes/constant_bin_width_axis.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
 
 namespace ndhist {
+namespace axes {
 
-void register_axis()
+void register_constant_bin_width_axis()
 {
-    bp::class_<Axis, boost::shared_ptr<Axis> >("axis"
-        , "The axis class provides an axis base class for all axis classes "
-          "used by ndhist class."
+    bp::class_<py::constant_bin_width_axis, bp::bases<Axis>, boost::shared_ptr<py::constant_bin_width_axis> >("constant_bin_width_axis"
+        , "The constant_bin_width_axis class provides an axis class for axes "
+          "with constant bin widths."
         , bp::init<
             bn::ndarray const &
           , std::string const &
@@ -46,8 +48,9 @@ void register_axis()
           )
           )
         )
-        .def(axis_pyinterface<Axis>())
+        .def(axis_pyinterface<py::constant_bin_width_axis>())
     ;
 }
 
+}//namespace axes
 }//namespace ndhist

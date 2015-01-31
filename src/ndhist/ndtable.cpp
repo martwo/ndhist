@@ -49,7 +49,7 @@ bn::ndarray
 ndtable::
 GetNDArray()
 {
-    return data_->ConstructNDArray(data_->get_dtype());
+    return data_->construct_ndarray(data_->get_dtype());
 }
 
 }// namespace ndhist

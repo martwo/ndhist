@@ -42,7 +42,7 @@ class ConstantBinWidthAxis
     typedef bn::iterators::single_value<axis_value_type>
             axis_value_type_traits;
 
-    typedef constant_bin_width_axis<axis_value_type>
+    typedef ConstantBinWidthAxis<axis_value_type>
             type;
 
     /// The number of bins, including the possible under- and overflow bins.
@@ -86,7 +86,9 @@ class ConstantBinWidthAxis
         request_extension_fct_ = &request_extension;
         extend_fct_            = &extend;
 
+        std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
         n_bins_ = edges.shape(0) - 1;
+        std::cout << "n_bins_: "<< n_bins_<<std::endl;
         if(n_bins_ <= 0)
         {
             std::stringstream ss;
@@ -99,7 +101,7 @@ class ConstantBinWidthAxis
         bn::iterators::flat_iterator< axis_value_type_traits > edges_iter(edges);
 
         // Set and skip the underflow edge.
-        if(! is_extendable())
+        if(! is_extendable_)
         {
             underflow_edge_ = *edges_iter;
             ++edges_iter;
@@ -111,31 +113,33 @@ class ConstantBinWidthAxis
         bin_width_ = value - min_;
 
         // Set the overflow edge.
-        if(! is_extendable())
+        if(! is_extendable_)
         {
-            overflow_edge_ = *(edges_iter.advance(edges_iter.distance_to(edges_iter.end()) - 1));
+            edges_iter.advance(edges_iter.distance_to(edges_iter.end()) - 1);
+            overflow_edge_ = *edges_iter;
         }
     }
 
     static
     intptr_t
-    get_n_bins(boost::shared_ptr<Axis> & axisptr)
+    get_n_bins(Axis const & axisbase)
     {
-        type & axis = *static_cast<type*>(axisptr.get());
+        type const & axis = *static_cast<type const *>(&axisbase);
+        std::cout << "constant_bin_width_axis: get_n_bins, axis_ptr: "<< &axis<< ", axis.n_bins_="<<axis.n_bins_ <<std::endl;
         return axis.n_bins_;
     }
 
     static
     bn::ndarray
-    get_edges_ndarray(boost::shared_ptr<Axis> & axisptr)
+    get_edges_ndarray(Axis const & axisbase)
     {
-        type const & axis = *static_cast<type const *>(axisptr.get());
+        type const & axis = *static_cast<type const *>(&axisbase);
 
         intptr_t shape[1];
         shape[0] = axis.n_bins_ + 1;
         bn::ndarray edges_arr = bn::empty(1, shape, bn::dtype::get_builtin<axis_value_type>());
         bn::iterators::flat_iterator< axis_value_type_traits > iter(edges_arr);
-        if(! axis.is_extendable())
+        if(! axis.is_extendable_)
         {
             // Set the underflow edge.
             axis_value_type & value = *iter;
@@ -151,7 +155,7 @@ class ConstantBinWidthAxis
             ++idx;
             ++iter;
         }
-        if(! axis.is_extendable())
+        if(! axis.is_extendable_)
         {
             // Set the overflow edge.
             iter.advance(-1);
@@ -164,14 +168,14 @@ class ConstantBinWidthAxis
 
     static
     intptr_t
-    get_bin_index(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t & oor_flag)
+    get_bin_index(Axis const & axisbase, char * value_ptr, axis::out_of_range_t & oor_flag)
     {
-        type const & axis = *static_cast<type const *>(axisptr.get());
+        type const & axis = *static_cast<type const *>(&axisbase);
 
         axis_value_type_traits avtt;
-        axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
 
-        if(is_extendable())
+        if(axis.is_extendable_)
         {
             // The axis is extenable, so there are no under- and overflow bins.
             //std::cout << "Got value: " << value << std::endl;
@@ -234,12 +238,12 @@ class ConstantBinWidthAxis
     // range.
     static
     intptr_t
-    request_extension(boost::shared_ptr<Axis> & axisptr, char * value_ptr, axis::out_of_range_t const oor_flag)
+    request_extension(Axis const & axisbase, char * value_ptr, axis::out_of_range_t const oor_flag)
     {
-        type & axis = *static_cast< axis_data_type *>(axisdata.get());
+        type const & axis = *static_cast< type const *>(&axisbase);
 
         axis_value_type_traits avtt;
-        axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
 
         if(oor_flag == axis::OOR_UNDERFLOW)
         {
@@ -259,9 +263,9 @@ class ConstantBinWidthAxis
 
     static
     void
-    extend(boost::shared_ptr<Axis> & axisptr, intptr_t f_n_extra_bins, intptr_t b_n_extra_bins)
+    extend(Axis & axisbase, intptr_t f_n_extra_bins, intptr_t b_n_extra_bins)
     {
-        type & axis = *static_cast< type *>(axisptr.get());
+        type & axis = *static_cast< type *>(&axisbase);
 
         if(f_n_extra_bins > 0)
         {
@@ -311,7 +315,7 @@ struct select_ConstantBinWidthAxis_type
 // parameter to avoid several Python classes, one for each axis value type.
 namespace py {
 
-typedef detail::PyAxisWrapper<select_ConstantBinWidthAxis_type>
+typedef PyExtendableAxisWrapper<select_ConstantBinWidthAxis_type>
         constant_bin_width_axis;
 
 }//namespace py
