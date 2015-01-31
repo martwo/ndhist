@@ -15,12 +15,14 @@
 #include <string>
 #include <sstream>
 
+#include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/detail/axis.hpp>
+#include <ndhist/error.hpp>
 #include <ndhist/type_support.hpp>
 
 namespace ndhist {
@@ -51,20 +53,28 @@ class Axis
     {}
 
     Axis(
-        boost::numpy::dtype const & dt
+        boost::numpy::ndarray const & edges
       , std::string const & label
       , std::string const & name
       , bool is_extendable=false
       , intptr_t extension_max_fcap=0
       , intptr_t extension_max_bcap=0
     )
-      : dt_(dt)
+      : dt_(edges.get_dtype())
       , label_(label)
       , name_(name)
       , is_extendable_(is_extendable)
       , extension_max_fcap_(extension_max_fcap)
       , extension_max_bcap_(extension_max_bcap)
-    {}
+    {
+        if(edges.get_nd() != 1)
+        {
+            std::stringstream ss;
+            ss << "The dimensionality of the edges array of an axis "
+               << "of a ndhist histogram must be 1!";
+            throw ValueError(ss.str());
+        }
+    }
 
     /** Returns a reference to the dtype object of the axis values.
      */

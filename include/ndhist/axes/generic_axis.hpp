@@ -97,7 +97,7 @@ class GenericAxis
       , intptr_t // extension_max_bcap
     )
       : Axis(
-            edges.get_dtype()
+            edges
           , label
           , name
           , false // is_extendable

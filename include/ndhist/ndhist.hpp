@@ -47,42 +47,18 @@ class ndhist
 
     /** Constructor for creating a generic shaped histogram with equal or
      *  non-equal sized bins. The shape of the histogram is determined
-     *  automatically from the length of the edges (minus 1) arrays.
+     *  automatically from the given axis objects.
      *
      *  The axes tuple specifies the different dimensions of the histogram.
      *  Each element of that tuple is supposed to be an object of (a derived)
      *  class of ndhist::Axis.
      *  - Each tuple entry can either be a single ndarray specifying the bin
      *    edges, or a tuple of the form
-     *
-     *    (edges_ndarry[, axis_name[, autoscale_front_capacity, autoscale_back_capacity]]).
-     *
-     *    * The edges_ndarry must be a one-dimensional ndarray objects with N+3
-     *      elements in ascending order, beeing the bin edges, where N is the number
-     *      of bins for this dimension. The first bin (edge 1 and 2) specifies
-     *      the underflow bin, whereas the last bin (edge N+2 and N+3) specifies
-     *      the overflow bin. In case the axis is extendable (i.e.
-     *      autoscale_front_capacity or autoscale_back_capacity is set to a
-     *      positive integer values, there are no out-of-range bins, and the
-     *      edges array is supposed to be N+1.
-     *      The axis_name, if given, must be a str object specifying the name of
-     *      the axis. The default name of an axis is
-     *      "a{I}", where {I} is the index of the axis starting at zero.
-     *    * The extra front and back capacities specify the number of extra
-     *      bins in the front and at the back of the axis, respectively.
-     *      The default is zero. If one of both values is set to a positive
-     *      non-zero value and the bins have equal widths, the number of
-     *      bins of the axis will automatically be scaled, when values are
-     *      filled outside the current axis range.
-     *      Whenever bins need to be added to an axis, the memory of the bin
-     *      content array needs to get reallocated. By having some
-     *      extra capacity, the number of reallocations can be reduced.
-     *      Thus, the performance does not deterioate as havely as without it.
      *  - The different dimensions can have different edge types, e.g. integer
      *    or float, or any other Python type, i.e. objects.
      *
-     *  The dt dtype object defines the data type for the bin content. For a
-     *  histogram this is usually an integer or float type.
+     *  The dt dtype object defines the data type for a weight value. For a
+     *  histogram this is usually an integer or floating point type.
      *
      *  In case the bin contents are generic Python objects, the bc_class
      *  argument defines this Python object class and is used to initialize the
@@ -135,12 +111,12 @@ class ndhist
     template <typename T>
     ndhist operator/(T const & rhs) const;
 
-    /**
-     * @brief Gets a "sub"-histogram of this histogram specified through bin
-     *        index slices, one for each dimension.
-     *
-     */
-    ndhist operator[](bp::object dim_slices) const;
+//     /**
+//      * @brief Gets a "sub"-histogram of this histogram specified through bin
+//      *        index slices, one for each dimension.
+//      *
+//      */
+//     ndhist operator[](bp::object dim_slices) const;
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
@@ -170,7 +146,7 @@ class ndhist
     /**
      * @brief Returns the maximal dimensionality of the histogram object, which
      *        is still supported for filling with a tuple of arrays as ndvalue
-     *        function argument. Otherwise a structured array needs to be used
+     *        function argument. Otherwise a structured ndarray needs to be used
      *        as ndvalue argument.
      */
     intptr_t get_max_tuple_fill_nd() const
@@ -235,87 +211,87 @@ class ndhist
     bp::tuple
     py_get_labels() const;
 
-    /**
-     * @brief Creates a tuple of length *nd* where each element is a
-     *        *nd*-dimensional ndarray holding the underflow (number of entries)
-     *        bins for the
-     *        particular axis, where the index of the tuple element specifies
-     *        the axis. The dimension of the particular axis is collapsed to
-     *        one and the lengths of the other dimensions is extended by two.
-     */
-    bp::tuple
-    py_get_underflow_entries() const;
+//     /**
+//      * @brief Creates a tuple of length *nd* where each element is a
+//      *        *nd*-dimensional ndarray holding the underflow (number of entries)
+//      *        bins for the
+//      *        particular axis, where the index of the tuple element specifies
+//      *        the axis. The dimension of the particular axis is collapsed to
+//      *        one and the lengths of the other dimensions is extended by two.
+//      */
+//     bp::tuple
+//     py_get_underflow_entries() const;
 
-    /**
-     * @brief Same as ``py_get_underflow_entries`` but for the overflow (number
-     *        of entries) bins.
-     */
-    bp::tuple
-    py_get_overflow_entries() const;
+//     /**
+//      * @brief Same as ``py_get_underflow_entries`` but for the overflow (number
+//      *        of entries) bins.
+//      */
+//     bp::tuple
+//     py_get_overflow_entries() const;
 
-    /**
-     * @brief Creates a tuple of length *nd* where each element is a
-     *        *nd*-dimensional ndarray holding the underflow (sum of weights)
-     *        bins for the
-     *        particular axis, where the index of the tuple element specifies
-     *        the axis. The dimension of the particular axis is collapsed to
-     *        one and the lengths of the other dimensions is extended by two.
-     *        Example: For (3,2) shaped two-dimensional histogram, there will
-     *                 be two tuple elements with a two-dimensional ndarray
-     *                 each. The shape of the first array (i.e. for the first
-     *                 axis) will be (1,4) and the shape of the second array
-     *                 will be (5,1).
-     */
-    bp::tuple
-    py_get_underflow() const;
+//     /**
+//      * @brief Creates a tuple of length *nd* where each element is a
+//      *        *nd*-dimensional ndarray holding the underflow (sum of weights)
+//      *        bins for the
+//      *        particular axis, where the index of the tuple element specifies
+//      *        the axis. The dimension of the particular axis is collapsed to
+//      *        one and the lengths of the other dimensions is extended by two.
+//      *        Example: For (3,2) shaped two-dimensional histogram, there will
+//      *                 be two tuple elements with a two-dimensional ndarray
+//      *                 each. The shape of the first array (i.e. for the first
+//      *                 axis) will be (1,4) and the shape of the second array
+//      *                 will be (5,1).
+//      */
+//     bp::tuple
+//     py_get_underflow() const;
 
-    /**
-     * @brief Creates a tuple of length *nd* where each element is a
-     *        *nd*-dimensional ndarray holding the overflow (sum of weights)
-     *        bins for the
-     *        particular axis, where the index of the tuple element specifies
-     *        the axis. The dimension of the particular axis is collapsed to
-     *        one and the lengths of the other dimensions is extended by two.
-     */
-    bp::tuple
-    py_get_overflow() const;
+//     /**
+//      * @brief Creates a tuple of length *nd* where each element is a
+//      *        *nd*-dimensional ndarray holding the overflow (sum of weights)
+//      *        bins for the
+//      *        particular axis, where the index of the tuple element specifies
+//      *        the axis. The dimension of the particular axis is collapsed to
+//      *        one and the lengths of the other dimensions is extended by two.
+//      */
+//     bp::tuple
+//     py_get_overflow() const;
 
-    /**
-     * @brief Creates a tuple of length *nd* where each element is a
-     *        *nd*-dimensional ndarray holding the underflow (sum of weights
-     *        squared) bins for the particular axis, where the index of the
-     *        tuple element specifies
-     *        the axis. The dimension of the particular axis is collapsed to
-     *        one and the lengths of the other dimensions is extended by two.
-     */
-    bp::tuple
-    py_get_underflow_squaredweights() const;
+//     /**
+//      * @brief Creates a tuple of length *nd* where each element is a
+//      *        *nd*-dimensional ndarray holding the underflow (sum of weights
+//      *        squared) bins for the particular axis, where the index of the
+//      *        tuple element specifies
+//      *        the axis. The dimension of the particular axis is collapsed to
+//      *        one and the lengths of the other dimensions is extended by two.
+//      */
+//     bp::tuple
+//     py_get_underflow_squaredweights() const;
 
-    /**
-     * @brief Creates a tuple of length *nd* where each element is a
-     *        *nd*-dimensional ndarray holding the overflow (sum of weights
-     *        squared) bins for the particular axis, where the index of the
-     *        tuple element specifies
-     *        the axis. The dimension of the particular axis is collapsed to
-     *        one and the lengths of the other dimensions is extended by two.
-     */
-    bp::tuple
-    py_get_overflow_squaredweights() const;
+//     /**
+//      * @brief Creates a tuple of length *nd* where each element is a
+//      *        *nd*-dimensional ndarray holding the overflow (sum of weights
+//      *        squared) bins for the particular axis, where the index of the
+//      *        tuple element specifies
+//      *        the axis. The dimension of the particular axis is collapsed to
+//      *        one and the lengths of the other dimensions is extended by two.
+//      */
+//     bp::tuple
+//     py_get_overflow_squaredweights() const;
 
-    /** Fills a given n-dimension value into the histogram's bin content array.
-     *  On the Python side, the *ndvalue* is a numpy object array that might
-     *  hold values of different types. The order of these types must match the
-     *  types of the bin edges vector.
-     */
-    void
-    fill(bp::object const & ndvalue_obj, bp::object weight_obj);
+//     /** Fills a given n-dimension value into the histogram's bin content array.
+//      *  On the Python side, the *ndvalue* is a numpy object array that might
+//      *  hold values of different types. The order of these types must match the
+//      *  types of the bin edges of the axes.
+//      */
+//     void
+//     fill(bp::object const & ndvalue_obj, bp::object weight_obj);
 
-    /**
-     * @brief Create a new ndhist from this ndhist object, where only the
-     *        specified dimensions are included and the others are summed over.
-     */
-    ndhist
-    project(bp::object const & dims) const;
+//     /**
+//      * @brief Create a new ndhist from this ndhist object, where only the
+//      *        specified dimensions are included and the others are summed over.
+//      */
+//     ndhist
+//     project(bp::object const & dims) const;
 
     inline
     std::vector< boost::shared_ptr<detail::Axis> > &
@@ -492,84 +468,6 @@ operator/(T const & rhs) const
     newhist /= rhs;
     return newhist;
 }
-
-template <typename BCValueType>
-void
-ndhist::
-extend_oor_arrays(
-    std::vector<intptr_t> const & f_n_extra_bins_vec
-  , std::vector<intptr_t> const & b_n_extra_bins_vec
-)
-{
-    bp::object self(bp::ptr(this));
-
-    uintptr_t const nd = f_n_extra_bins_vec.size();
-    uintptr_t min_axis = nd - 1;
-    for(uintptr_t i=0; i<nd; ++i)
-    {
-        if(f_n_extra_bins_vec[i] > 0 || b_n_extra_bins_vec[i] > 0)
-        {
-            min_axis = std::min(min_axis, i);
-        }
-    }
-
-    // Calculate the smallest idx including the smallest to-get-extended axis.
-    uintptr_t oor_idx = (1 << min_axis);
-
-    // Loop over the oor arrays.
-    std::vector<intptr_t> arr_f_n_extra_bins_vec(nd);
-    std::vector<intptr_t> arr_b_n_extra_bins_vec(nd);
-    std::vector<intptr_t> arr_max_fcap_vec(nd);
-    std::vector<intptr_t> arr_max_bcap_vec(nd);
-    uintptr_t const n_oor_arr = oor_arr_vec_.size();
-    for(; oor_idx < n_oor_arr; ++oor_idx)
-    {
-        std::bitset<NDHIST_LIMIT_MAX_ND> idx_bset(oor_idx);
-
-        memset(&arr_f_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
-        memset(&arr_b_n_extra_bins_vec.front(), 0, nd*sizeof(intptr_t));
-        memset(&arr_max_fcap_vec.front(), 0, nd*sizeof(intptr_t));
-        memset(&arr_max_bcap_vec.front(), 0, nd*sizeof(intptr_t));
-        bool any_extra_bins = false;
-        for(uintptr_t i=0; i<nd; ++i)
-        {
-            if(idx_bset.test(i))
-            {
-                any_extra_bins |= (f_n_extra_bins_vec[i] > 0 || b_n_extra_bins_vec[i] > 0);
-                arr_f_n_extra_bins_vec[i] = f_n_extra_bins_vec[i];
-                arr_b_n_extra_bins_vec[i] = b_n_extra_bins_vec[i];
-                arr_max_fcap_vec[i] = axes_[i]->extension_max_fcap_;
-                arr_max_bcap_vec[i] = axes_[i]->extension_max_bcap_;
-            }
-        }
-        if(! any_extra_bins)
-        {
-            continue;
-        }
-
-        oor_arr_vec_[oor_idx]->extend_axes(
-            arr_f_n_extra_bins_vec
-          , arr_b_n_extra_bins_vec
-          , arr_max_fcap_vec
-          , arr_max_bcap_vec
-          , &self
-        );
-
-        // If the bin content dtype is object we need to initialize the new
-        // elements.
-        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
-        {
-            bn::ndarray oor_arr_sow  = oor_arr_vec_[oor_idx]->ConstructNDArray(bc_weight_dt_, 1, &self);
-            bn::ndarray oor_arr_sows = oor_arr_vec_[oor_idx]->ConstructNDArray(bc_weight_dt_, 2, &self);
-            for(uintptr_t i=0; i<nd; ++i)
-            {
-                initialize_extended_array_axis(oor_arr_sow,  bc_class_, i, arr_f_n_extra_bins_vec[i], arr_b_n_extra_bins_vec[i]);
-                initialize_extended_array_axis(oor_arr_sows, bc_class_, i, arr_f_n_extra_bins_vec[i], arr_b_n_extra_bins_vec[i]);
-            }
-        }
-    }
-}
-
 
 }// namespace ndhist
 

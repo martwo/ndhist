@@ -15,6 +15,7 @@
 #include <cstring>
 #include <sstream>
 
+#include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/type_traits/is_same.hpp>
 
 #include <boost/python/list.hpp>
@@ -1024,148 +1025,41 @@ ndhist(
     axes_extension_max_fcap_vec_.resize(nd_);
     axes_extension_max_bcap_vec_.resize(nd_);
 
-    // Construct the axes of the histogram.
+    // Get the axes of the histogram.
     for(size_t i=0; i<nd_; ++i)
     {
-        // Each axes element can be a single ndarray or a tuple of the form
-        // (edges_ndarry[, axis_name[, axis_title[, front_capacity, back_capacity]]])
-        bp::object axis = axes[i];
-        bp::object edges_arr_obj;
-        bp::object axis_name_obj;
-        bp::object axis_label_obj;
-        bp::object fcap_obj;
-        bp::object bcap_obj;
-        if(PyTuple_Check(axis.ptr()))
+        boost::shared_ptr<Axis> axis = bp::extract< boost::shared_ptr<Axis> >(axes[i]);
+
+        // Set an axis name if it is not specified.
+        if(axis->name_ == "")
         {
-            size_t const tuple_len = bp::len(axis);
-            if(tuple_len == 0)
-            {
-                std::stringstream ss;
-                ss << "The "<<i<<"th axis tuple is empty!";
-                throw ValueError(ss.str());
-            }
-            else if(tuple_len == 1)
-            {
-                edges_arr_obj = axis[0];
-                std::stringstream axis_name;
-                axis_name << "a" << i;
-                axis_name_obj = bp::str(axis_name.str());
-                axis_label_obj = bp::str("");
-                fcap_obj = bp::object(0);
-                bcap_obj = bp::object(0);
-            }
-            else if(tuple_len == 2)
-            {
-                edges_arr_obj = axis[0];
-                axis_name_obj = bp::str(axis[1]);
-                axis_label_obj = bp::str("");
-                fcap_obj = bp::object(0);
-                bcap_obj = bp::object(0);
-            }
-            else if(tuple_len == 3)
-            {
-                edges_arr_obj  = axis[0];
-                axis_name_obj  = axis[1];
-                axis_label_obj = axis[2];
-                fcap_obj = bp::object(0);
-                bcap_obj = bp::object(0);
-            }
-            else if(tuple_len == 5)
-            {
-                edges_arr_obj  = axis[0];
-                axis_name_obj  = axis[1];
-                axis_label_obj = axis[2];
-                fcap_obj       = axis[3];
-                bcap_obj       = axis[4];
-            }
-            else
-            {
-                std::stringstream ss;
-                ss << "The "<<i<<"th axis tuple must have a length of "
-                   << "either 1, 2, 3, or 5!";
-                throw ValueError(ss.str());
-            }
-        }
-        else
-        {
-            // Only the edges array is given.
-            edges_arr_obj = axis;
             std::stringstream axis_name;
             axis_name << "a" << i;
-            axis_name_obj = bp::str(axis_name.str());
-            axis_label_obj = bp::str("");
-            fcap_obj = bp::object(0);
-            bcap_obj = bp::object(0);
+            axis->name_ = axis_name.str();
         }
-
-        bn::ndarray edges_arr = bn::from_object(edges_arr_obj, 0, 1, bn::ndarray::ALIGNED);
-        if(edges_arr.get_nd() != 1)
-        {
-            std::stringstream ss;
-            ss << "The dimension of the edges array for the " << i+1 << "th "
-               << "dimension of this histogram must be 1!";
-            throw ValueError(ss.str());
-        }
-        const intptr_t n_bin_dim = edges_arr.get_size();
-
-        intptr_t const axis_extension_max_fcap = bp::extract<intptr_t>(fcap_obj);
-        intptr_t const axis_extension_max_bcap = bp::extract<intptr_t>(bcap_obj);
-        std::string const axis_label = bp::extract<std::string>(axis_label_obj);
-
-        // Check the type of the edge values for the current axis.
-        bool axis_dtype_supported = false;
-        bn::dtype axis_dtype = edges_arr.get_dtype();
-        #define NDHIST_AXIS_DATA_TYPE_SUPPORT(AXISDTYPE)                            \
-            if(bn::dtype::equivalent(axis_dtype, bn::dtype::get_builtin<AXISDTYPE>()))\
-            {                                                                       \
-                if(axis_dtype_supported) {                                          \
-                    std::stringstream ss;                                           \
-                    ss << "The bin content data type is supported by more than one "\
-                       << "possible C++ data type! This is an internal error!";     \
-                    throw TypeError(ss.str());                                      \
-                }                                                                   \
-                axes_.push_back(detail::axis_traits<AXISDTYPE>::construct_axis(*this, edges_arr, axis_label, axis_extension_max_fcap, axis_extension_max_bcap));\
-                axis_dtype_supported = true;                                        \
-            }
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int8_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint8_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int16_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint16_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int32_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint32_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(int64_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(uint64_t)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(float)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(double)
-        NDHIST_AXIS_DATA_TYPE_SUPPORT(bp::object)
-        if(!axis_dtype_supported)
-        {
-            std::stringstream ss;
-            ss << "The data type of the edges of axis "<< i << " is not "
-               << "supported.";
-            throw TypeError(ss.str());
-        }
-        #undef NDHIST_AXIS_DATA_TYPE_SUPPORT
 
         // Add the axis field to the ndvalues dtype object.
-        std::string field_name = bp::extract<std::string>(axis_name_obj);
-        ndvalues_dt_.add_field(field_name, axes_[i]->get_dtype());
+        ndvalues_dt_.add_field(axis->name_, axis->get_dtype());
 
-        // Add the bin content shape information for this axis.
-        shape[i] = axes_[i]->get_n_bins_fct(*axes_[i]);
+        // Add the bin content shape information for this axis. The number of
+        // of bins of an axis include possible under- and overflow bins.
+        shape[i] = axis->get_n_bins_fct_(axis);
 
-        // Set the extra front and back capacity for this axis if the axis has
-        // an autoscale.
-        if(axes_[i]->is_extendable())
+        // Set the extra front and back capacity for this axis if the axis is
+        // extendable.
+        if(axis->is_extendable())
         {
-            axes_extension_max_fcap_vec_[i] = axis_extension_max_fcap;
-            axes_extension_max_bcap_vec_[i] = axis_extension_max_bcap;
+            axes_extension_max_fcap_vec_[i] = axis->extension_max_fcap_;
+            axes_extension_max_bcap_vec_[i] = axis->extension_max_bcap_;
         }
         else
         {
             axes_extension_max_fcap_vec_[i] = 0;
             axes_extension_max_bcap_vec_[i] = 0;
         }
+
+        // Add the axis to the axes vector.
+        axes_.push_back(axis);
     }
 
     // TODO: Make this as an option in the constructor.
@@ -1187,32 +1081,23 @@ ndhist(
     else
     {
         // nd is greater than NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND.
-        #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE)                           \
+        #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, BCDTYPE)              \
             if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
-            {                                                                       \
-                if(bc_dtype_supported) {                                            \
-                    std::stringstream ss;                                           \
-                    ss << "The bin content data type is supported by more than one "\
-                    << "possible C++ data type! This is an internal error!";        \
-                    throw TypeError(ss.str());                                      \
-                }                                                                   \
+            {                                                                   \
+                if(bc_dtype_supported)                                          \
+                {                                                               \
+                    std::stringstream ss;                                       \
+                    ss << "The bin content data type is supported by more than "\
+                       << "one possible C++ data type! This is an internal "    \
+                       << "error!";                                             \
+                    throw TypeError(ss.str());                                  \
+                }                                                               \
                 oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
-                fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill; \
-                bc_dtype_supported = true;                                          \
+                fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill;\
+                bc_dtype_supported = true;                                      \
             }
-        NDHIST_BC_DATA_TYPE_SUPPORT(bool)
-        NDHIST_BC_DATA_TYPE_SUPPORT(int8_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(uint8_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(int16_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(uint16_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(int32_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(uint32_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(int64_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(uint64_t)
-        NDHIST_BC_DATA_TYPE_SUPPORT(float)
-        NDHIST_BC_DATA_TYPE_SUPPORT(double)
-        NDHIST_BC_DATA_TYPE_SUPPORT(bp::object)
-        #undef NDHIST_BC_DATA_TYPE_SUPPORT
+        BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
+        #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
     }
     if(!bc_dtype_supported)
     {
@@ -1221,38 +1106,27 @@ ndhist(
         throw TypeError(ss.str());
     }
 
-    // Setup the function pointers, which depend on the bin content weight type.
-    #define NDHIST_BC_DATA_TYPE_SUPPORT(BCDTYPE) \
-        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
+    // Setup the function pointers, which depend on the weight value type.
+    #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)        \
+        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
         {                                                                       \
-            iadd_fct_ = &detail::iadd_fct_traits<BCDTYPE>::apply;               \
-            idiv_fct_ = &detail::idiv_fct_traits<BCDTYPE>::apply;               \
-            imul_fct_ = &detail::imul_fct_traits<BCDTYPE>::apply;               \
-            get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<BCDTYPE>;\
-            project_fct_ = &detail::project_fct_traits<BCDTYPE>::apply;         \
+            iadd_fct_ = &detail::iadd_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
+            idiv_fct_ = &detail::idiv_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
+            imul_fct_ = &detail::imul_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
+            /*get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;*/\
+            project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
-    NDHIST_BC_DATA_TYPE_SUPPORT(bool)
-    NDHIST_BC_DATA_TYPE_SUPPORT(int8_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(uint8_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(int16_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(uint16_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(int32_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(uint32_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(int64_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(uint64_t)
-    NDHIST_BC_DATA_TYPE_SUPPORT(float)
-    NDHIST_BC_DATA_TYPE_SUPPORT(double)
-    NDHIST_BC_DATA_TYPE_SUPPORT(bp::object)
-    #undef NDHIST_BC_DATA_TYPE_SUPPORT
+    BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
+    #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
 
-    get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
+    //get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
 
     // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
-        bp::object self(bp::ptr(this));
-        bn::ndarray bc_arr = bc_->ConstructNDArray(bc_->get_dtype(), 0, &self);
+        bp::object owner;
+        bn::ndarray bc_arr = bc_->construct_ndarray(bc_->get_dtype(), 0, &owner);
         bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         while(! bc_iter.is_end())
         {
@@ -1294,6 +1168,7 @@ operator+(ndhist const & rhs) const
     return newhist;
 }
 
+/*
 ndhist
 ndhist::
 operator[](bp::object dim_slices) const
@@ -1398,6 +1273,7 @@ operator[](bp::object dim_slices) const
     bp::tuple newaxes(newaxes_list);
     return empty_like();
 }
+*/
 
 bool
 ndhist::

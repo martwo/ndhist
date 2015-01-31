@@ -71,7 +71,7 @@ class ConstantBinWidthAxis
       , intptr_t extension_max_bcap=0
     )
       : Axis(
-            edges.get_dtype()
+            edges
           , label
           , name
           , is_extendable

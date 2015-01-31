@@ -15,18 +15,36 @@
 /** Define the list of supported axis value types.
  */
 #ifndef NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES
-    #define NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES \
-        (int8_t)\
-        (uint8_t)\
-        (int16_t)\
-        (uint16_t)\
-        (int32_t)\
-        (uint32_t)\
-        (int64_t)\
-        (uint64_t)\
-        (float)\
-        (double)\
-        (boost::python::object)
+#define NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES \
+    (int8_t)\
+    (uint8_t)\
+    (int16_t)\
+    (uint16_t)\
+    (int32_t)\
+    (uint32_t)\
+    (int64_t)\
+    (uint64_t)\
+    (float)\
+    (double)\
+    (boost::python::object)
+#endif
+
+/** Define the list of supported weight value types.
+ */
+#ifndef NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES
+#define NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES \
+    (bool)\
+    (int8_t)\
+    (uint8_t)\
+    (int16_t)\
+    (uint16_t)\
+    (int32_t)\
+    (uint32_t)\
+    (int64_t)\
+    (uint64_t)\
+    (float)\
+    (double)\
+    (boost::python::object)
 #endif
 
 #endif // NDHIST_TYPE_SUPPORT_HPP_INCLUDED
