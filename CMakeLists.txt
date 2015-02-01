@@ -64,6 +64,8 @@ include(${CMAKE_SOURCE_DIR}/cmake/config.cmake)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     CACHE PATH "Output directory for shared libraries." FORCE)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    CACHE PATH "Output directory for executables like tests.")
 
 include(${CMAKE_SOURCE_DIR}/cmake/add_python_module.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/find_tool.cmake)
@@ -139,6 +141,9 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
     )
 
     add_subdirectory(src/pybindings)
+
+    enable_testing()
+    add_subdirectory(test)
 
     message(STATUS "Project \"${PROJECT_NAME}\" configured.")
     message(STATUS "+    Now, type-in \"cd ${CMAKE_BINARY_DIR} && make && make install\"!")

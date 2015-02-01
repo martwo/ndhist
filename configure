@@ -7,10 +7,14 @@ parser = OptionParser()
 parser.add_option("", "--prefix", type="string", dest="prefix", default=".",
     help="The path where the software should get installed to. "
          "By default it installs into the build directory.", metavar="PATH")
-parser.add_option("", "--build_type", type="string", dest="build_type", default="Release",
+parser.add_option("", "--build-type", type="string", dest="build_type", default="Release",
     help="The cmake build type. Possible values are: None, Debug, Release")
 parser.add_option("", "--compiler", type="string", dest="compiler", default="gcc",
     help="The C/C++ compiler to use. Possible values are \"gcc\" and \"clang\".")
+parser.add_option("", "--boostnumpy-include-path", type="string", dest="boostnumpy_include_path", default="",
+    help="The path where the include files of the BoostNumpy tool are located on this system.")
+parser.add_option("", "--boostnumpy-library-path", type="string", dest="boostnumpy_library_path", default="",
+    help="The path where the library files of the BoostNumpy tool are located on this system.")
 (options, args) = parser.parse_args()
 
 if(options.compiler == 'gcc'):
@@ -22,11 +26,32 @@ elif(options.compiler == 'clang'):
 else:
     raise ValueError("The compiler option %s is not supported!"%(options.compiler))
 
+cmake_build_env = {}
+if(options.boostnumpy_include_path != '' and
+   options.boostnumpy_library_path != ''
+  ):
+    cmake_build_env.update({
+        'BOOSTNUMPY_INCLUDE_PATH': options.boostnumpy_include_path,
+        'BOOSTNUMPY_LIBRARY_PATH': options.boostnumpy_library_path
+    })
+
 print("Configuring ndhist ...")
 print("    install prefix: %s"%(options.prefix))
 print("    C compiler    : %s"%(c_compiler))
 print("    C++ compiler  : %s"%(cxx_compiler))
+print("")
+print("    special environment variables:")
+print("    ------------------------------")
+for (env_name, env_value) in cmake_build_env.iteritems():
+    print("    %s = %s"%(env_name, env_value))
+
+env_str = ';'.join(["export %s=%s"%(n,v) for (n,v) in cmake_build_env.iteritems()])
 
 system("rm -rf build")
 system("mkdir -p build")
-system("cd build && /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s .."%(options.build_type, options.prefix, c_compiler, cxx_compiler))
+system("cd build && %s; /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s .."%(
+    env_str,
+    options.build_type,
+    options.prefix,
+    c_compiler,
+    cxx_compiler))

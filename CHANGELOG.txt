@@ -1,0 +1,18 @@
+- Added --boostnumpy-include-path and --boostnumpy-library-path as options
+  to the configure script, which are passed on to cmake with the environment
+  variables BOOSTNUMPY_INCLUDE_PATH and BOOSTNUMPY_LIBRARY_PATH, respectively.
+  This way the BoostNumpy installation can be found when it is installed at a
+  costum place.
+
+- Renamed the "ndhist" python module to "ndhist_core", in order to prevent name
+  clashes with the future python module "ndhist" implemented in Python.
+  This makes it also possible to run "make test" before "make install".
+
+- Added first test that checks the nbins property of an axis and a ndhist
+  object.
+
+- Implemented a test facility with ctest.
+
+- Added pybindings for the ConstantBinWidthAxis class.
+
+- Added pybindings for the Axis class.

@@ -28,7 +28,7 @@ void register_constant_bin_width_axis();
 
 }//namespace ndhist
 
-BOOST_PYTHON_MODULE(ndhist)
+BOOST_PYTHON_MODULE(ndhist_core)
 {
     boost::numpy::initialize();
 

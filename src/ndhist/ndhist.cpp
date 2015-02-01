@@ -1144,10 +1144,15 @@ ndhist::
 py_get_nbins() const
 {
     std::vector<intptr_t> const & shape = bc_->get_shape_vector();
+    std::vector<intptr_t> nbins(nd_);
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        nbins[i] = (axes_[i]->is_extendable() ? shape[i] : shape[i]-2);
+    }
     bp::list shape_list;
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        shape_list.append(shape[i]);
+        shape_list.append(nbins[i]);
     }
     bp::tuple shape_tuple(shape_list);
     return shape_tuple;

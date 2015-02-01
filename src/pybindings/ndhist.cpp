@@ -43,7 +43,8 @@ void register_ndhist()
         .add_property("ndim", &ndhist::get_nd
             , "The dimensionality of the histogram.")
         .add_property("nbins", &ndhist::py_get_nbins
-            , "The tuple holding the number of bins for each axis.")
+            , "The tuple holding the number of bins (excluding the possible "
+              "under- and overflow bins) for each axis.")
         .add_property("binedges", &ndhist::py_get_binedges
             , "The tuple holding ndarray objects with the bin edges for each "
               "axis. In case the histogram is 1-dimensional, just a single "
