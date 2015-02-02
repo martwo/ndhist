@@ -15,6 +15,8 @@ parser.add_option("", "--boostnumpy-include-path", type="string", dest="boostnum
     help="The path where the include files of the BoostNumpy tool are located on this system.")
 parser.add_option("", "--boostnumpy-library-path", type="string", dest="boostnumpy_library_path", default="",
     help="The path where the library files of the BoostNumpy tool are located on this system.")
+parser.add_option("", "--user", action="store_true", dest="install_python_package_into_user_home", default=False,
+    help="Flag if the ndhist python package should be installed inside the user's home directory.")
 (options, args) = parser.parse_args()
 
 if(options.compiler == 'gcc'):
@@ -35,6 +37,11 @@ if(options.boostnumpy_include_path != '' and
         'BOOSTNUMPY_LIBRARY_PATH': options.boostnumpy_library_path
     })
 
+if(options.install_python_package_into_user_home):
+    install_python_package_into_user_home = 'ON'
+else:
+    install_python_package_into_user_home = 'OFF'
+
 print("Configuring ndhist ...")
 print("    install prefix: %s"%(options.prefix))
 print("    C compiler    : %s"%(c_compiler))
@@ -51,9 +58,10 @@ if(len(env_str) > 0):
 
 system("rm -rf build")
 system("mkdir -p build")
-system("cd build && %s /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s .."%(
+system("cd build && %s /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s -DINSTALL_PYTHON_PACKAGE_INTO_USER_HOME=%s .."%(
     env_str,
     options.build_type,
     options.prefix,
     c_compiler,
-    cxx_compiler))
+    cxx_compiler,
+    install_python_package_into_user_home))

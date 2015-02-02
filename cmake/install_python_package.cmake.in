@@ -1,0 +1,13 @@
+message(STATUS "Installing python package \"ndhist\" via setuptools.")
+
+execute_process(
+    COMMAND /usr/bin/env bash @CMAKE_BINARY_DIR@/cmake/invoke_setup.py.sh @INSTALL_PYTHON_PACKAGE_INTO_USER_HOME@ @CMAKE_BINARY_DIR@ @CMAKE_INSTALL_PREFIX@
+    WORKING_DIRECTORY @CMAKE_BINARY_DIR@/python
+    ERROR_VARIABLE @PROJECT@_SETUPTOOLS_ERR
+    OUTPUT_VARIABLE @PROJECT@_SETUPTOOLS_OUT
+)
+
+message(STATUS "${@PROJECT@_SETUPTOOLS_OUT}")
+if(${@PROJECT@_SETUPTOOLS_ERR})
+    message(STATUS "ERROR: Setuptools error output: ${@PROJECT@_SETUPTOOLS_ERR}")
+endif()

@@ -20,9 +20,9 @@ setup(
     keywords = "histogram multi-dimensional science data-mining",
     url = "https://github.com/martwo/ndhist",
     long_description = "The Python ndhist module provides a Python interface "+\
-                       "to the ndhist tool, which is written in C++. ndhist "+\
-                       "provides a n-dimensional histogram class with numpy "+\
-                       "array interface support.",
+                    "to the ndhist tool, which is written in C++. ndhist "+\
+                    "provides a n-dimensional histogram class with numpy "+\
+                    "array interface support.",
     classifiers=[
         "Topic :: Scientific/Engineering",
         "Intended Audience :: Science/Research",
@@ -30,3 +30,4 @@ setup(
         "Programming Language :: Python :: 2.7"
     ]
 )
+

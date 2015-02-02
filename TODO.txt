@@ -1,6 +1,3 @@
-- Make the python package installation more flexible so it can be installed also
-  at any pre-defined location.
-
 - Write python utility (factory) functions that create the Axis objects easily
   for the user.
 

@@ -27,6 +27,15 @@ project(ndhist CXX)
 message(STATUS "Configuring project \"${PROJECT_NAME}\"")
 message(STATUS "+    project source dir: ${PROJECT_SOURCE_DIR}")
 
+option(INSTALL_PYTHON_PACKAGE_INTO_USER_HOME
+       "If set to ON, the python package \"ndhist\" will be installed into the user's home directory."
+       OFF)
+if(INSTALL_PYTHON_PACKAGE_INTO_USER_HOME)
+    message(STATUS "+    Will install the ${PROJECT_NAME} python package into the user's home directory.")
+else()
+    message(STATUS "+    Will install the ${PROJECT_NAME} python package within the '${CMAKE_INSTALL_PREFIX}' directory.")
+endif()
+
 option(USE_MAINTAINER_MODE "Enable warnings usually relevant to developers" OFF)
 if(USE_MAINTAINER_MODE)
     message(STATUS "Enable maintainer mode.")
@@ -123,6 +132,16 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         COMMAND mkdir -p ${${PROJECT_NAME}_libndhist_LIBRARY_OUTPUT_DIRECTORY}
     )
 
+    # Copy some cmake files over to the build directory.
+    add_custom_command(TARGET ndhist
+        POST_BUILD
+        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/cmake
+    )
+    add_custom_command(TARGET ndhist
+        POST_BUILD
+        COMMAND cp ${PROJECT_SOURCE_DIR}/cmake/invoke_setup.py.sh ${CMAKE_BINARY_DIR}/cmake
+    )
+
     # Copy the python package "ndhist" over to the build tree.
     add_custom_command(TARGET ndhist
         POST_BUILD
@@ -148,7 +167,12 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
     add_subdirectory(src/pybindings)
 
     # Install the python module "ndhist" via setuptools.
-    install(SCRIPT ${CMAKE_SOURCE_DIR}/cmake/install_python_package.cmake)
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/cmake/install_python_package.cmake.in
+        ${CMAKE_BINARY_DIR}/cmake/install_python_package.cmake
+        @ONLY
+    )
+    install(SCRIPT ${CMAKE_BINARY_DIR}/cmake/install_python_package.cmake)
 
     enable_testing()
     add_subdirectory(test)

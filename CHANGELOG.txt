@@ -1,7 +1,15 @@
+- Make the python package installation more flexible by introducing the
+  ``--user`` option to the ``configure`` script. If this option is not
+  specified, the python package will be installed in a directory relative to the
+  ``--prefix`` option. In cases where ``--prefix`` is set to ``/usr`` or
+  ``/usr/local``, the package will be installed into the system's python package
+  repository.
+
 - Developed a setuptools installation script for the Python package "ndhist", so
-  it gets installed into the python dist-packages directory located in the
-  user's home directory under ``.local/``.
-  So the user does not have to set the PYTHONPATH environment variable manually.
+  it gets installed either within the ``--prefix`` directory, or into the python
+  dist-packages directory located in the user's home directory under
+  ``.local/``. So the user does not have to set the PYTHONPATH environment
+  variable manually.
 
 - Adapted the ndhist constructor to use a tuple of Axis objects.
 

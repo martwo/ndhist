@@ -31,6 +31,11 @@ In cases where BoostNumpy is installed in special locations, one should provide
 the include and library paths of the BoostNumpy installation via the configure
 options ``--boostnumpy-include-path`` and ``--boostnumpy-library-path``.
 
+The Python package of ndhist can be installed either relative to the specified
+``--prefix`` directory, or into the user's home directory. In order to install
+it into the user's python package repository, the ``--user`` option needs to
+be specified.
+
 After success, change to the build directory::
 
     cd build
