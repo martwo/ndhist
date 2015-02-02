@@ -48,12 +48,14 @@ function(add_python_module _NAME _ADD_LIB_LIST)
             set_target_properties(${_NAME} PROPERTIES SUFFIX ${PYTHON_MODULE_EXTENSION})
         endif()
 
-        # Move the built python module into the ndhist python package directory
+        # Copy the built python module into the ndhist python package directory
         # within the build tree, so it can be installed by setuptools during
         # the install stage.
-        add_custom_command(TARGET ${_NAME}
+        add_dependencies(build_python_package ${_NAME})
+        add_custom_command(TARGET build_python_package
             POST_BUILD
-            COMMAND mv ${${_NAME}_LIBOUTDIR}/${_NAME}${PYTHON_MODULE_EXTENSION} ${CMAKE_BINARY_DIR}/python/ndhist
+            COMMAND cp ${${_NAME}_LIBOUTDIR}/${_NAME}${PYTHON_MODULE_EXTENSION} ${CMAKE_BINARY_DIR}/python/ndhist
+            COMMENT "Copying python extension module \"${_NAME}\""
         )
 
     endif()

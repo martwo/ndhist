@@ -142,14 +142,12 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         COMMAND cp ${PROJECT_SOURCE_DIR}/cmake/invoke_setup.py.sh ${CMAKE_BINARY_DIR}/cmake
     )
 
-    # Copy the python package "ndhist" over to the build tree.
-    add_custom_command(TARGET ndhist
-        POST_BUILD
-        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/python
-    )
-    add_custom_command(TARGET ndhist
-        POST_BUILD
+    add_custom_target(build_python_package
+        ALL
+        mkdir -p ${CMAKE_BINARY_DIR}/python
         COMMAND cp -r ${PROJECT_SOURCE_DIR}/python ${CMAKE_BINARY_DIR}/
+        DEPENDS ndhist
+        COMMENT "Building python package ..."
     )
 
     # Install all the public header files into the include directory.
@@ -164,7 +162,19 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     )
 
-    add_subdirectory(src/pybindings)
+    # Build the core python extension module that provides the Python
+    # interface to the C++ code of ndhist.
+    list(APPEND ${PROJECT}_core_LIBRARY_LIST ndhist)
+    list(APPEND ${PROJECT}_core_LIBRARY_LIST ${BOOSTNUMPY_LIBRARIES})
+    add_python_module(core ${${PROJECT}_core_LIBRARY_LIST}
+        src/pybindings/axis.cpp
+        src/pybindings/axes/constant_bin_width_axis.cpp
+        src/pybindings/axes/generic_axis.cpp
+        src/pybindings/error.cpp
+        src/pybindings/ndhist.cpp
+        src/pybindings/ndtable.cpp
+        src/pybindings/module.cpp
+    )
 
     # Install the python module "ndhist" via setuptools.
     configure_file(

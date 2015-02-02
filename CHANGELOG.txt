@@ -1,3 +1,12 @@
+- Added the python utility (factory) functions ``ndhist.axes.linear`` and
+  ``ndhist.axes.linear_bins`` to create axes with linear bin space and constant
+  bin widths. These functions return the actual ``ndhist.core.axis`` object
+  needed to create a ``ndhist.core.ndhist`` object.
+
+- Introduced the ``build_python_package`` make target to build the ndhist python
+  package within the build tree. This way updates in the python code part can
+  be tested much more easier without the need of recompiling the C++ code.
+
 - Make the python package installation more flexible by introducing the
   ``--user`` option to the ``configure`` script. If this option is not
   specified, the python package will be installed in a directory relative to the
