@@ -95,8 +95,8 @@ class GenericAxis
   public:
     GenericAxis(
         bn::ndarray const & edges
-      , std::string const & label=std::string("")
-      , std::string const & name=std::string("")
+      , std::string const & label
+      , std::string const & name
     )
       : Axis(
             edges
@@ -115,11 +115,11 @@ class GenericAxis
     // boost::python::object axis value types.
     GenericAxis(
         bn::ndarray const & edges
-      , std::string const & label=std::string("")
-      , std::string const & name=std::string("")
-      , bool     /*is_extendable*/=false
-      , intptr_t /*extension_max_fcap*/=0
-      , intptr_t /*extension_max_bcap*/=0
+      , std::string const & label
+      , std::string const & name
+      , bool     /*is_extendable*/
+      , intptr_t /*extension_max_fcap*/
+      , intptr_t /*extension_max_bcap*/
     )
       : Axis(
             edges

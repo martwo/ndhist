@@ -9,7 +9,7 @@ Dependencies
 ndhist depends on the following libraries:
 
 - cmake (>= 2.8.3)
-- python (>= 2.6)
+- python (>= 2.7)
 - python-numpy (>= 1.6)
 - boost (including boost::python) (>= 1.38)
 - BoostNumpy (>= 0.3)
@@ -46,3 +46,12 @@ Run all the tests::
 After that, install ndhist by typing::
 
     make install
+
+After ndhist has been installed successfully, Python has to be told where it can
+find the ndhist Python module. The easiest way is to add that path to the
+``PYTHONPATH`` environment variable::
+
+    export PYTHONPATH=</path/to/the/installation/location>/lib:$PYTHONPATH
+
+In order to make this setting permanent, one could add this line to the shell
+configuration file, e.g. ``~/.bashrc``.

@@ -23,18 +23,20 @@ void register_ndtable();
 namespace axes {
 
 void register_constant_bin_width_axis();
+void register_generic_axis();
 
 }//namespace axes
 
 }//namespace ndhist
 
-BOOST_PYTHON_MODULE(ndhist_core)
+BOOST_PYTHON_MODULE(core)
 {
     boost::numpy::initialize();
 
     ndhist::register_error_types();
     ndhist::register_axis();
     ndhist::axes::register_constant_bin_width_axis();
+    ndhist::axes::register_generic_axis();
     ndhist::register_ndhist();
     ndhist::register_ndtable();
 }

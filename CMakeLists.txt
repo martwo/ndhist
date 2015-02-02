@@ -123,6 +123,16 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         COMMAND mkdir -p ${${PROJECT_NAME}_libndhist_LIBRARY_OUTPUT_DIRECTORY}
     )
 
+    # Copy the python package "ndhist" over to the build tree.
+    add_custom_command(TARGET ndhist
+        POST_BUILD
+        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/python
+    )
+    add_custom_command(TARGET ndhist
+        POST_BUILD
+        COMMAND cp -r ${PROJECT_SOURCE_DIR}/python ${CMAKE_BINARY_DIR}/
+    )
+
     # Install all the public header files into the include directory.
     install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ndhist
         DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
@@ -135,12 +145,10 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     )
 
-    # Install the shared libraries into the library directory.
-    install(TARGETS ndhist
-        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-    )
-
     add_subdirectory(src/pybindings)
+
+    # Install the python module "ndhist" via setuptools.
+    install(SCRIPT ${CMAKE_SOURCE_DIR}/cmake/install_python_package.cmake)
 
     enable_testing()
     add_subdirectory(test)

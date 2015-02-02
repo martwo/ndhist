@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-import ndhist_core as ndhist
+from ndhist import core as ndhist
 
 class Test(unittest.TestCase):
     def test_nbins(self):

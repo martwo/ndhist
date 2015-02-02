@@ -1,9 +1,8 @@
-- Add pybindings for GenericAxis.
+- Make the python package installation more flexible so it can be installed also
+  at any pre-defined location.
 
 - Write python utility (factory) functions that create the Axis objects easily
   for the user.
-
-- Adapt the ndhist constructor to use a tuple of Axis objects.
 
 - Rename the oor_fill_record_stack template to fill_value_cache
 
@@ -27,3 +26,5 @@
 
 - Add target "html" to the cmake build system to generate HTML documentation
   using Sphinx.
+
+

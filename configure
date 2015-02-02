@@ -46,10 +46,12 @@ for (env_name, env_value) in cmake_build_env.iteritems():
     print("    %s = %s"%(env_name, env_value))
 
 env_str = ';'.join(["export %s=%s"%(n,v) for (n,v) in cmake_build_env.iteritems()])
+if(len(env_str) > 0):
+    env_str += ';'
 
 system("rm -rf build")
 system("mkdir -p build")
-system("cd build && %s; /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s .."%(
+system("cd build && %s /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s .."%(
     env_str,
     options.build_type,
     options.prefix,

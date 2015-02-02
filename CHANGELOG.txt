@@ -1,10 +1,19 @@
+- Developed a setuptools installation script for the Python package "ndhist", so
+  it gets installed into the python dist-packages directory located in the
+  user's home directory under ``.local/``.
+  So the user does not have to set the PYTHONPATH environment variable manually.
+
+- Adapted the ndhist constructor to use a tuple of Axis objects.
+
+- Added pybindings for GenericAxis.
+
 - Added --boostnumpy-include-path and --boostnumpy-library-path as options
   to the configure script, which are passed on to cmake with the environment
   variables BOOSTNUMPY_INCLUDE_PATH and BOOSTNUMPY_LIBRARY_PATH, respectively.
   This way the BoostNumpy installation can be found when it is installed at a
   costum place.
 
-- Renamed the "ndhist" python module to "ndhist_core", in order to prevent name
+- Renamed the "ndhist" python module to "core", in order to prevent name
   clashes with the future python module "ndhist" implemented in Python.
   This makes it also possible to run "make test" before "make install".
 

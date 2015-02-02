@@ -48,9 +48,12 @@ function(add_python_module _NAME _ADD_LIB_LIST)
             set_target_properties(${_NAME} PROPERTIES SUFFIX ${PYTHON_MODULE_EXTENSION})
         endif()
 
-        install(FILES ${${_NAME}_LIBOUTDIR}/${_NAME}${PYTHON_MODULE_EXTENSION}
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-            #RENAME ${_NAME}${PYTHON_MODULE_EXTENSION}
+        # Move the built python module into the ndhist python package directory
+        # within the build tree, so it can be installed by setuptools during
+        # the install stage.
+        add_custom_command(TARGET ${_NAME}
+            POST_BUILD
+            COMMAND mv ${${_NAME}_LIBOUTDIR}/${_NAME}${PYTHON_MODULE_EXTENSION} ${CMAKE_BINARY_DIR}/python/ndhist
         )
 
     endif()
