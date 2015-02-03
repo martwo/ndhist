@@ -4,13 +4,8 @@
 
 - Rename flush_oor_cache function to flush_fill_value_cache.
 
-- Rename detail::nd_traits to detail::specific_nd_traits.
-
 - Implement the most up-to-date fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_trais)
-
-- Implement Python module named "ndhist" that imports the ndhist_core python
-  module and that provides utility functions for an easier user API.
 
 - Add target "html" to the cmake build system to generate HTML documentation
   using Sphinx.

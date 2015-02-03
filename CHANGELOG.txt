@@ -1,3 +1,6 @@
+- Renamed detail::nd_traits to detail::specific_nd_traits, which is a better
+  name in combination with the generic_nd_traits template.
+
 - Renamed bin_value_type_traits to bin_iter_value_type_traits and moved it from
   ndhist.cpp into its own header file.
 

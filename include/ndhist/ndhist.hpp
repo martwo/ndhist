@@ -470,7 +470,7 @@ operator/(T const & rhs) const
 
 /*
 template <>
-struct nd_traits<ND>
+struct specific_nd_traits<ND>
 {
     template<typename BCValueType>
     struct fill_traits
@@ -479,7 +479,7 @@ struct nd_traits<ND>
         void
         fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
         {
-            //std::cout << "nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
+            //std::cout << "specific_nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
             if(! PyTuple_Check(ndvalues_obj.ptr()))
             {
                 // The input ndvalues object is not a tuple, so we assume it's a
@@ -788,7 +788,7 @@ struct nd_traits<ND>
             throw TypeError(ss.str());                                         \
         }                                                                      \
         oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
-        /*fill_fct_ = &detail::nd_traits<ND>::fill_traits<BCDTYPE>::fill;*/    \
+        /*fill_fct_ = &detail::specific_nd_traits<ND>::fill_traits<BCDTYPE>::fill;*/    \
         bc_dtype_supported = true;                                             \
     }
 

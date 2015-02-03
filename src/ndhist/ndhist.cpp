@@ -573,7 +573,7 @@ struct generic_nd_traits
 */
 
 template <int nd>
-struct nd_traits;
+struct specific_nd_traits;
 
 #define BOOST_PP_ITERATION_PARAMS_1                                            \
     (4, (1, NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND, <ndhist/ndhist.hpp>, 1))
