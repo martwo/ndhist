@@ -1,11 +1,5 @@
 - Rename the oor_fill_record_stack template to fill_value_cache
 
-- Rename bc_value_traits to bin_utils and move it into its own header file.
-
-- Move bin_value from ndhist.cpp into its own header file.
-
-- Move bin_value_type_traits from ndhist.cpp into its own header file.
-
 - Integrate get_noor_bin into bin_utils as get_bin_from_indices function.
 
 - Rename flush_oor_cache function to flush_fill_value_cache.

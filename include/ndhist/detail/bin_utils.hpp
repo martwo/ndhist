@@ -1,0 +1,125 @@
+/**
+ * $Id$
+ *
+ * Copyright (C)
+ * 2015 - $Date$
+ *     Martin Wolf <ndhist@martin-wolf.org>
+ *
+ * This file is distributed under the BSD 2-Clause Open Source License
+ * (See LICENSE file).
+ *
+ */
+#ifndef NDHIST_DETAIL_BIN_UTILS_HPP_INCLUDED
+#define NDHIST_DETAIL_BIN_UTILS_HPP_INCLUDED 1
+
+#include <ndhist/detail/bin_value.hpp>
+
+namespace ndhist {
+namespace detail {
+
+template <typename WeightValueType>
+struct bin_utils
+{
+    typedef WeightValueType &
+            ref_type;
+
+    static
+    ref_type
+    get_value_from_iter(bn::detail::iter & iter, int op_idx)
+    {
+        return *reinterpret_cast<WeightValueType*>(iter.get_data(op_idx));
+    }
+
+    static
+    void
+    increment_bin(char * bc_data_addr, WeightValueType const & weight)
+    {
+        uintptr_t & noe    = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        WeightValueType & sow  = *reinterpret_cast<WeightValueType*>(bc_data_addr + sizeof(uintptr_t));
+        WeightValueType & sows = *reinterpret_cast<WeightValueType*>(bc_data_addr + sizeof(uintptr_t) + sizeof(WeightValueType));
+
+        noe  += 1;
+        sow  += weight;
+        sows += weight * weight;
+    }
+
+    static
+    void
+    get_bin(bin_value<WeightValueType> & bin, char * data_addr)
+    {
+        bin.noe_  = reinterpret_cast<uintptr_t*>(data_addr);
+        bin.sow_  = reinterpret_cast<WeightValueType*>(data_addr + sizeof(uintptr_t));
+        bin.sows_ = reinterpret_cast<WeightValueType*>(data_addr + sizeof(uintptr_t) + sizeof(WeightValueType));
+    }
+
+    static
+    void
+    set_value_from_data(char * dst_addr, char * src_addr)
+    {
+        WeightValueType & dst_value = *reinterpret_cast<WeightValueType*>(dst_addr);
+        WeightValueType & src_value = *reinterpret_cast<WeightValueType*>(src_addr);
+
+        dst_value = src_value;
+    }
+};
+
+template <>
+struct bin_utils<bp::object>
+{
+    typedef bp::object
+            ref_type;
+
+    static
+    ref_type
+    get_value_from_iter(bn::detail::iter & iter, int op_idx)
+    {
+        uintptr_t * value_ptr = reinterpret_cast<uintptr_t*>(iter.get_data(op_idx));
+        bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*value_ptr)));
+        return value;
+    }
+
+    static
+    void
+    increment_bin(char * bc_data_addr, bp::object const & weight)
+    {
+        uintptr_t & noe = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        uintptr_t * ptr = reinterpret_cast<uintptr_t*>(bc_data_addr + sizeof(uintptr_t));
+        bp::object sow(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*ptr)));
+        uintptr_t * ptr2 = reinterpret_cast<uintptr_t*>(bc_data_addr + 2*sizeof(uintptr_t));
+        bp::object sows(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*ptr2)));
+
+        noe  += 1;
+        sow  += weight;
+        sows += weight * weight;
+    }
+
+    static
+    void
+    get_bin(bin_value<bp::object> & bin, char * data_addr)
+    {
+        bin.noe_  = reinterpret_cast<uintptr_t*>(data_addr);
+
+        bin.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_addr + sizeof(uintptr_t));
+        bin.sow_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bin.sow_obj_ptr_)));
+        bin.sow_ = &bin.sow_obj_;
+
+        bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_addr + 2*sizeof(uintptr_t));
+        bin.sows_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bin.sows_obj_ptr_)));
+        bin.sows_ = &bin.sows_obj_;
+    }
+
+    static
+    void
+    set_value_from_data(char * dst_addr, char * src_addr)
+    {
+        uintptr_t * dst_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(dst_addr);
+        uintptr_t * src_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(src_addr);
+        bp::object src_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*src_obj_ptr_ptr)));
+        *dst_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(src_obj.ptr()));
+    }
+};
+
+}//namespace detail
+}//namespace ndhist
+
+#endif // !NDHIST_DETAIL_BIN_UTILS_HPP_INCLUDED

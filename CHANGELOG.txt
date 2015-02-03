@@ -1,3 +1,11 @@
+- Renamed bin_value_type_traits to bin_iter_value_type_traits and moved it from
+  ndhist.cpp into its own header file.
+
+- Renamed the bc_value_traits template to bin_utils and move it into its own
+  header file.
+
+- Moved the bin_value template from ndhist.cpp into its own header file.
+
 - Added the python utility (factory) functions ``ndhist.axes.linear`` and
   ``ndhist.axes.linear_bins`` to create axes with linear bin space and constant
   bin widths. These functions return the actual ``ndhist.core.axis`` object

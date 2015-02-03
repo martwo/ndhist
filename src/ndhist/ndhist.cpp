@@ -36,6 +36,9 @@
 #include <ndhist/ndhist.hpp>
 #include <ndhist/axis.hpp>
 #include <ndhist/detail/axis_index_iter.hpp>
+#include <ndhist/detail/bin_iter_value_type_traits.hpp>
+#include <ndhist/detail/bin_value.hpp>
+#include <ndhist/detail/bin_utils.hpp>
 #include <ndhist/detail/limits.hpp>
 //#include <ndhist/detail/full_multi_axis_index_iter.hpp>
 #include <ndhist/detail/utils.hpp>
@@ -63,225 +66,6 @@ calc_n_oor_bins(std::vector<intptr_t> const & shape)
 }
 
 template <typename BCValueType>
-struct bin_value
-{
-    uintptr_t   * noe_;
-    BCValueType * sow_;
-    BCValueType * sows_;
-};
-template <>
-struct bin_value<bp::object>
-{
-    uintptr_t  * noe_;
-    uintptr_t  * sow_obj_ptr_;
-    bp::object sow_obj_;
-    bp::object * sow_;
-    uintptr_t  * sows_obj_ptr_;
-    bp::object sows_obj_;
-    bp::object * sows_;
-};
-
-template <typename BCValueType>
-struct bc_value_traits
-{
-    typedef BCValueType &
-            ref_type;
-
-    static
-    ref_type
-    get_value_from_iter(bn::detail::iter & iter, int op_idx)
-    {
-        return *reinterpret_cast<BCValueType*>(iter.get_data(op_idx));
-    }
-
-    static
-    void
-    increment_bin(char * bc_data_addr, BCValueType const & weight)
-    {
-        uintptr_t & noe    = *reinterpret_cast<uintptr_t*>(bc_data_addr);
-        BCValueType & sow  = *reinterpret_cast<BCValueType*>(bc_data_addr + sizeof(uintptr_t));
-        BCValueType & sows = *reinterpret_cast<BCValueType*>(bc_data_addr + sizeof(uintptr_t) + sizeof(BCValueType));
-
-        noe  += 1;
-        sow  += weight;
-        sows += weight * weight;
-    }
-
-    static
-    void
-    get_bin(bin_value<BCValueType> & bin, char * data_addr)
-    {
-        bin.noe_  = reinterpret_cast<uintptr_t*>(data_addr);
-        bin.sow_  = reinterpret_cast<BCValueType*>(data_addr + sizeof(uintptr_t));
-        bin.sows_ = reinterpret_cast<BCValueType*>(data_addr + sizeof(uintptr_t) + sizeof(BCValueType));
-    }
-
-    static
-    void
-    set_value_from_data(char * dst_addr, char * src_addr)
-    {
-        BCValueType & dst_value = *reinterpret_cast<BCValueType*>(dst_addr);
-        BCValueType & src_value = *reinterpret_cast<BCValueType*>(src_addr);
-
-        dst_value = src_value;
-    }
-};
-
-template <>
-struct bc_value_traits<bp::object>
-{
-    typedef bp::object
-            ref_type;
-
-    static
-    ref_type
-    get_value_from_iter(bn::detail::iter & iter, int op_idx)
-    {
-        uintptr_t * value_ptr = reinterpret_cast<uintptr_t*>(iter.get_data(op_idx));
-        bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*value_ptr)));
-        return value;
-    }
-
-    static
-    void
-    increment_bin(char * bc_data_addr, bp::object const & weight)
-    {
-        uintptr_t & noe = *reinterpret_cast<uintptr_t*>(bc_data_addr);
-        uintptr_t * ptr = reinterpret_cast<uintptr_t*>(bc_data_addr + sizeof(uintptr_t));
-        bp::object sow(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*ptr)));
-        uintptr_t * ptr2 = reinterpret_cast<uintptr_t*>(bc_data_addr + 2*sizeof(uintptr_t));
-        bp::object sows(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*ptr2)));
-
-        noe  += 1;
-        sow  += weight;
-        sows += weight * weight;
-    }
-
-    static
-    void
-    get_bin(bin_value<bp::object> & bin, char * data_addr)
-    {
-        bin.noe_  = reinterpret_cast<uintptr_t*>(data_addr);
-
-        bin.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_addr + sizeof(uintptr_t));
-        bin.sow_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bin.sow_obj_ptr_)));
-        bin.sow_ = &bin.sow_obj_;
-
-        bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_addr + 2*sizeof(uintptr_t));
-        bin.sows_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*bin.sows_obj_ptr_)));
-        bin.sows_ = &bin.sows_obj_;
-    }
-
-    static
-    void
-    set_value_from_data(char * dst_addr, char * src_addr)
-    {
-        uintptr_t * dst_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(dst_addr);
-        uintptr_t * src_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(src_addr);
-        bp::object src_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*src_obj_ptr_ptr)));
-        *dst_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(src_obj.ptr()));
-    }
-};
-
-
-template <typename BCValueType>
-struct bin_value_type_traits
-  : bn::iterators::value_type_traits
-{
-    typedef bin_value_type_traits<BCValueType>
-            type_t;
-
-    typedef bin_value<BCValueType>
-            value_type;
-    typedef value_type &
-            value_ref_type;
-    typedef value_type *
-            value_ptr_type;
-
-    bin_value_type_traits()
-    {}
-
-    bin_value_type_traits(bn::ndarray const & arr)
-      : fields_byte_offsets_(arr.get_dtype().get_fields_byte_offsets())
-    {}
-
-    std::vector<intptr_t> fields_byte_offsets_;
-    bin_value<BCValueType> bin_value_;
-
-    static
-    value_ref_type
-    dereference(
-        bn::iterators::value_type_traits & vtt_base
-      , char * data_ptr
-    )
-    {
-        type_t & vtt = *static_cast<type_t *>(&vtt_base);
-
-        vtt.bin_value_.noe_  = reinterpret_cast<uintptr_t *>(data_ptr);
-        vtt.bin_value_.sow_  = reinterpret_cast<BCValueType *>(data_ptr + vtt.fields_byte_offsets_[1]);
-        vtt.bin_value_.sows_ = reinterpret_cast<BCValueType *>(data_ptr + vtt.fields_byte_offsets_[2]);
-
-        return vtt.bin_value_;
-    }
-};
-template <>
-struct bin_value_type_traits<bp::object>
-  : bn::iterators::value_type_traits
-{
-    typedef bin_value_type_traits<bp::object>
-            type_t;
-
-    typedef bin_value<bp::object>
-            value_type;
-    typedef value_type &
-            value_ref_type;
-    typedef value_type *
-            value_ptr_type;
-
-    bin_value_type_traits()
-    {}
-
-    bin_value_type_traits(bn::ndarray const & arr)
-      : fields_byte_offsets_(arr.get_dtype().get_fields_byte_offsets())
-    {}
-
-    std::vector<intptr_t> fields_byte_offsets_;
-    bin_value<bp::object> bin_value_;
-
-    static
-    value_ref_type
-    dereference(
-        bn::iterators::value_type_traits & vtt_base
-      , char * data_ptr
-    )
-    {
-        type_t & vtt = *static_cast<type_t *>(&vtt_base);
-
-        vtt.bin_value_.noe_  = reinterpret_cast<uintptr_t*>(data_ptr);
-
-        vtt.bin_value_.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[1]);
-        if(*(vtt.bin_value_.sow_obj_ptr_) == 0) {
-            vtt.bin_value_.sow_obj_ = bp::object();
-        }
-        else {
-            vtt.bin_value_.sow_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sow_obj_ptr_)));
-        }
-        vtt.bin_value_.sow_ = &vtt.bin_value_.sow_obj_;
-
-        vtt.bin_value_.sows_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[2]);
-        if(*(vtt.bin_value_.sows_obj_ptr_) == 0) {
-            vtt.bin_value_.sows_obj_ = bp::object();
-        }
-        else {
-            vtt.bin_value_.sows_obj_ = bp::object(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*vtt.bin_value_.sows_obj_ptr_)));
-        }
-        vtt.bin_value_.sows_ = &vtt.bin_value_.sows_obj_;
-
-        return vtt.bin_value_;
-    }
-};
-
-template <typename BCValueType>
 static
 void
 get_noor_bin(
@@ -297,7 +81,7 @@ get_noor_bin(
     {
         data_addr += indices[i]*strides[i];
     }
-    bc_value_traits<BCValueType>::get_bin(bin, data_addr);
+    bin_utils<BCValueType>::get_bin(bin, data_addr);
 }
 
 // template <typename BCValueType>
@@ -310,7 +94,7 @@ get_noor_bin(
 //   , uintptr_t const                   bc_data_offset
 // )
 // {
-//     typedef typename bc_value_traits<BCValueType>::ref_type
+//     typedef typename detail::bin_utils<BCValueType>::ref_type
 //             bc_ref_type;
 //
 //     intptr_t const nd = f_n_extra_bins_vec.size();
@@ -345,7 +129,7 @@ get_noor_bin(
 //             bin_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * (*arr_strides_ptr)[axis];
 //         }
 //
-//         detail::bc_value_traits<BCValueType>::increment_bin(bin_data_addr, rec.weight);
+//         bin_utils<BCValueType>::increment_bin(bin_data_addr, rec.weight);
 //     }
 //
 //     // Finally, clear the stack.
@@ -368,8 +152,8 @@ struct iadd_fct_traits
 
         // Add the bin contents of the two ndhist objects.
         typedef bn::iterators::multi_flat_iterator<2>::impl<
-                    bin_value_type_traits<BCValueType>
-                  , bin_value_type_traits<BCValueType>
+                    bin_iter_value_type_traits<BCValueType>
+                  , bin_iter_value_type_traits<BCValueType>
                 >
                 multi_iter_t;
 
@@ -403,7 +187,7 @@ struct idiv_fct_traits
         // Divide the bin contents of the ndhist object with the
         // scalar value.
         typedef bn::iterators::multi_flat_iterator<2>::impl<
-                    bin_value_type_traits<BCValueType>
+                    bin_iter_value_type_traits<BCValueType>
                   , bn::iterators::single_value<BCValueType>
                 >
                 multi_iter_t;
@@ -437,7 +221,7 @@ struct imul_fct_traits
         // Multiply the bin contents of the ndhist object with the
         // scalar value.
         typedef bn::iterators::multi_flat_iterator<2>::impl<
-                    bin_value_type_traits<BCValueType>
+                    bin_iter_value_type_traits<BCValueType>
                   , bn::iterators::single_value<BCValueType>
                 >
                 multi_iter_t;
@@ -608,7 +392,7 @@ struct imul_fct_traits
 //
 //             // Set the element of the new ndarray to the (sub) element of the
 //             // oor array.
-//             bc_value_traits<BCValueType>::set_value_from_data(iter.get_detail_iter().get_data(0), oor_data_addr);
+//             bin_utils<BCValueType>::set_value_from_data(iter.get_detail_iter().get_data(0), oor_data_addr);
 //
 //             ++iter;
 //         }
@@ -736,7 +520,7 @@ struct generic_nd_traits
             }
 
             // Do the iteration.
-            typedef typename bc_value_traits<BCValueType>::ref_type
+            typedef typename bin_utils<BCValueType>::ref_type
                     bc_ref_type;
             std::vector<intptr_t> indices(nd);
             do {
@@ -744,7 +528,7 @@ struct generic_nd_traits
                 while(size--)
                 {
                     // Get the weight scalar from the iterator.
-                    bc_ref_type weight = bc_value_traits<BCValueType>::get_value_from_iter(iter, 1);
+                    bc_ref_type weight = bin_utils<BCValueType>::get_value_from_iter(iter, 1);
 
                     // Fill the scalar into the bin content array.
                     // Get the coordinate of the current ndvalue.
@@ -916,10 +700,10 @@ ndhist(
     {
         bp::object owner;
         bn::ndarray bc_arr = bc_->construct_ndarray(bc_->get_dtype(), 0, &owner);
-        bn::iterators::flat_iterator< detail::bin_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+        bn::iterators::flat_iterator< detail::bin_iter_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         while(! bc_iter.is_end())
         {
-            detail::bin_value_type_traits<bp::object>::value_ref_type bin = *bc_iter;
+            detail::bin_iter_value_type_traits<bp::object>::value_ref_type bin = *bc_iter;
 
             bp::object sow_obj  = bc_class_();
             bp::object sows_obj = bc_class_();
