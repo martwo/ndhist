@@ -1,10 +1,15 @@
 - Rename full_multi_axis_index_iter to multi_axis_index_iter and adjust it to
   assume, that the given shape, already includes under- and overflow bins.
 
-- Adjust the fill method to the new oor bin scheme.
+- Construct the ndarray within the py_get_noe_ndarray, py_get_sow_ndarray and
+  py_get_sows_ndarray functions only for bins without the under- and overflow
+  bins. This means, calculate strides and shape for only the "visible" bins.
 
 - Implement the most up-to-date fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_trais)
+
+- Overwork the ndhist.extend_bin_content_array() function. There should be a
+  faster way of initializing the extra bins.
 
 - Add target "html" to the cmake build system to generate HTML documentation
   using Sphinx.

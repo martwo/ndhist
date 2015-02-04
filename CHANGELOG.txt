@@ -1,3 +1,6 @@
+- Adjusted the fill method to the new oor bin scheme. It still needs to be
+  tested.
+
 - Integrated get_noor_bin into bin_utils as get_bin_by_indices function.
 
 - Renamed flush_oor_cache function to flush_value_cache.

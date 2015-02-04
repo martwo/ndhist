@@ -152,24 +152,28 @@ class ndarray_storage
       , bp::object const * data_owner = NULL
     );
 
+    inline
     std::vector<intptr_t> const &
     get_front_capacity_vector() const
     {
         return front_capacity_;
     }
 
+    inline
     std::vector<intptr_t> const &
     get_back_capacity_vector() const
     {
         return back_capacity_;
     }
 
+    inline
     std::vector<intptr_t> const &
     get_shape_vector() const
     {
         return shape_;
     }
 
+    inline
     bn::dtype const &
     get_dtype() const
     {
@@ -180,12 +184,14 @@ class ndarray_storage
      * @brief Returns the raw pointer to the beginning of the data junk used by
      *     this ndarray_storage object.
      */
+    inline
     char *
     get_data()
     {
         return bytearray_->data_;
     }
 
+    inline
     std::vector<intptr_t> const &
     get_data_strides_vector() const
     {

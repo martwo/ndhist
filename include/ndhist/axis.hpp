@@ -221,6 +221,13 @@ class Axis
     }
 
     inline
+    intptr_t
+    request_extension(char * const value_ptr, axis::out_of_range_t const oor_flag)
+    {
+        return get_axis_base().request_extension_fct_(get_axis_base(), value_ptr, oor_flag);
+    }
+
+    inline
     void
     extend(intptr_t const f_n_extra_bins, intptr_t const b_n_extra_bins)
     {

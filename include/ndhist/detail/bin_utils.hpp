@@ -47,11 +47,11 @@ struct bin_utils
   : bin_utils_base<WeightValueType>
 {
     typedef WeightValueType &
-            ref_type;
+            weight_ref_type;
 
     static
-    ref_type
-    get_value_from_iter(bn::detail::iter & iter, int op_idx)
+    weight_ref_type
+    get_weight_type_value_from_iter(bn::detail::iter & iter, int op_idx)
     {
         return *reinterpret_cast<WeightValueType*>(iter.get_data(op_idx));
     }
@@ -94,11 +94,11 @@ struct bin_utils<bp::object>
   : bin_utils_base<bp::object>
 {
     typedef bp::object
-            ref_type;
+            weight_ref_type;
 
     static
-    ref_type
-    get_value_from_iter(bn::detail::iter & iter, int op_idx)
+    weight_ref_type
+    get_weight_type_value_from_iter(bn::detail::iter & iter, int op_idx)
     {
         uintptr_t * value_ptr = reinterpret_cast<uintptr_t*>(iter.get_data(op_idx));
         bp::object value(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*value_ptr)));

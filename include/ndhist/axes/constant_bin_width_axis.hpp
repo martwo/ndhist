@@ -174,6 +174,7 @@ class ConstantBinWidthAxis
 
         axis_value_type_traits avtt;
         typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        std::cout << "Got value = "<<value<<std::endl;
 
         if(axis.is_extendable_)
         {
@@ -209,6 +210,7 @@ class ConstantBinWidthAxis
             if(value < axis.min_)
             {
                 // The value falls into the underflow bin.
+                //std::cout << "Got value in underflow bin"<< std::endl;
                 oor_flag = axis::OOR_NONE;
                 return 0;
             }
@@ -217,8 +219,9 @@ class ConstantBinWidthAxis
             {
                 // The value falls into the axis range (excluding the overflow
                 // bin).
+                //std::cout << "Got value in normal bin"<< std::endl;
                 oor_flag = axis::OOR_NONE;
-                return idx;
+                return idx+1;
             }
             if(value < axis.overflow_edge_)
             {

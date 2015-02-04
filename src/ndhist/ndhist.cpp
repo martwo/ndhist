@@ -35,6 +35,7 @@
 #include <ndhist/limits.hpp>
 #include <ndhist/ndhist.hpp>
 #include <ndhist/axis.hpp>
+#include <ndhist/type_support.hpp>
 #include <ndhist/detail/axis_index_iter.hpp>
 #include <ndhist/detail/bin_iter_value_type_traits.hpp>
 #include <ndhist/detail/bin_value.hpp>
@@ -50,58 +51,41 @@ namespace ndhist {
 
 namespace detail {
 
+template <typename WeightValueType>
 static
-uintptr_t
-calc_n_oor_bins(std::vector<intptr_t> const & shape)
+void
+flush_value_cache(
+    ndhist                      & self
+  , ValueCache<WeightValueType> & value_cache
+  , std::vector<intptr_t> const & f_n_extra_bins_vec
+  , uintptr_t const               bc_data_offset
+)
 {
-    uintptr_t n = 1;
-    uintptr_t n_shape = 1;
-    for(uintptr_t i=0; i<shape.size(); ++i)
+    intptr_t const nd = self.get_nd();
+
+    // Fill in the cached values.
+    char * bin_data_addr;
+    intptr_t idx = value_cache.get_size();
+    while(idx--)
     {
-        n_shape *= shape[i];
-        n *= shape[i]+2;
+        typename ValueCache<WeightValueType>::cache_entry_type const & entry = value_cache.get_entry(idx);
+
+        std::vector<intptr_t> const & arr_strides = self.bc_->get_data_strides_vector();
+        bin_data_addr = self.bc_->get_data() + bc_data_offset;
+
+        // Translate the relative indices into an absolute
+        // data address for the extended bin content array.
+        for(intptr_t axis=0; axis<nd; ++axis)
+        {
+            bin_data_addr += (f_n_extra_bins_vec[axis] + entry.relative_indices[axis]) * arr_strides[axis];
+        }
+
+        bin_utils<WeightValueType>::increment_bin(bin_data_addr, entry.weight);
     }
-    n -= n_shape;
-    return n;
+
+    // Finally, clear the stack.
+    value_cache.clear();
 }
-
-
-
-// template <typename WeightValueType>
-// static
-// void
-// flush_value_cache(
-//     ndhist                      & self
-//   , ValueCache<WeightValueType> & value_cache
-//   , std::vector<intptr_t> const & f_n_extra_bins_vec
-//   , uintptr_t const               bc_data_offset
-// )
-// {
-//     intptr_t const nd = self.get_nd();
-//
-//     // Fill in the cached values.
-//     char * bin_data_addr;
-//     intptr_t idx = value_cache.get_size();
-//     while(idx--)
-//     {
-//         typename ValueCache<WeightValueType>::cache_entry_type const & entry = value_cache.get_entry(idx);
-//
-//         std::vector<intptr_t> const & arr_strides = self.bc_->get_data_strides_vector();
-//         bin_data_addr = self.bc_->data_ + bc_data_offset;
-//
-//         // Translate the relative indices into an absolute
-//         // data address for the extended bin content array.
-//         for(intptr_t axis=0; axis<nd; ++axis)
-//         {
-//             bin_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * arr_strides[axis];
-//         }
-//
-//         bin_utils<WeightValueType>::increment_bin(bin_data_addr, rec.weight);
-//     }
-//
-//     // Finally, clear the stack.
-//     value_cache.clear();
-// }
 
 template <typename BCValueType>
 struct iadd_fct_traits
@@ -491,7 +475,7 @@ struct generic_nd_traits
                 while(size--)
                 {
                     // Get the weight scalar from the iterator.
-                    bc_ref_type weight = bin_utils<BCValueType>::get_value_from_iter(iter, 1);
+                    bc_ref_type weight = bin_utils<BCValueType>::get_weight_type_value_from_iter(iter, 1);
 
                     // Fill the scalar into the bin content array.
                     // Get the coordinate of the current ndvalue.
@@ -1071,17 +1055,17 @@ py_get_binedges() const
     return edges_tuple;
 }
 
-// void
-// ndhist::
-// fill(bp::object const & ndvalue_obj, bp::object weight_obj)
-// {
-//     // In case None is given as weight, we will use one.
-//     if(weight_obj == bp::object())
-//     {
-//         weight_obj = bp::object(1);
-//     }
-//     fill_fct_(*this, ndvalue_obj, weight_obj);
-// }
+void
+ndhist::
+py_fill(bp::object const & ndvalue_obj, bp::object weight_obj)
+{
+    // In case None is given as weight, we will use one.
+    if(weight_obj == bp::object())
+    {
+        weight_obj = bp::object(1);
+    }
+    fill_fct_(*this, ndvalue_obj, weight_obj);
+}
 
 // TODO: Use the new multi_axis_iter for this.
 static
@@ -1259,8 +1243,10 @@ extend_axes(
 {
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        boost::shared_ptr<Axis> & axis = this->axes_[i];
-        axis->extend(f_n_extra_bins_vec[i], b_n_extra_bins_vec[i]);
+        Axis & axis = *this->axes_[i];
+        if(axis.is_extendable()) {
+            axis.extend(f_n_extra_bins_vec[i], b_n_extra_bins_vec[i]);
+        }
     }
 }
 

@@ -123,11 +123,11 @@ void register_ndhist()
             , (bp::arg("self"), bp::arg("axis")=0)
             , "Gets the ndarray holding the bin edges for the given axis. "
               "The default axis is 0.")
-//         .def("fill", &ndhist::fill
-//             , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
-//             , "Fills the histogram with the given n-dimensional numbers, "
-//               "weighted by the given weights. If no weights are specified, "
-//               "``1`` will be used for each entry.")
+        .def("fill", &ndhist::py_fill
+            , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
+            , "Fills the histogram with the given n-dimensional numbers, "
+              "weighted by the given weights. If no weights are specified, "
+              "``1`` will be used for each entry.")
         .def("empty_like", &ndhist::empty_like
             , (bp::arg("self"))
             , "Creates a new empty ndhist object having the same binning and "
