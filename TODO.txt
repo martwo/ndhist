@@ -1,8 +1,7 @@
-- Rename the oor_fill_record_stack template to fill_value_cache
+- Rename full_multi_axis_index_iter to multi_axis_index_iter and adjust it to
+  assume, that the given shape, already includes under- and overflow bins.
 
-- Integrate get_noor_bin into bin_utils as get_bin_from_indices function.
-
-- Rename flush_oor_cache function to flush_fill_value_cache.
+- Adjust the fill method to the new oor bin scheme.
 
 - Implement the most up-to-date fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_trais)

@@ -65,75 +65,42 @@ calc_n_oor_bins(std::vector<intptr_t> const & shape)
     return n;
 }
 
-template <typename BCValueType>
-static
-void
-get_noor_bin(
-    ndhist const & self
-  , bin_value<BCValueType> & bin
-  , std::vector<intptr_t> const & indices
-)
-{
-    uintptr_t const nd = self.get_nd();
-    char * data_addr = self.bc_->get_data() + self.bc_->calc_data_offset(0);
-    std::vector<intptr_t> const & strides = self.bc_->get_data_strides_vector();
-    for(uintptr_t i=0; i<nd; ++i)
-    {
-        data_addr += indices[i]*strides[i];
-    }
-    bin_utils<BCValueType>::get_bin(bin, data_addr);
-}
 
-// template <typename BCValueType>
+
+// template <typename WeightValueType>
 // static
 // void
-// flush_oor_cache(
-//     ndhist                          & self
-//   , OORFillRecordStack<BCValueType> & oorfrstack
-//   , std::vector<intptr_t> const     & f_n_extra_bins_vec
-//   , uintptr_t const                   bc_data_offset
+// flush_value_cache(
+//     ndhist                      & self
+//   , ValueCache<WeightValueType> & value_cache
+//   , std::vector<intptr_t> const & f_n_extra_bins_vec
+//   , uintptr_t const               bc_data_offset
 // )
 // {
-//     typedef typename detail::bin_utils<BCValueType>::ref_type
-//             bc_ref_type;
-//
-//     intptr_t const nd = f_n_extra_bins_vec.size();
+//     intptr_t const nd = self.get_nd();
 //
 //     // Fill in the cached values.
-//     std::vector<intptr_t> const * arr_strides_ptr;
 //     char * bin_data_addr;
-//     intptr_t idx = oorfrstack.get_size();
+//     intptr_t idx = value_cache.get_size();
 //     while(idx--)
 //     {
-//         typename OORFillRecordStack<BCValueType>::oor_fill_record_type const & rec = oorfrstack.get_record(idx);
-//         arr_strides_ptr = NULL;
-//         bin_data_addr = NULL;
-//         if(rec.is_oor)
-//         {
-//             boost::shared_ptr<detail::ndarray_storage> & oor_arr_storage = self.oor_arr_vec_[rec.oor_arr_idx];
+//         typename ValueCache<WeightValueType>::cache_entry_type const & entry = value_cache.get_entry(idx);
 //
-//             arr_strides_ptr = &oor_arr_storage->get_data_strides_vector();
-//             bin_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
-//
-//         }
-//         else
-//         {
-//             arr_strides_ptr = &self.bc_->get_data_strides_vector();
-//             bin_data_addr = self.bc_->data_ + bc_data_offset;
-//         }
+//         std::vector<intptr_t> const & arr_strides = self.bc_->get_data_strides_vector();
+//         bin_data_addr = self.bc_->data_ + bc_data_offset;
 //
 //         // Translate the relative indices into an absolute
 //         // data address for the extended bin content array.
 //         for(intptr_t axis=0; axis<nd; ++axis)
 //         {
-//             bin_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * (*arr_strides_ptr)[axis];
+//             bin_data_addr += (f_n_extra_bins_vec[axis] + rec.relative_indices[axis]) * arr_strides[axis];
 //         }
 //
-//         bin_utils<BCValueType>::increment_bin(bin_data_addr, rec.weight);
+//         bin_utils<WeightValueType>::increment_bin(bin_data_addr, rec.weight);
 //     }
 //
 //     // Finally, clear the stack.
-//     oorfrstack.clear();
+//     value_cache.clear();
 // }
 
 template <typename BCValueType>
@@ -280,13 +247,9 @@ struct imul_fct_traits
 //         while(! proj_idx_iter.is_end())
 //         {
 //             std::vector<intptr_t> const & proj_indices = proj_idx_iter.get_indices();
+//
 //             // Get the proj bin.
-//             if(proj_idx_iter.is_oor_bin()) {
-//                 get_oor_bin(proj, proj_bin, proj_idx_iter.get_oor_array_index(), proj_indices);
-//             }
-//             else {
-//                 get_noor_bin(proj, proj_bin, proj_indices);
-//             }
+//             bin_utils<BCValueType>::get_bin_by_indices(proj, proj_bin, proj_indices);
 //
 //             // Iterate over all the axes of self which are not fixed through the
 //             // current projection indices.
@@ -636,7 +599,7 @@ ndhist(
     }
 
     // TODO: Make this as an option in the constructor.
-    intptr_t oor_stack_size = 65536;
+    intptr_t value_cache_size = 65536;
 
     // Create a ndarray for the bin content. Each bin content element consists
     // of three sub-elements: n_entries, sum_of_weights, sum_of_weights_squared.
@@ -665,7 +628,7 @@ ndhist(
                        << "error!";                                             \
                     throw TypeError(ss.str());                                  \
                 }                                                               \
-                oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
+                value_cache_ = boost::shared_ptr< detail::ValueCache<BCDTYPE> >(new detail::ValueCache<BCDTYPE>(nd_, value_cache_size));\
                 /*fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill;*/\
                 bc_dtype_supported = true;                                      \
             }

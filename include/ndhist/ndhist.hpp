@@ -34,7 +34,7 @@
 #include <ndhist/error.hpp>
 #include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/ndarray_storage.hpp>
-#include <ndhist/detail/oor_fill_record_stack.hpp>
+#include <ndhist/detail/value_cache.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -311,11 +311,11 @@ class ndhist
         return ndvalues_dt_;
     }
 
-    template <typename BCValueType>
-    detail::OORFillRecordStack<BCValueType> &
-    get_oor_fill_record_stack()
+    template <typename WeightValueType>
+    detail::ValueCache<WeightValueType> &
+    get_value_cache()
     {
-        return *static_cast< detail::OORFillRecordStack<BCValueType>* >(oor_fill_record_stack_.get());
+        return *static_cast< detail::ValueCache<WeightValueType> * >(value_cache_.get());
     }
 
     void
@@ -380,7 +380,7 @@ class ndhist
      */
     bp::object const bc_class_;
 
-    boost::shared_ptr<detail::OORFillRecordStackBase> oor_fill_record_stack_;
+    boost::shared_ptr<detail::ValueCacheBase> value_cache_;
 
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
     boost::function<void (ndhist &, bn::ndarray const &)> idiv_fct_;
@@ -556,8 +556,8 @@ struct specific_nd_traits<ND>
             );
             iter.init_full_iteration();
 
-            // Get a handle to the OOR fill record stack.
-            OORFillRecordStack<BCValueType> & oorfrstack = self.get_oor_fill_record_stack<BCValueType>();
+            // Get a handle on the value cache.
+            ValueCache<BCValueType> & value_cache = self.get_value_cache<BCValueType>();
 
             // Do the iteration.
             typedef typename bc_value_traits<BCValueType>::ref_type
@@ -606,19 +606,13 @@ struct specific_nd_traits<ND>
 
                             indices[i] = bin_idx;
                             relative_indices[i] = bin_idx;
-
-                            // Mark this axis as available and save the bin
-                            // index in the noor indices vector.
-                            oor_arr_idx |= (1<<i);
                         }
                         else
                         {
                             if(axis->is_extendable())
                             {
-                                // Mark this axis as available.
-                                oor_arr_idx |= (1<<i);
                                 //std::cout << "axis is extentable" << std::endl;
-                                intptr_t const n_extra_bins = axis->request_extension_fct(axis->data_, ndvalue_ptr, oor);
+                                intptr_t const n_extra_bins = axis->request_extension(ndvalue_ptr, oor);
                                 if(oor == axis::OOR_UNDERFLOW)
                                 {
                                     indices[i] = 0;
@@ -642,24 +636,21 @@ struct specific_nd_traits<ND>
                             }
                             else
                             {
-                                //std::cout << "axis has NO autoscale" << std::endl;
+                                //std::cout << "axis is NOT extendable" << std::endl;
                                 // The current value is out-of-range on the
                                 // current axis, which is not extendable.
-                                // So mark the axis as oor for this value.
+                                // So mark this ndvalue as oor.
                                 is_oor = true;
-
-                                if(oor == axis::OOR_UNDERFLOW)
-                                {
-                                    indices[i] = 0;
-                                    relative_indices[i] = 0;
-                                }
-                                else // oor == axis::OOR_OVERFLOW
-                                {
-                                    indices[i] = 1;
-                                    relative_indices[i] = 1;
-                                }
                             }
                         }
+                    }
+
+                    if(is_oor)
+                    {
+                        // There is at least one axis, where the value is
+                        // out-of-range, so there is no way to fill this
+                        // ndvalue. So just skip it.
+                        continue;
                     }
 
                     // If the value is out-of-range for any axis and that axis
@@ -683,11 +674,7 @@ struct specific_nd_traits<ND>
                             // the stack is full and we need to extent the axes and
                             // fill the cached values in.
                             value_cached = true;
-                            if(oorfrstack.push_back(
-                                is_oor
-                              , oor_arr_idx
-                              , relative_indices
-                              , weight))
+                            if(value_cache.push_back(relative_indices, weight))
                             {
                                 //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 // The cache stack is full. Extend the axes.
@@ -696,7 +683,7 @@ struct specific_nd_traits<ND>
                                 self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 bc_data_offset = self.bc_->CalcDataOffset(0);
 
-                                flush_oor_cache<BCValueType>(self, oorfrstack, f_n_extra_bins_vec, bc_data_offset);
+                                flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
 
                                 memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                                 memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
@@ -734,22 +721,6 @@ struct specific_nd_traits<ND>
                             //std::cout << "increment the bin "<< std::endl<<std::flush;
                             detail::bc_value_traits<BCValueType>::increment_bin(bc_data_addr, weight);
                         }
-                        else
-                        {
-                            //std::cout << "is_oor is true, oor_arr_idx ="<< oor_arr_idx << std::endl;
-                            // There is at least one axis that is out-of-range.
-                            boost::shared_ptr<detail::ndarray_storage> & oor_arr_storage = self.oor_arr_vec_[oor_arr_idx];
-
-                            // Calculate the bin address.
-                            std::vector<intptr_t> const & oor_arr_strides = oor_arr_storage->get_data_strides_vector();
-                            char * oor_data_addr = oor_arr_storage->data_ + oor_arr_storage->CalcDataOffset(0);
-                            for(size_t i=0; i<ND; ++i)
-                            {
-                                oor_data_addr += indices[i]*oor_arr_strides[i];
-                            }
-
-                            detail::bc_value_traits<BCValueType>::increment_bin(oor_data_addr, weight);
-                        }
                     }
 
                     // Jump to the next fill iteration.
@@ -765,7 +736,7 @@ struct specific_nd_traits<ND>
                 self.extend_oor_arrays<BCValueType>(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 bc_data_offset = self.bc_->CalcDataOffset(0);
 
-                flush_oor_cache<BCValueType>(self, oorfrstack, f_n_extra_bins_vec, bc_data_offset);
+                flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
             }
         }
     };
@@ -787,7 +758,7 @@ struct specific_nd_traits<ND>
                << "possible C++ data type! This is an internal error!";        \
             throw TypeError(ss.str());                                         \
         }                                                                      \
-        oor_fill_record_stack_ = boost::shared_ptr< detail::OORFillRecordStack<BCDTYPE> >(new detail::OORFillRecordStack<BCDTYPE>(nd_, oor_stack_size));\
+        value_cache_ = boost::shared_ptr< detail::ValueCache<BCDTYPE> >(new detail::ValueCache<BCDTYPE>(nd_, value_cache_size));\
         /*fill_fct_ = &detail::specific_nd_traits<ND>::fill_traits<BCDTYPE>::fill;*/    \
         bc_dtype_supported = true;                                             \
     }

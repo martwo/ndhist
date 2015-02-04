@@ -18,7 +18,33 @@ namespace ndhist {
 namespace detail {
 
 template <typename WeightValueType>
+struct bin_utils;
+
+template <typename WeightValueType>
+struct bin_utils_base
+{
+    static
+    void
+    get_bin_by_indices(
+        ndhist const & self
+      , bin_value<WeightValueType> & bin
+      , std::vector<intptr_t> const & indices
+    )
+    {
+        uintptr_t const nd = self.get_nd();
+        char * data_addr = self.bc_->get_data() + self.bc_->calc_data_offset(0);
+        std::vector<intptr_t> const & strides = self.bc_->get_data_strides_vector();
+        for(uintptr_t i=0; i<nd; ++i)
+        {
+            data_addr += indices[i]*strides[i];
+        }
+        bin_utils<WeightValueType>::get_bin(bin, data_addr);
+    }
+};
+
+template <typename WeightValueType>
 struct bin_utils
+  : bin_utils_base<WeightValueType>
 {
     typedef WeightValueType &
             ref_type;
@@ -65,6 +91,7 @@ struct bin_utils
 
 template <>
 struct bin_utils<bp::object>
+  : bin_utils_base<bp::object>
 {
     typedef bp::object
             ref_type;
