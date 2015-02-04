@@ -271,6 +271,7 @@ struct imul_fct_traits
 // };
 
 // template <typename BCValueType>
+// static
 // std::vector<bn::ndarray>
 // get_field_axes_oor_ndarrays(
 //     ndhist const & self
@@ -281,18 +282,23 @@ struct imul_fct_traits
 //     uintptr_t const nd = self.get_nd();
 //     std::vector<bn::ndarray> array_vec;
 //     array_vec.reserve(nd);
-//     uintptr_t oor_arr_idx;
 //     std::vector<intptr_t> indices(nd);
 //     std::vector<intptr_t> oor_arr_indices(nd);
 //     std::vector<intptr_t> shape(nd);
 //     std::vector<intptr_t> const fields_byte_offsets = self.bc_->get_dtype().get_fields_byte_offsets();
-//     char * oor_data_addr;
+//     std::vector<intptr_t> const & bc_arr_strides = self.bc_->get_data_strides_vector();
+//     char * oor_data_addr = self.bc_->get_data() + self.bc_->calc_data_offset(fields_byte_offsets[field_idx]);
+//     intptr_t index;
+//     bool is_zero = false;
 //     for(uintptr_t i=0; i<nd; ++i)
 //     {
 //         std::vector<intptr_t> const & histshape = self.bc_->get_shape_vector();
 //         for(uintptr_t j=0; j<nd; ++j)
 //         {
-//             shape[j] = (j == i ? 1 : histshape[j] + 2);
+//             // If the axis is extendable, it does not contain under- and
+//             // overflow bins, so we need to add them here. Anyways will be just
+//             // zero.
+//             shape[j] = (j == i ? 1 : (self.axes_[j]->is_extendable() ? histshape[j] + 2 : histshape[j]);
 //         }
 //
 //         bn::ndarray arr = bn::empty(shape, (field_idx == 0 ? self.bc_noe_dt_ : self.bc_weight_dt_));
@@ -305,8 +311,15 @@ struct imul_fct_traits
 //             oor_arr_idx = 0;
 //             for(uintptr_t j=0; j<nd; ++j)
 //             {
+//                 bool const is_extendable = self.axes_[j]->is_extendable();
 //                 // Mark if the axis j is available.
-//                 if(j != i)
+//                 if(j == i)
+//                 {
+//                     index = (oortype == ::ndhist::axis::OOR_UNDERFLOW ? 0 : 1);
+//                     oor_data_addr +=
+//                     oor_arr_indices[j] = (oortype == axis::OOR_UNDERFLOW ? 0 : 1);
+//                 }
+//                 else
 //                 {
 //                     if(indices[j] == 0)
 //                     {
@@ -321,7 +334,6 @@ struct imul_fct_traits
 //                     else
 //                     {
 //                         // It's a normal bin of axis j.
-//                         oor_arr_idx |= (1<<j);
 //                         oor_arr_indices[j] = indices[j] - 1; // Notice the underflow element.
 //                     }
 //                 }

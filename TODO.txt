@@ -1,3 +1,12 @@
+- Reserve under- and overflow bins within the bin content array also for axes,
+  which are extendable (i.e. with value zero). So an actual view to the
+  underflow and overflow ndarrays can be made.
+
+- Write unit tests for the different possibilities of filling values, i.e.
+  * underflow behavior,
+  * overflow behavior,
+  * auto extendable axis
+
 - Rename full_multi_axis_index_iter to multi_axis_index_iter and adjust it to
   assume, that the given shape, already includes under- and overflow bins.
 
