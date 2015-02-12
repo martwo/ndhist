@@ -32,7 +32,7 @@ struct bin_utils_base
     )
     {
         uintptr_t const nd = self.get_nd();
-        char * data_addr = self.bc_->get_data() + self.bc_->calc_data_offset(0);
+        char * data_addr = self.bc_->get_data() + self.bc_->get_data_offset();
         std::vector<intptr_t> const & strides = self.bc_->get_data_strides_vector();
         for(uintptr_t i=0; i<nd; ++i)
         {

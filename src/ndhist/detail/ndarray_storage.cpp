@@ -27,51 +27,87 @@ namespace bn = boost::numpy;
 namespace ndhist {
 namespace detail {
 
-//______________________________________________________________________________
 intptr_t
 ndarray_storage::
-calc_data_offset(size_t sub_item_byte_offset) const
+calc_data_offset(
+    bn::dtype const & dt
+  , std::vector<intptr_t> const & shape
+  , std::vector<intptr_t> const & front_capacity
+  , std::vector<intptr_t> const & back_capacity
+  , intptr_t const sub_item_byte_offset
+)
 {
-    const int nd = shape_.size();
-    intptr_t offset = front_capacity_[nd-1];
+    const int nd = shape.size();
+    intptr_t offset = front_capacity[nd-1];
     intptr_t dim_offsets = 1;
     for(intptr_t i=nd-2; i>=0; --i)
     {
-        dim_offsets *= (front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]);
-        offset += front_capacity_[i]*dim_offsets;
+        dim_offsets *= (front_capacity[i+1] + shape[i+1] + back_capacity[i+1]);
+        offset += front_capacity[i]*dim_offsets;
     }
-    offset *= dt_.get_itemsize();
+    offset *= dt.get_itemsize();
 
     return offset + sub_item_byte_offset;
 }
 
-//______________________________________________________________________________
 void
 ndarray_storage::
-calc_data_strides(std::vector<intptr_t> & strides) const
+calc_data_strides(
+    std::vector<intptr_t> & strides
+  , bn::dtype const & dt
+  , std::vector<intptr_t> const & shape
+  , std::vector<intptr_t> const & front_capacity
+  , std::vector<intptr_t> const & back_capacity
+)
 {
-    size_t const nd = shape_.size();
-    int const itemsize = dt_.get_itemsize();
+    size_t const nd = shape.size();
+    int const itemsize = dt.get_itemsize();
     strides[nd-1] = itemsize;
     for(intptr_t i=nd-2; i>=0; --i)
     {
-        strides[i] = ((front_capacity_[i+1] + shape_[i+1] + back_capacity_[i+1]) * strides[i+1]/itemsize)*itemsize;
+        strides[i] = ((front_capacity[i+1] + shape[i+1] + back_capacity[i+1]) * strides[i+1]/itemsize)*itemsize;
     }
 }
+
+bn::ndarray
+ndarray_storage::
+construct_ndarray(
+    ndarray_storage const & storage
+  , bn::dtype const & dt
+  , std::vector<intptr_t> const & shape
+  , std::vector<intptr_t> const & front_capacity
+  , std::vector<intptr_t> const & back_capacity
+  , intptr_t const sub_item_byte_offset
+  , bp::object const * data_owner
+)
+{
+    intptr_t const data_offset = calc_data_offset(dt, shape, front_capacity, back_capacity, sub_item_byte_offset);
+
+    std::vector<intptr_t> strides(shape.size());
+    calc_data_strides(strides, dt, shape, front_capacity, back_capacity);
+
+    return bn::from_data(storage.bytearray_->data_ + data_offset, dt, shape, strides, data_owner);
+}
+
 
 //______________________________________________________________________________
 bn::ndarray
 ndarray_storage::
-construct_ndarray(bn::dtype const & dt, size_t field_idx, bp::object const * data_owner)
+construct_ndarray(
+    bn::dtype const & dt
+  , size_t const field_idx
+  , bp::object const * data_owner
+)
 {
-    //std::cout << "ConstructNDArray for field_idx "<< field_idx << std::endl;
-    size_t sub_item_byte_offset = 0;
+    intptr_t sub_item_byte_offset = 0;
     if(field_idx > 0)
     {
         sub_item_byte_offset = dt_.get_fields_byte_offsets()[field_idx];
     }
-    //std::cout << "sub_item_byte_offset = "<<sub_item_byte_offset<<std::endl;
-    return bn::from_data(bytearray_->data_ + calc_data_offset(sub_item_byte_offset), dt, shape_, get_data_strides_vector(), data_owner);
+
+    intptr_t const data_offset = calc_data_offset(dt_, shape_, front_capacity_, back_capacity_, sub_item_byte_offset);
+
+    return bn::from_data(bytearray_->data_ + data_offset, dt, shape_, data_strides_, data_owner);
 }
 
 //______________________________________________________________________________
@@ -223,8 +259,11 @@ extend_axes(
         bytearray_ = new_bytearray;
     }
 
+    // Recalculate the data offset for the first sub item.
+    data_offset_ = calc_data_offset(dt_, shape_, front_capacity_, back_capacity_, 0);
+
     // Recalculate the data strides.
-    calc_data_strides(data_strides_);
+    calc_data_strides(data_strides_, dt_, shape_, front_capacity_, back_capacity_);
 }
 
 void

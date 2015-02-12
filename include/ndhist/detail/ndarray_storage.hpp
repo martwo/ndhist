@@ -43,6 +43,52 @@ class ndarray_storage
 {
   public:
     /**
+     * @brief Calculates the offset of the data pointer needed for a ndarray
+     *     wrapping a ndarray storage. If given, the sub_item_byte_offset is
+     *     added to the address.
+     */
+    static
+    intptr_t
+    calc_data_offset(
+        bn::dtype const & dt
+      , std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
+      , intptr_t const sub_item_byte_offset=0
+    );
+
+    /**
+     * @brief Calculates the data strides based on the given dtype object, the
+     *     given shape, front and back capacities.
+     */
+    static
+    void
+    calc_data_strides(
+        std::vector<intptr_t> & strides
+      , bn::dtype const & dt
+      , std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
+    );
+
+    /**
+     * @brief Constructs a ndarray wrapping the data contained in the given
+     *     ndarray_storage object using the specified data type, shape, front
+     *     and back capacities, and an optional sub item byte offset.
+     */
+    static
+    bn::ndarray
+    construct_ndarray(
+        ndarray_storage const & storage
+      , bn::dtype const & dt
+      , std::vector<intptr_t> const & shape
+      , std::vector<intptr_t> const & front_capacity
+      , std::vector<intptr_t> const & back_capacity
+      , intptr_t const sub_item_byte_offset = 0
+      , bp::object const * data_owner = NULL
+    );
+
+    /**
      * @brief Constructs a new ndarray_storage with new allocated data with the
      *     specified shape and data type.
      */
@@ -56,10 +102,11 @@ class ndarray_storage
       , front_capacity_(front_capacity)
       , back_capacity_(back_capacity)
       , dt_(dt)
+      , data_offset_(calc_data_offset(dt_, shape_, front_capacity_, back_capacity_, 0))
       , bytearray_(create_bytearray(shape_, front_capacity_, back_capacity_, dt_.get_itemsize()))
     {
         data_strides_.resize(shape_.size());
-        calc_data_strides(data_strides_);
+        calc_data_strides(data_strides_, dt_, shape_, front_capacity_, back_capacity_);
     }
 
     /**
@@ -79,6 +126,7 @@ class ndarray_storage
       , front_capacity_(front_capacity)
       , back_capacity_(back_capacity)
       , dt_(dt)
+      , data_offset_(calc_data_offset(dt_, shape_, front_capacity_, back_capacity_, 0))
       , bytearray_(parent->bytearray_)
       , bytearray_owner_(parent->bytearray_owner_.get() == NULL ? parent : parent->bytearray_owner_)
     {
@@ -123,21 +171,10 @@ class ndarray_storage
         }
 
         data_strides_.resize(shape_.size());
-        calc_data_strides(data_strides_);
+        calc_data_strides(data_strides_, dt_, shape_, front_capacity_, back_capacity_);
     }
 
     size_t get_nd() const { return shape_.size(); }
-
-    /** Calculates the offset of the data pointer needed for a ndarray wrapping
-     *  this ndarray storage. If given, the sub_item_byte_offset is added to
-     *  the address.
-     */
-    intptr_t calc_data_offset(size_t sub_item_byte_offset=0) const;
-
-    /** Calculates the data strides for the dtype object of this ndarray
-     *  storage.
-     */
-    void calc_data_strides(std::vector<intptr_t> & stides) const;
 
     /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
      *  with the correct layout, i.e. offset and strides. If the field_idx
@@ -178,6 +215,13 @@ class ndarray_storage
     get_dtype() const
     {
         return dt_;
+    }
+
+    inline
+    intptr_t
+    get_data_offset() const
+    {
+        return data_offset_;
     }
 
     /**
@@ -253,6 +297,11 @@ class ndarray_storage
      *  by the dt_ dtype object.
      */
     std::vector<intptr_t> data_strides_;
+
+    /** The data address offset for the first sub item of the structured data
+     *  type using the set shape, front and back capacities.
+     */
+    intptr_t data_offset_;
 
     /** The shared pointer to the bytearray, that might be shared between
      *  different ndarray_storage objects.

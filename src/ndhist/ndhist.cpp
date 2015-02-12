@@ -578,11 +578,13 @@ ndhist(
         shape[i] = axis->get_n_bins();
 
         // Set the extra front and back capacity for this axis if the axis is
-        // extendable.
+        // extendable. The +1 is for the under- or overflow bin, which will be
+        // always zero but important to have when making a view to the under-
+        // and overflow bin arrays.
         if(axis->is_extendable())
         {
-            axes_extension_max_fcap_vec_[i] = axis->get_extension_max_fcap();
-            axes_extension_max_bcap_vec_[i] = axis->get_extension_max_bcap();
+            axes_extension_max_fcap_vec_[i] = axis->get_extension_max_fcap() + 1;
+            axes_extension_max_bcap_vec_[i] = axis->get_extension_max_bcap() + 1;
         }
         else
         {
@@ -657,8 +659,7 @@ ndhist(
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
-        bp::object owner;
-        bn::ndarray bc_arr = bc_->construct_ndarray(bc_->get_dtype(), 0, &owner);
+        bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_->get_dtype());
         bn::iterators::flat_iterator< detail::bin_iter_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         while(! bc_iter.is_end())
         {
@@ -1277,14 +1278,56 @@ extend_bin_content_array(
     if(! bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
         return;
 
-    bp::object owner;
-    bn::ndarray bc_sow_arr  = bc_->construct_ndarray(bc_weight_dt_, 1, &owner);
-    bn::ndarray bc_sows_arr = bc_->construct_ndarray(bc_weight_dt_, 2, &owner);
+    std::vector<intptr_t> f_n_extra_bins = f_n_extra_bins_vec;
+    std::vector<intptr_t> b_n_extra_bins = b_n_extra_bins_vec;
+
+    bn::ndarray bc_sow_arr  = construct_complete_bin_content_ndarray(bc_weight_dt_, 1);
+    bn::ndarray bc_sows_arr = construct_complete_bin_content_ndarray(bc_weight_dt_, 2);
     for(uintptr_t axis=0; axis<nd_; ++axis)
     {
-        initialize_extended_array_axis(bc_sow_arr,  bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
-        initialize_extended_array_axis(bc_sows_arr, bc_class_, axis, f_n_extra_bins_vec[axis], b_n_extra_bins_vec[axis]);
+        // In case the axis is extendable we also need to initialize the shifted
+        // virtual under and overflow bin.
+        if(axes_[axis]->is_extendable())
+        {
+            if(f_n_extra_bins[axis] > 0) { f_n_extra_bins[axis] += 1; }
+            if(b_n_extra_bins[axis] > 0) { b_n_extra_bins[axis] += 1; }
+        }
+        initialize_extended_array_axis(bc_sow_arr,  bc_class_, axis, f_n_extra_bins[axis], b_n_extra_bins[axis]);
+        initialize_extended_array_axis(bc_sows_arr, bc_class_, axis, f_n_extra_bins[axis], b_n_extra_bins[axis]);
     }
+}
+
+bn::ndarray
+ndhist::
+construct_complete_bin_content_ndarray(
+    bn::dtype const & dt
+  , size_t const field_idx
+) const
+{
+    std::vector<intptr_t> shape = bc_->get_shape_vector();
+    std::vector<intptr_t> front_capacity = bc_->get_front_capacity_vector();
+    std::vector<intptr_t> back_capacity = bc_->get_back_capacity_vector();
+    // Add the under- and overflow bins of the extendable axes to the shape, and
+    // remove them from the front- and back capacities, in order to calculate
+    // the data offset and strides correctly.
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        if(axes_[i]->is_extendable())
+        {
+            shape[i] += 2;
+            front_capacity[i] -= 1;
+            back_capacity[i] -= 1;
+        }
+    }
+
+    intptr_t sub_item_byte_offset = 0;
+    if(field_idx > 0)
+    {
+        sub_item_byte_offset = bc_->get_dtype().get_fields_byte_offsets()[field_idx];
+    }
+
+    bp::object owner;
+    return detail::ndarray_storage::construct_ndarray(*bc_, dt, shape, front_capacity, back_capacity, sub_item_byte_offset, &owner);
 }
 
 }//namespace ndhist

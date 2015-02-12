@@ -340,6 +340,17 @@ class ndhist
       , intptr_t b_n_extra_bins
     );
 
+  protected:
+    /**
+     * @brief Constructs a ndarray that is a view into the bin content bytearray
+     *     that includes the under- and overflow bins for extendable axes.
+     */
+    bn::ndarray
+    construct_complete_bin_content_ndarray(
+        bn::dtype const & dt
+      , size_t const field_idx=0
+    ) const;
+
   private:
     ndhist()
       : nd_(0)
@@ -571,7 +582,7 @@ struct specific_nd_traits<ND>
             bool reallocation_upon_extension = false;
             bool value_cached;
             ::ndhist::axis::out_of_range_t oor_flag;
-            intptr_t bc_data_offset = self.bc_->calc_data_offset(0);
+            intptr_t bc_data_offset = self.bc_->get_data_offset();
             char * bc_data_addr;
             do {
                 intptr_t size = iter.get_inner_loop_size();
@@ -680,7 +691,7 @@ struct specific_nd_traits<ND>
                                 //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                                bc_data_offset = self.bc_->calc_data_offset(0);
+                                bc_data_offset = self.bc_->get_data_offset();
 
                                 flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
 
@@ -696,7 +707,7 @@ struct specific_nd_traits<ND>
                             //std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            bc_data_offset = self.bc_->calc_data_offset(0);
+                            bc_data_offset = self.bc_->get_data_offset();
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
 
@@ -727,7 +738,7 @@ struct specific_nd_traits<ND>
             {
                 self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                bc_data_offset = self.bc_->calc_data_offset(0);
+                bc_data_offset = self.bc_->get_data_offset();
 
                 flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
             }
