@@ -79,6 +79,7 @@ construct_ndarray(
   , std::vector<intptr_t> const & back_capacity
   , intptr_t const sub_item_byte_offset
   , bp::object const * data_owner
+  , bool set_owndata_flag
 )
 {
     intptr_t const data_offset = calc_data_offset(dt, shape, front_capacity, back_capacity, sub_item_byte_offset);
@@ -86,9 +87,8 @@ construct_ndarray(
     std::vector<intptr_t> strides(shape.size());
     calc_data_strides(strides, dt, shape, front_capacity, back_capacity);
 
-    return bn::from_data(storage.bytearray_->data_ + data_offset, dt, shape, strides, data_owner);
+    return bn::from_data(storage.bytearray_->data_ + data_offset, dt, shape, strides, data_owner, set_owndata_flag);
 }
-
 
 //______________________________________________________________________________
 bn::ndarray

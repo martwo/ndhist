@@ -86,6 +86,7 @@ class ndarray_storage
       , std::vector<intptr_t> const & back_capacity
       , intptr_t const sub_item_byte_offset = 0
       , bp::object const * data_owner = NULL
+      , bool set_owndata_flag = true
     );
 
     /**

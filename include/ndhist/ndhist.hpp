@@ -219,21 +219,23 @@ class ndhist
 //     bp::tuple
 //     py_get_overflow_entries() const;
 
-//     /**
-//      * @brief Creates a tuple of length *nd* where each element is a
-//      *        *nd*-dimensional ndarray holding the underflow (sum of weights)
-//      *        bins for the
-//      *        particular axis, where the index of the tuple element specifies
-//      *        the axis. The dimension of the particular axis is collapsed to
-//      *        one and the lengths of the other dimensions is extended by two.
-//      *        Example: For (3,2) shaped two-dimensional histogram, there will
-//      *                 be two tuple elements with a two-dimensional ndarray
-//      *                 each. The shape of the first array (i.e. for the first
-//      *                 axis) will be (1,4) and the shape of the second array
-//      *                 will be (5,1).
-//      */
-//     bp::tuple
-//     py_get_underflow() const;
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the underflow (sum of weights)
+     *        bins for the particular axis, where the index of the tuple element
+     *        specifies the axis.
+     *        The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     *        Each ndarray is an actual view into the internal bin content array
+     *        of the histogram.
+     *        Example: For (3,2) shaped two-dimensional histogram, there will
+     *                 be two tuple elements with a two-dimensional ndarray
+     *                 each. The shape of the first array (i.e. for the first
+     *                 axis) will be (1,4) and the shape of the second array
+     *                 will be (5,1).
+     */
+    bp::tuple
+    py_get_underflow() const;
 
 //     /**
 //      * @brief Creates a tuple of length *nd* where each element is a
@@ -340,10 +342,12 @@ class ndhist
       , intptr_t b_n_extra_bins
     );
 
-  protected:
     /**
-     * @brief Constructs a ndarray that is a view into the bin content bytearray
-     *     that includes the under- and overflow bins for extendable axes.
+     * @brief Constructs a ndarray object that is a view into the bin content
+     *     bytearray that includes the under- and overflow bins for extendable
+     *     axes.
+     * @note The returned ndarray object has no base object set, but also does
+     *     not have the OWNDATA flag set.
      */
     bn::ndarray
     construct_complete_bin_content_ndarray(
