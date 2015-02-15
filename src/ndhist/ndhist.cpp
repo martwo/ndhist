@@ -108,9 +108,8 @@ struct iadd_fct_traits
                 >
                 multi_iter_t;
 
-        bp::object data_owner;
-        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, &data_owner);
-        bn::ndarray other_bc_arr = other.bc_->construct_ndarray(other.bc_->get_dtype(), 0, &data_owner);
+        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray other_bc_arr = other.bc_->construct_ndarray(other.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         multi_iter_t bc_it(
             self_bc_arr
           , other_bc_arr
@@ -143,8 +142,7 @@ struct idiv_fct_traits
                 >
                 multi_iter_t;
 
-        bp::object data_owner;
-        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, &data_owner);
+        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         multi_iter_t bc_it(
             self_bc_arr
           , const_cast<bn::ndarray &>(value_arr)
@@ -177,8 +175,7 @@ struct imul_fct_traits
                 >
                 multi_iter_t;
 
-        bp::object data_owner;
-        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, &data_owner);
+        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         multi_iter_t bc_it(
             self_bc_arr
           , const_cast<bn::ndarray &>(value_arr)
@@ -647,7 +644,7 @@ ndhist(
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
 
-    //get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
+    get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
 
     // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
@@ -664,6 +661,26 @@ ndhist(
             *bin.sow_obj_ptr_  = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sow_obj.ptr()));
             *bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sows_obj.ptr()));
 
+            ++bc_iter;
+        }
+    }
+}
+
+ndhist::
+~ndhist()
+{
+    // If the bin content array is an object array, we need to decref the
+    // objects we have created (and incref'ed) at construction time.
+    if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
+    {
+        bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_->get_dtype());
+        bn::iterators::flat_iterator< detail::bin_iter_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
+        while(! bc_iter.is_end())
+        {
+            detail::bin_iter_value_type_traits<bp::object>::value_ref_type bin = *bc_iter;
+
+            bp::decref<PyObject>(reinterpret_cast<PyObject*>(*bin.sow_obj_ptr_));
+            bp::decref<PyObject>(reinterpret_cast<PyObject*>(*bin.sows_obj_ptr_));
             ++bc_iter;
         }
     }
@@ -900,21 +917,51 @@ bn::ndarray
 ndhist::
 py_get_noe_ndarray()
 {
-    return bc_->construct_ndarray(bc_noe_dt_, 0);
+    // The core part of the bin content array excludes the under- and
+    // overflow bins. So we need to create an appropriate view into the bin
+    // content array.
+    std::vector<intptr_t> shape;
+    std::vector<intptr_t> front_capacity;
+    std::vector<intptr_t> back_capacity;
+    calc_core_bin_content_ndarray_settings(shape, front_capacity, back_capacity);
+
+    intptr_t const sub_item_byte_offset = 0;
+
+    return detail::ndarray_storage::construct_ndarray(*bc_, bc_noe_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
 }
 
 bn::ndarray
 ndhist::
 py_get_sow_ndarray()
 {
-    return bc_->construct_ndarray(bc_weight_dt_, 1);
+    // The core part of the bin content array excludes the under- and
+    // overflow bins. So we need to create an appropriate view into the bin
+    // content array.
+    std::vector<intptr_t> shape;
+    std::vector<intptr_t> front_capacity;
+    std::vector<intptr_t> back_capacity;
+    calc_core_bin_content_ndarray_settings(shape, front_capacity, back_capacity);
+
+    intptr_t const sub_item_byte_offset = bc_->get_dtype().get_fields_byte_offsets()[1];
+
+    return detail::ndarray_storage::construct_ndarray(*bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
 }
 
 bn::ndarray
 ndhist::
 py_get_sows_ndarray()
 {
-    return bc_->construct_ndarray(bc_weight_dt_, 2);
+    // The core part of the bin content array excludes the under- and
+    // overflow bins. So we need to create an appropriate view into the bin
+    // content array.
+    std::vector<intptr_t> shape;
+    std::vector<intptr_t> front_capacity;
+    std::vector<intptr_t> back_capacity;
+    calc_core_bin_content_ndarray_settings(shape, front_capacity, back_capacity);
+
+    intptr_t const sub_item_byte_offset = bc_->get_dtype().get_fields_byte_offsets()[2];
+
+    return detail::ndarray_storage::construct_ndarray(*bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
 }
 
 bp::tuple
@@ -930,39 +977,93 @@ py_get_labels() const
     return labels_tuple;
 }
 
-// bp::tuple
-// ndhist::
-// py_get_underflow_entries() const
-// {
-//     std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_UNDERFLOW, 0);
-//
-//     bp::list underflow_list;
-//     for(size_t i=0; i<array_vec.size(); ++i)
-//     {
-//         underflow_list.append(array_vec[i]);
-//     }
-//     bp::tuple underflow(underflow_list);
-//     return underflow;
-// }
+bp::tuple
+ndhist::
+py_get_underflow_entries() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 0);
 
-// bp::tuple
-// ndhist::
-// py_get_overflow_entries() const
-// {
-//     std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_OVERFLOW, 0);
-//
-//     bp::list overflow_list;
-//     for(size_t i=0; i<array_vec.size(); ++i)
-//     {
-//         overflow_list.append(array_vec[i]);
-//     }
-//     bp::tuple overflow(overflow_list);
-//     return overflow;
-// }
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        // TODO: Right now we use the copy method to make the copy. But we
+        //       should use deepcopy (which still needs to be implemented in
+        //       BoostNumpy) to also copy the objects in an object array.
+        underflow_list.append(array_vec[i].copy());
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_underflow_entries_view() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 0);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        underflow_list.append(array_vec[i]);
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow_entries() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 0);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        // TODO: Right now we use the copy method to make the copy. But we
+        //       should use deepcopy (which still needs to be implemented in
+        //       BoostNumpy) to also copy the objects in an object array.
+        overflow_list.append(array_vec[i].copy());
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow_entries_view() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 0);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        overflow_list.append(array_vec[i]);
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
 
 bp::tuple
 ndhist::
 py_get_underflow() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 1);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        // TODO: Right now we use the copy method to make the copy. But we
+        //       should use deepcopy (which still needs to be implemented in
+        //       BoostNumpy) to also copy the objects in an object array.
+        underflow_list.append(array_vec[i].copy());
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_underflow_view() const
 {
     std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 1);
 
@@ -975,50 +1076,104 @@ py_get_underflow() const
     return underflow;
 }
 
-// bp::tuple
-// ndhist::
-// py_get_overflow() const
-// {
-//     std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_OVERFLOW, 1);
-//
-//     bp::list overflow_list;
-//     for(size_t i=0; i<array_vec.size(); ++i)
-//     {
-//         overflow_list.append(array_vec[i]);
-//     }
-//     bp::tuple overflow(overflow_list);
-//     return overflow;
-// }
+bp::tuple
+ndhist::
+py_get_overflow() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 1);
 
-// bp::tuple
-// ndhist::
-// py_get_underflow_squaredweights() const
-// {
-//     std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_UNDERFLOW, 2);
-//
-//     bp::list underflow_list;
-//     for(size_t i=0; i<array_vec.size(); ++i)
-//     {
-//         underflow_list.append(array_vec[i]);
-//     }
-//     bp::tuple underflow(underflow_list);
-//     return underflow;
-// }
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        // TODO: Right now we use the copy method to make the copy. But we
+        //       should use deepcopy (which still needs to be implemented in
+        //       BoostNumpy) to also copy the objects in an object array.
+        overflow_list.append(array_vec[i].copy());
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
 
-// bp::tuple
-// ndhist::
-// py_get_overflow_squaredweights() const
-// {
-//     std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, detail::axis::OOR_OVERFLOW, 2);
-//
-//     bp::list overflow_list;
-//     for(size_t i=0; i<array_vec.size(); ++i)
-//     {
-//         overflow_list.append(array_vec[i]);
-//     }
-//     bp::tuple overflow(overflow_list);
-//     return overflow;
-// }
+bp::tuple
+ndhist::
+py_get_overflow_view() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 1);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        overflow_list.append(array_vec[i]);
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
+
+bp::tuple
+ndhist::
+py_get_underflow_squaredweights() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 2);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        // TODO: Right now we use the copy method to make the copy. But we
+        //       should use deepcopy (which still needs to be implemented in
+        //       BoostNumpy) to also copy the objects in an object array.
+        underflow_list.append(array_vec[i].copy());
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_underflow_squaredweights_view() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 2);
+
+    bp::list underflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        underflow_list.append(array_vec[i]);
+    }
+    bp::tuple underflow(underflow_list);
+    return underflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow_squaredweights() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 2);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        // TODO: Right now we use the copy method to make the copy. But we
+        //       should use deepcopy (which still needs to be implemented in
+        //       BoostNumpy) to also copy the objects in an object array.
+        overflow_list.append(array_vec[i].copy());
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
+
+bp::tuple
+ndhist::
+py_get_overflow_squaredweights_view() const
+{
+    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 2);
+
+    bp::list overflow_list;
+    for(size_t i=0; i<array_vec.size(); ++i)
+    {
+        overflow_list.append(array_vec[i]);
+    }
+    bp::tuple overflow(overflow_list);
+    return overflow;
+}
 
 bn::ndarray
 ndhist::
@@ -1251,7 +1406,8 @@ extend_axes(
     for(uintptr_t i=0; i<nd_; ++i)
     {
         Axis & axis = *this->axes_[i];
-        if(axis.is_extendable()) {
+        if(axis.is_extendable())
+        {
             axis.extend(f_n_extra_bins_vec[i], b_n_extra_bins_vec[i]);
         }
     }
@@ -1314,11 +1470,7 @@ construct_complete_bin_content_ndarray(
         }
     }
 
-    intptr_t sub_item_byte_offset = 0;
-    if(field_idx > 0)
-    {
-        sub_item_byte_offset = bc_->get_dtype().get_fields_byte_offsets()[field_idx];
-    }
+    intptr_t const sub_item_byte_offset = (field_idx == 0 ? 0 : bc_->get_dtype().get_fields_byte_offsets()[field_idx]);
 
     return detail::ndarray_storage::construct_ndarray(*bc_, dt, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
 }

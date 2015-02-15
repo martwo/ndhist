@@ -1,6 +1,10 @@
-- Reserve under- and overflow bins within the bin content array also for axes,
-  which are extendable (i.e. with value zero). So an actual view to the
-  underflow and overflow ndarrays can be made.
+- If the bin content array is an object array, the underflow and overflow
+  properties of ndhist need to make a deepcopy of the ndarray, so that the
+  objects are also copied. The deepcopy functionality should most probably be
+  part of BoostNumpy as a deepcopy method of the ndarray class.
+
+- Overload the arithmetic operators of the ndhist class for all possible weight
+  types.
 
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,

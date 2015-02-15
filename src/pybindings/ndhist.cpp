@@ -72,45 +72,94 @@ void register_ndhist()
             , bn::ndarray_accessor_return())
             , "The ndarray holding the sum of weights for each bin.")
 
-//         //----------------------------------------------------------------------
-//         // Out-of-range properties.
-//         .add_property("underflow_entries", &ndhist::py_get_underflow_entries
-//             , "The underflow (number of entries) bins for each dimension analog   \n"
-//               "to the ``underflow`` property.                                     \n"
-//               "See the documentation of the ``underflow`` property for more details.")
-//         .add_property("overflow_entries", &ndhist::py_get_overflow_entries
-//             , "The overflow (number of entries) bins for each dimension analog    \n"
-//               "to the ``underflow`` property.                                     \n"
-//               "See the documentation of the ``underflow`` property for more details.")
-        .add_property("underflow", bp::make_function(
-                 &ndhist::py_get_underflow
-              ,  bn::ndarray_accessor_tuple_return())
+        //----------------------------------------------------------------------
+        // Underflow and overflow properties.
+        .add_property("underflow_entries"
+            , &ndhist::py_get_underflow_entries
+            , "The underflow (number of entries) bins for each dimension analog   \n"
+              "to the ``underflow`` property.                                     \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("underflow_entries_view"
+            , bp::make_function(
+                  &ndhist::py_get_underflow_entries_view
+                , bn::ndarray_accessor_tuple_return()
+              )
+            , "Same as underflow_entries but the returned ndarrays are actual     \n"
+              "views into the histogram's bin content array.")
+        .add_property("overflow_entries"
+            , &ndhist::py_get_overflow_entries
+            , "The overflow (number of entries) bins for each dimension analog    \n"
+              "to the ``underflow`` property.                                     \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("overflow_entries_view"
+            , bp::make_function(
+                  &ndhist::py_get_overflow_entries_view
+                , bn::ndarray_accessor_tuple_return()
+              )
+            , "Same as overflow_entries but the returned ndarrays are actual      \n"
+              "views into the histogram's bin content array.")
+        .add_property("underflow"
+            , &ndhist::py_get_underflow
             , "A tuple of length *ndim* where each element is a *ndim*-dimensional\n"
               "ndarray holding the underflow (sum of weights) bins for the        \n"
               "particular axis, where the index of the tuple element specifies    \n"
               "the axis. The dimension of the particular axis is collapsed to     \n"
               "one and the lengths of the other dimensions are extended by two.   \n"
-              "Each ndarray is an actual view into the internal bin content array \n"
-              "of the histogram.                                                  \n"
+              "Each returned ndarray holds copies of the histogram bins.          \n"
               "                                                                   \n"
               "Example: For (3,2) shaped two-dimensional histogram, there will    \n"
               "         be two tuple elements with a two-dimensional ndarray      \n"
               "         each. The shape of the first array (i.e. for the first    \n"
               "         axis) will be (1,4) and the shape of the second array     \n"
               "         will be (5,1).")
-//         .add_property("overflow", &ndhist::py_get_overflow
-//             , "The overflow (sum-of-weights) bins for each dimension analog to the\n"
-//               "``underflow`` property.                                            \n"
-//               "See the documentation of the ``underflow`` property for more details.")
-//         .add_property("underflow_squaredweights", &ndhist::py_get_underflow_squaredweights
-//             , "The underflow (sum-of-weights-squared) bins for each dimension     \n"
-//               "analog to the ``underflow`` property.                              \n"
-//               "See the documentation of the ``underflow`` property for more details.")
-//         .add_property("overflow_squaredweights", &ndhist::py_get_overflow_squaredweights
-//             , "The overflow (sum-of-weights-squared) bins for each dimension      \n"
-//               "analog to the ``underflow`` property.                              \n"
-//               "See the documentation of the ``underflow`` property for more details.")
-
+        .add_property("underflow_view"
+            , bp::make_function(
+                  &ndhist::py_get_underflow_view
+                , bn::ndarray_accessor_tuple_return()
+              )
+            , "See the documentation of the ``underflow`` property.               \n"
+              "But each returned ndarray is an actual view into the internal bin  \n"
+              "content array of the histogram.")
+        .add_property("overflow"
+            , &ndhist::py_get_overflow
+            , "The overflow (sum-of-weights) bins for each dimension analog to the\n"
+              "``underflow`` property.                                            \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("overflow_view"
+            , bp::make_function(
+                  &ndhist::py_get_overflow_view
+                , bn::ndarray_accessor_tuple_return()
+              )
+            , "See the documentation of the ``overflow`` property.                \n"
+              "But each returned ndarray is an actual view into the internal bin  \n"
+              "content array of the histogram.")
+        .add_property("underflow_squaredweights"
+            , &ndhist::py_get_underflow_squaredweights
+            , "The underflow (sum-of-weights-squared) bins for each dimension     \n"
+              "analog to the ``underflow`` property.                              \n"
+              "See the documentation of the ``underflow`` property for more details.")
+        .add_property("underflow_squaredweights_view"
+            , bp::make_function(
+                  &ndhist::py_get_underflow_squaredweights_view
+                , bn::ndarray_accessor_tuple_return()
+              )
+            , "Same as the underflow_squaredweights property, but the returned    \n"
+              "ndarrays are actual views into the bin content array of the        \n"
+              "histogram.")
+        .add_property("overflow_squaredweights"
+            , &ndhist::py_get_overflow_squaredweights
+            , "The overflow (sum-of-weights-squared) bins for each dimension      \n"
+              "analog to the ``underflow_squaredweights`` property.               \n"
+              "See the documentation of the ``underflow_squaredweights`` property \n"
+              "for more details.")
+        .add_property("overflow_squaredweights_view"
+            , bp::make_function(
+                  &ndhist::py_get_overflow_squaredweights_view
+                , bn::ndarray_accessor_tuple_return()
+              )
+            , "Same as the overflow_squaredweights property, but the returned     \n"
+              "ndarrays are actual views into the bin content array of the        \n"
+              "histogram.")
 
         .add_property("ndvalues_dtype", &ndhist::get_ndvalues_dtype
             , "The dtype object describing the ndvalues array needed for "
@@ -155,14 +204,14 @@ void register_ndhist()
 //             , (bp::arg("self"), bp::arg("index"))
 //             , "Creates a new ndhist object with only the axes (and their        \n"
 //               "elements) defined by the given index.")
-//
-//         // Arithmetic operator overloads.
-//         .def(bp::self += bp::self)
-//         .def(bp::self + bp::self)
-//         .def(bp::self *= double())
-//         .def(bp::self * double())
-//         .def(bp::self /= double())
-//         .def(bp::self / double())
+
+         // Arithmetic operator overloads.
+         .def(bp::self += bp::self)
+         .def(bp::self + bp::self)
+         .def(bp::self *= double())
+         .def(bp::self * double())
+         .def(bp::self /= double())
+         .def(bp::self / double())
     ;
 }
 

@@ -70,7 +70,8 @@ class ndhist
       , bp::object const & bc_class = bp::object()
     );
 
-    virtual ~ndhist() {}
+    virtual
+    ~ndhist();
 
     // Operator overloads.
     /**
@@ -201,23 +202,39 @@ class ndhist
     bp::tuple
     py_get_labels() const;
 
-//     /**
-//      * @brief Creates a tuple of length *nd* where each element is a
-//      *        *nd*-dimensional ndarray holding the underflow (number of entries)
-//      *        bins for the
-//      *        particular axis, where the index of the tuple element specifies
-//      *        the axis. The dimension of the particular axis is collapsed to
-//      *        one and the lengths of the other dimensions is extended by two.
-//      */
-//     bp::tuple
-//     py_get_underflow_entries() const;
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the underflow (number of entries)
+     *        bins for the particular axis, where the index of the tuple element
+     *        specifies the axis.
+     *        The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     *        Each element of the returned ndarray is a copy of the histogram's
+     *        bin.
+     */
+    bp::tuple
+    py_get_underflow_entries() const;
 
-//     /**
-//      * @brief Same as ``py_get_underflow_entries`` but for the overflow (number
-//      *        of entries) bins.
-//      */
-//     bp::tuple
-//     py_get_overflow_entries() const;
+    /**
+     * @brief Same as py_get_underflow_entries() but instead each returned
+     *     ndarray is an actual view into the histogram's bin content array.
+     */
+    bp::tuple
+    py_get_underflow_entries_view() const;
+
+    /**
+     * @brief Same as ``py_get_underflow_entries`` but for the overflow (number
+     *        of entries) bins.
+     */
+    bp::tuple
+    py_get_overflow_entries() const;
+
+    /**
+     * @brief Same as ``py_get_underflow_entries_view`` but for the overflow
+     *     (number of entries) bins.
+     */
+    bp::tuple
+    py_get_overflow_entries_view() const;
 
     /**
      * @brief Creates a tuple of length *nd* where each element is a
@@ -226,8 +243,7 @@ class ndhist
      *        specifies the axis.
      *        The dimension of the particular axis is collapsed to
      *        one and the lengths of the other dimensions is extended by two.
-     *        Each ndarray is an actual view into the internal bin content array
-     *        of the histogram.
+     *        Each ndarray holds a copy of the histogram bins.
      *        Example: For (3,2) shaped two-dimensional histogram, there will
      *                 be two tuple elements with a two-dimensional ndarray
      *                 each. The shape of the first array (i.e. for the first
@@ -237,43 +253,77 @@ class ndhist
     bp::tuple
     py_get_underflow() const;
 
-//     /**
-//      * @brief Creates a tuple of length *nd* where each element is a
-//      *        *nd*-dimensional ndarray holding the overflow (sum of weights)
-//      *        bins for the
-//      *        particular axis, where the index of the tuple element specifies
-//      *        the axis. The dimension of the particular axis is collapsed to
-//      *        one and the lengths of the other dimensions is extended by two.
-//      */
-//     bp::tuple
-//     py_get_overflow() const;
+    /**
+     * @brief See the documentation of py_get_underflow().
+     *     But each returned ndarray is an actual view into the internal bin
+     *     content array of the histogram.
+     */
+    bp::tuple
+    py_get_underflow_view() const;
 
-//     /**
-//      * @brief Creates a tuple of length *nd* where each element is a
-//      *        *nd*-dimensional ndarray holding the underflow (sum of weights
-//      *        squared) bins for the particular axis, where the index of the
-//      *        tuple element specifies
-//      *        the axis. The dimension of the particular axis is collapsed to
-//      *        one and the lengths of the other dimensions is extended by two.
-//      */
-//     bp::tuple
-//     py_get_underflow_squaredweights() const;
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the overflow (sum of weights)
+     *        bins for the
+     *        particular axis, where the index of the tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_overflow() const;
 
-//     /**
-//      * @brief Creates a tuple of length *nd* where each element is a
-//      *        *nd*-dimensional ndarray holding the overflow (sum of weights
-//      *        squared) bins for the particular axis, where the index of the
-//      *        tuple element specifies
-//      *        the axis. The dimension of the particular axis is collapsed to
-//      *        one and the lengths of the other dimensions is extended by two.
-//      */
-//     bp::tuple
-//     py_get_overflow_squaredweights() const;
+    /**
+     * @brief See the documentation of py_get_overflow().
+     *     But each returned ndarray is an actual view into the internal bin
+     *     content array of the histogram.
+     */
+    bp::tuple
+    py_get_overflow_view() const;
 
-    /** Fills a given n-dimension value into the histogram's bin content array.
-     *  On the Python side, the *ndvalue* is a numpy object array that might
-     *  hold values of different types. The order of these types must match the
-     *  types of the bin edges of the axes.
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *        *nd*-dimensional ndarray holding the underflow (sum of weights
+     *        squared) bins for the particular axis, where the index of the
+     *        tuple element specifies
+     *        the axis. The dimension of the particular axis is collapsed to
+     *        one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_underflow_squaredweights() const;
+
+    /**
+     * @brief Same as py_get_underflow_squaredweights() but the returned
+     *     ndarrays are actual views into the bin content array of the
+     *     histogram.
+     */
+    bp::tuple
+    py_get_underflow_squaredweights_view() const;
+
+    /**
+     * @brief Creates a tuple of length *nd* where each element is a
+     *     *nd*-dimensional ndarray holding the overflow (sum of weights
+     *     squared) bins for the particular axis, where the index of the
+     *     tuple element specifies
+     *     the axis. The dimension of the particular axis is collapsed to
+     *     one and the lengths of the other dimensions is extended by two.
+     */
+    bp::tuple
+    py_get_overflow_squaredweights() const;
+
+    /**
+     * @brief Same as py_get_overflow_squaredweights() but the returned
+     *     ndarrays are actual views into the bin content array of the
+     *     histogram.
+     */
+    bp::tuple
+    py_get_overflow_squaredweights_view() const;
+
+    /**
+     * @brief Fills a given n-dimension value into the histogram's bin content
+     *     array.
+     *     On the Python side, the *ndvalue* is a numpy object array that might
+     *     hold values of different types. The order of these types must match
+     *     the types of the bin edges of the axes.
      */
     void
     py_fill(bp::object const & ndvalue_obj, bp::object weight_obj);
@@ -363,6 +413,36 @@ class ndhist
       , bc_weight_dt_(bn::dtype::get_builtin<void>())
       , bc_class_(bp::object())
     {};
+  protected:
+    /**
+     * @brief Calculates the shape, front and back capacities needed for a view
+     *     into the bin content array that represents only the core bin content
+     *     array, i.e. excluding the under- and overflow bins.
+     */
+    inline
+    void
+    calc_core_bin_content_ndarray_settings(
+        std::vector<intptr_t> & shape
+      , std::vector<intptr_t> & front_capacity
+      , std::vector<intptr_t> & back_capacity
+    )
+    {
+        shape = bc_->get_shape_vector();
+        front_capacity = bc_->get_front_capacity_vector();
+        back_capacity = bc_->get_back_capacity_vector();
+        for(uintptr_t i=0; i<nd_; ++i)
+        {
+            // Note, that extendable axes have only virtual under- and
+            // overflow bins, that are included in the front and back
+            // capacities.
+            if(! axes_[i]->is_extendable())
+            {
+                shape[i] -= 2;
+                front_capacity[i] += 1;
+                back_capacity[i] += 1;
+            }
+        }
+    }
 
   public:
     /** The number of dimenions of this histogram.

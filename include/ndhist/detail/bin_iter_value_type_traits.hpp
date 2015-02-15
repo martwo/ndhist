@@ -101,7 +101,7 @@ struct bin_iter_value_type_traits<bp::object>
     {
         type_t & vtt = *static_cast<type_t *>(&vtt_base);
 
-        vtt.bin_value_.noe_  = reinterpret_cast<uintptr_t*>(data_ptr);
+        vtt.bin_value_.noe_ = reinterpret_cast<uintptr_t*>(data_ptr);
 
         vtt.bin_value_.sow_obj_ptr_ = reinterpret_cast<uintptr_t*>(data_ptr + vtt.fields_byte_offsets_[1]);
         if(*(vtt.bin_value_.sow_obj_ptr_) == 0) {

@@ -188,6 +188,7 @@ class ndarray_storage
         bn::dtype const &  dt
       , size_t             field_idx = 0
       , bp::object const * data_owner = NULL
+      , bool               set_owndata_flag = true
     );
 
     inline

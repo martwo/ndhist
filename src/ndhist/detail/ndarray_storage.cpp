@@ -69,6 +69,7 @@ calc_data_strides(
     }
 }
 
+// This is the static function.
 bn::ndarray
 ndarray_storage::
 construct_ndarray(
@@ -82,32 +83,28 @@ construct_ndarray(
   , bool set_owndata_flag
 )
 {
-    intptr_t const data_offset = calc_data_offset(dt, shape, front_capacity, back_capacity, sub_item_byte_offset);
+    intptr_t const data_offset = calc_data_offset(storage.get_dtype(), shape, front_capacity, back_capacity, sub_item_byte_offset);
 
     std::vector<intptr_t> strides(shape.size());
-    calc_data_strides(strides, dt, shape, front_capacity, back_capacity);
+    calc_data_strides(strides, storage.get_dtype(), shape, front_capacity, back_capacity);
 
     return bn::from_data(storage.bytearray_->data_ + data_offset, dt, shape, strides, data_owner, set_owndata_flag);
 }
 
 //______________________________________________________________________________
+// This is the method.
 bn::ndarray
 ndarray_storage::
 construct_ndarray(
     bn::dtype const & dt
   , size_t const field_idx
   , bp::object const * data_owner
+  , bool set_owndata_flag
 )
 {
-    intptr_t sub_item_byte_offset = 0;
-    if(field_idx > 0)
-    {
-        sub_item_byte_offset = dt_.get_fields_byte_offsets()[field_idx];
-    }
+    intptr_t const sub_item_byte_offset = (field_idx == 0 ? 0 : dt_.get_fields_byte_offsets()[field_idx]);
 
-    intptr_t const data_offset = calc_data_offset(dt_, shape_, front_capacity_, back_capacity_, sub_item_byte_offset);
-
-    return bn::from_data(bytearray_->data_ + data_offset, dt, shape_, data_strides_, data_owner);
+    return bn::from_data(bytearray_->data_ + data_offset_ + sub_item_byte_offset, dt, shape_, data_strides_, data_owner, set_owndata_flag);
 }
 
 //______________________________________________________________________________
