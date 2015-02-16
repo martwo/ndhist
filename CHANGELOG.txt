@@ -1,3 +1,11 @@
+- Implemented the unit test "oor_bin_copies_test" to actually check if the
+  underflow, etc. properties of ndhist return deep copies.
+
+- If the bin content array is an object array, the underflow, overflow,
+  underflow_squaredweights, and overflow_squaredweights properties of ndhist
+  make a deepcopy (using BoostNumpy's ndarray.deepcopy method) of their returned
+  ndarrays, so that the objects are also copied.
+
 - The properties
       - underflow,
       - overflow,
