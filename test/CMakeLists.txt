@@ -34,4 +34,5 @@ function(add_python_test _NAME _PYSCRIPT)
 
 endfunction(add_python_test)
 
-add_python_test(nbins_test nbins_test.py)
+add_python_test(nbins_test          nbins_test.py)
+add_python_test(oor_bin_copies_test oor_bin_copies_test.py)

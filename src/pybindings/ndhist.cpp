@@ -214,5 +214,5 @@ void register_ndhist()
          .def(bp::self / double())
     ;
 }
-
+ 
 }// namespace ndhist

@@ -986,10 +986,7 @@ py_get_underflow_entries() const
     bp::list underflow_list;
     for(size_t i=0; i<array_vec.size(); ++i)
     {
-        // TODO: Right now we use the copy method to make the copy. But we
-        //       should use deepcopy (which still needs to be implemented in
-        //       BoostNumpy) to also copy the objects in an object array.
-        underflow_list.append(array_vec[i].copy());
+        underflow_list.append(array_vec[i].deepcopy());
     }
     bp::tuple underflow(underflow_list);
     return underflow;
@@ -1019,10 +1016,7 @@ py_get_overflow_entries() const
     bp::list overflow_list;
     for(size_t i=0; i<array_vec.size(); ++i)
     {
-        // TODO: Right now we use the copy method to make the copy. But we
-        //       should use deepcopy (which still needs to be implemented in
-        //       BoostNumpy) to also copy the objects in an object array.
-        overflow_list.append(array_vec[i].copy());
+        overflow_list.append(array_vec[i].deepcopy());
     }
     bp::tuple overflow(overflow_list);
     return overflow;
@@ -1052,10 +1046,7 @@ py_get_underflow() const
     bp::list underflow_list;
     for(size_t i=0; i<array_vec.size(); ++i)
     {
-        // TODO: Right now we use the copy method to make the copy. But we
-        //       should use deepcopy (which still needs to be implemented in
-        //       BoostNumpy) to also copy the objects in an object array.
-        underflow_list.append(array_vec[i].copy());
+        underflow_list.append(array_vec[i].deepcopy());
     }
     bp::tuple underflow(underflow_list);
     return underflow;
@@ -1085,10 +1076,7 @@ py_get_overflow() const
     bp::list overflow_list;
     for(size_t i=0; i<array_vec.size(); ++i)
     {
-        // TODO: Right now we use the copy method to make the copy. But we
-        //       should use deepcopy (which still needs to be implemented in
-        //       BoostNumpy) to also copy the objects in an object array.
-        overflow_list.append(array_vec[i].copy());
+        overflow_list.append(array_vec[i].deepcopy());
     }
     bp::tuple overflow(overflow_list);
     return overflow;
@@ -1118,10 +1106,7 @@ py_get_underflow_squaredweights() const
     bp::list underflow_list;
     for(size_t i=0; i<array_vec.size(); ++i)
     {
-        // TODO: Right now we use the copy method to make the copy. But we
-        //       should use deepcopy (which still needs to be implemented in
-        //       BoostNumpy) to also copy the objects in an object array.
-        underflow_list.append(array_vec[i].copy());
+        underflow_list.append(array_vec[i].deepcopy());
     }
     bp::tuple underflow(underflow_list);
     return underflow;
@@ -1151,10 +1136,7 @@ py_get_overflow_squaredweights() const
     bp::list overflow_list;
     for(size_t i=0; i<array_vec.size(); ++i)
     {
-        // TODO: Right now we use the copy method to make the copy. But we
-        //       should use deepcopy (which still needs to be implemented in
-        //       BoostNumpy) to also copy the objects in an object array.
-        overflow_list.append(array_vec[i].copy());
+        overflow_list.append(array_vec[i].deepcopy());
     }
     bp::tuple overflow(overflow_list);
     return overflow;

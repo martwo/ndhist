@@ -2,7 +2,8 @@ from __future__ import division
 
 import math
 import numpy as np
-from ndhist import core
+
+from ndhist.core import constant_bin_width_axis
 
 def linear(start, stop, width, label='', name='', extend=False, extracap=0):
     """Creates a linear axis with bins in the range [``start``, ``stop``]
@@ -53,7 +54,7 @@ def linear(start, stop, width, label='', name='', extend=False, extracap=0):
         edges = edges_new
 
     print(edges)
-    axis = core.constant_bin_width_axis(edges, label, name, extend, extracap, extracap)
+    axis = constant_bin_width_axis(edges, label, name, extend, extracap, extracap)
     return axis
 
 def linear_bins(start, nbins, width, label='', name='', extend=False, extracap=0):
