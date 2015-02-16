@@ -12,6 +12,8 @@
 #ifndef NDHIST_TYPE_SUPPORT_HPP_INCLUDED
 #define NDHIST_TYPE_SUPPORT_HPP_INCLUDED
 
+#include <boost/preprocessor/seq/pop_back.hpp>
+
 /** Define the list of supported axis value types.
  */
 #ifndef NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES
@@ -29,7 +31,9 @@
     (boost::python::object)
 #endif
 
-/** Define the list of supported weight value types.
+/** Define the list of supported weight value types (including
+ *  boost::python::object).
+ *  Note: The last element MUST BE boost::python::object !!!
  */
 #ifndef NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES
 #define NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES \
@@ -46,5 +50,11 @@
     (double)\
     (boost::python::object)
 #endif
+
+/** Define the list of supported weight value types (excluding
+ *  boost::python::object).
+ */
+#define NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES_WITHOUT_OBJECT \
+    BOOST_PP_SEQ_POP_BACK(NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
 
 #endif // NDHIST_TYPE_SUPPORT_HPP_INCLUDED

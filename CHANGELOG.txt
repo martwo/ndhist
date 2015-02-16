@@ -1,3 +1,6 @@
+- Overloaded the arithmetic operators of the ndhist class for all (excluding
+  boost::python::object) supported weight types.
+
 - Implemented the unit test "oor_bin_copies_test" to actually check if the
   underflow, etc. properties of ndhist return deep copies.
 

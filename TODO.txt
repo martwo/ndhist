@@ -1,5 +1,6 @@
-- Overload the arithmetic operators of the ndhist class for all possible weight
-  types.
+- Implement the arithmetic operation ndhist += scalar which adds an entry to all
+  bins. Possible usecase would be to generate a histogram with a given offset
+  (baseline).
 
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,

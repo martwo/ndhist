@@ -9,6 +9,8 @@
  * (See LICENSE file).
  *
  */
+#include <boost/preprocessor/seq/for_each.hpp>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
 #include <boost/python/operators.hpp>
@@ -18,6 +20,7 @@
 #include <boost/numpy/dstream.hpp>
 #include <boost/numpy/utilities.hpp>
 
+#include <ndhist/type_support.hpp>
 #include <ndhist/ndhist.hpp>
 
 namespace bp = boost::python;
@@ -205,14 +208,17 @@ void register_ndhist()
 //             , "Creates a new ndhist object with only the axes (and their        \n"
 //               "elements) defined by the given index.")
 
-         // Arithmetic operator overloads.
-         .def(bp::self += bp::self)
-         .def(bp::self + bp::self)
-         .def(bp::self *= double())
-         .def(bp::self * double())
-         .def(bp::self /= double())
-         .def(bp::self / double())
+        // Arithmetic operator overloads.
+        .def(bp::self += bp::self)
+        .def(bp::self + bp::self)
+        #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)    \
+            .def(bp::self *= WEIGHT_VALUE_TYPE ())                              \
+            .def(bp::self /= WEIGHT_VALUE_TYPE ())                              \
+            .def(bp::self * WEIGHT_VALUE_TYPE ())                               \
+            .def(bp::self / WEIGHT_VALUE_TYPE ())
+        BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES_WITHOUT_OBJECT)
+        #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
     ;
 }
- 
+
 }// namespace ndhist
