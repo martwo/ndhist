@@ -1,3 +1,6 @@
+- Reimplemented the project method of the ndhist class to handle the new
+  out-of-range bin scheme.
+
 - Overloaded the arithmetic operators of the ndhist class for all (excluding
   boost::python::object) supported weight types.
 
@@ -20,6 +23,13 @@
   extendable axes extend, those out-of-range bins will become core bins. In case
   the user really needs views into the internal bin content array, one should
   use the corrsponding *_view properties, e.g. underflow_view.
+
+- The methods
+      - py_get_noe_ndarray,
+      - py_get_sow_ndarray and
+      - py_get_sows_ndarray
+  return ndarrays that are views into the core (i.e. excluding under- and
+  overflow bins) bin content array of the histogram.
 
 - Reserved (virtual) under- and overflow bins within the front and back
   capacities of the bin content array for extendable axes. So an actual view

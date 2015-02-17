@@ -39,7 +39,7 @@ struct multi_axis_iter
             value_ref_type;
 
     multi_axis_iter(
-        bn::ndarray & arr
+        bn::ndarray const & arr
       , bn::detail::iter_operand_flags_t arr_access_flags = bn::detail::iter_operand::flags::READONLY::value
     )
       : is_end_point_(false)
@@ -128,6 +128,12 @@ struct multi_axis_iter
         return iter_index;
     }
 
+    std::vector<intptr_t> const &
+    get_indices() const
+    {
+        return indices_;
+    }
+
     typename ValueTypeTraits::value_ref_type
     dereference()
     {
@@ -181,6 +187,7 @@ struct multi_axis_iter
     // The subrange of the iterated axes.
     std::vector<intptr_t> iter_axes_range_min_;
     std::vector<intptr_t> iter_axes_range_max_;
+    // The current multi indices of the iteration.
     std::vector<intptr_t> indices_;
     intptr_t last_iter_axis_;
     intptr_t n_iterations_;

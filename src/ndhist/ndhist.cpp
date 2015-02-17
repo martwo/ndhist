@@ -36,12 +36,12 @@
 #include <ndhist/ndhist.hpp>
 #include <ndhist/axis.hpp>
 #include <ndhist/type_support.hpp>
-#include <ndhist/detail/axis_index_iter.hpp>
+//#include <ndhist/detail/axis_index_iter.hpp>
 #include <ndhist/detail/bin_iter_value_type_traits.hpp>
 #include <ndhist/detail/bin_value.hpp>
 #include <ndhist/detail/bin_utils.hpp>
 #include <ndhist/detail/limits.hpp>
-//#include <ndhist/detail/full_multi_axis_index_iter.hpp>
+#include <ndhist/detail/multi_axis_iter.hpp>
 #include <ndhist/detail/utils.hpp>
 
 namespace bp = boost::python;
@@ -194,78 +194,86 @@ struct imul_fct_traits
     }
 };
 
+template <typename WeightValueType>
+struct project_fct_traits
+{
+    static
+    ndhist
+    apply(ndhist const & self, std::set<intptr_t> const & axes)
+    {
+        // Create a ndhist with the dimensions specified by axes.
+        uintptr_t const self_nd = self.get_nd();
+        uintptr_t const proj_nd = axes.size();
 
-// template <typename BCValueType>
-// struct project_fct_traits
-// {
-//     static
-//     ndhist
-//     apply(ndhist const & self, std::set<intptr_t> const & axes)
-//     {
-//         // Create a ndhist with the dimensions specified by axes.
-//         uintptr_t const self_nd = self.get_nd();
-//         uintptr_t const proj_nd = axes.size();
-//
-//         bp::list axis_list;
-//         std::set<intptr_t>::const_iterator axes_it = axes.begin();
-//         std::set<intptr_t>::const_iterator axes_end = axes.end();
-//         for(; axes_it != axes_end; ++axes_it)
-//         {
-//             axis_list.append(self.get_axis_definition(*axes_it));
-//         }
-//         bp::tuple axes_tuple(axis_list);
-//         ndhist proj(axes_tuple, self.bc_weight_dt_, self.bc_class_);
-//
-//         full_multi_axis_index_iter proj_idx_iter(proj.bc_->get_shape_vector());
-//         full_multi_axis_index_iter self_idx_iter(self.bc_->get_shape_vector());
-//
-//         // Iterate over *all* the bins (including OOR bins) of the projection.
-//         std::vector<intptr_t> proj_fixed_axes_indices(proj_nd, axis::FLAGS_FLOATING_INDEX);
-//         std::vector<intptr_t> self_fixed_axes_indices(self_nd, axis::FLAGS_FLOATING_INDEX);
-//         bin_value<BCValueType> proj_bin;
-//         bin_value<BCValueType> self_bin;
-//         proj_idx_iter.init_iteration(proj_fixed_axes_indices);
-//         while(! proj_idx_iter.is_end())
-//         {
-//             std::vector<intptr_t> const & proj_indices = proj_idx_iter.get_indices();
-//
-//             // Get the proj bin.
-//             bin_utils<BCValueType>::get_bin_by_indices(proj, proj_bin, proj_indices);
-//
-//             // Iterate over all the axes of self which are not fixed through the
-//             // current projection indices.
-//             axes_it = axes.begin();
-//             for(uintptr_t i=0; axes_it != axes_end; ++axes_it, ++i)
-//             {
-//                 self_fixed_axes_indices[*axes_it] = proj_indices[i];
-//             }
-//
-//             self_idx_iter.init_iteration(self_fixed_axes_indices);
-//             while(! self_idx_iter.is_end())
-//             {
-//                 std::vector<intptr_t> const & self_indices = self_idx_iter.get_indices();
-//                 // Get the self bin.
-//                 if(self_idx_iter.is_oor_bin()) {
-//                     get_oor_bin(self, self_bin, self_idx_iter.get_oor_array_index(), self_indices);
-//                 }
-//                 else {
-//                     get_noor_bin(self, self_bin, self_indices);
-//                 }
-//
-//                 // Add the self bin to the proj bin.
-//                 *proj_bin.noe_  += *self_bin.noe_;
-//                 *proj_bin.sow_  += *self_bin.sow_;
-//                 *proj_bin.sows_ += *self_bin.sows_;
-//
-//                 self_idx_iter.increment();
-//             }
-//
-//             proj_idx_iter.increment();
-//         }
-//
-//         return proj;
-//     }
-// };
+        bp::list axis_list;
+        std::set<intptr_t>::const_iterator axes_it = axes.begin();
+        std::set<intptr_t>::const_iterator const axes_end = axes.end();
+        for(; axes_it != axes_end; ++axes_it)
+        {
+            axis_list.append(self.axes_[*axes_it]);
+            std::cout << "project: got axis "<<*axes_it<<std::endl;
+        }
+        bp::tuple axes_tuple(axis_list);
+        ndhist proj(axes_tuple, self.bc_weight_dt_, self.bc_class_);
+
+        typedef multi_axis_iter< bin_iter_value_type_traits<WeightValueType> >
+                multi_axis_iter_t;
+
+        multi_axis_iter_t proj_iter(proj.bc_->construct_ndarray(proj.bc_->get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+        multi_axis_iter_t self_iter(self.bc_->construct_ndarray(self.bc_->get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+
+        // Iterate over *all* the bins (including underflow & overflow bins) of
+        // the projection bin content array.
+        std::vector<intptr_t> self_fixed_axes_indices(self_nd, axis::FLAGS_FLOATING_INDEX);
+        std::vector<intptr_t> self_iter_axes_range_min(self_nd, 0);
+        std::vector<intptr_t> self_iter_axes_range_max(self_nd);
+        for(uintptr_t i=0; i<self_nd; ++i)
+        {
+            self_iter_axes_range_max[i] = self.bc_->get_shape_vector()[i];
+        }
+
+        std::vector<intptr_t> proj_fixed_axes_indices(proj_nd, axis::FLAGS_FLOATING_INDEX);
+        std::vector<intptr_t> proj_iter_axes_range_min(proj_nd, 0);
+        std::vector<intptr_t> proj_iter_axes_range_max(proj_nd);
+        for(uintptr_t i=0; i<proj_nd; ++i)
+        {
+            proj_iter_axes_range_max[i] = proj.bc_->get_shape_vector()[i];
+        }
+
+        proj_iter.init_iteration(proj_fixed_axes_indices, proj_iter_axes_range_min, proj_iter_axes_range_max);
+        while(! proj_iter.is_end())
+        {
+            // Get the proj bin.
+            typename multi_axis_iter_t::value_ref_type proj_bin = proj_iter.dereference();
+
+            // Iterate over all the axes of self which are not fixed through the
+            // current projection indices.
+            axes_it = axes.begin();
+            for(uintptr_t i=0; axes_it != axes_end; ++axes_it, ++i)
+            {
+                self_fixed_axes_indices[*axes_it] = proj_iter.get_indices()[i];
+            }
+
+            self_iter.init_iteration(self_fixed_axes_indices, self_iter_axes_range_min, self_iter_axes_range_max);
+            while(! self_iter.is_end())
+            {
+                // Get the self bin.
+                typename multi_axis_iter_t::value_ref_type self_bin = self_iter.dereference();
+
+                // Add the self bin to the proj bin.
+                *proj_bin.noe_  += *self_bin.noe_;
+                *proj_bin.sow_  += *self_bin.sow_;
+                *proj_bin.sows_ += *self_bin.sows_;
+
+                self_iter.increment();
+            }
+
+            proj_iter.increment();
+        }
+
+        return proj;
+    }
+};
 
 /**
  * @brief Creates a ND-sized vector of ndarray objects which are views into the
@@ -639,7 +647,7 @@ ndhist(
             idiv_fct_ = &detail::idiv_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
             imul_fct_ = &detail::imul_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;\
-            /*project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;*/\
+            project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -853,46 +861,46 @@ empty_like() const
     return ndhist(axes, bc_weight_dt_, bc_class_);
 }
 
-// ndhist
-// ndhist::
-// project(bp::object const & dims) const
-// {
-//     intptr_t const nd = get_nd();
-//     bn::ndarray axes_arr = bn::from_object(dims, bn::dtype::get_builtin<intptr_t>(), 0, 1, bn::ndarray::ALIGNED);
-//     std::set<intptr_t> axes;
-//     bn::iterators::flat_iterator< bn::iterators::single_value<intptr_t> > axes_arr_iter(axes_arr);
-//     while(! axes_arr_iter.is_end())
-//     {
-//         intptr_t axis = *axes_arr_iter;
-//         if(axis < 0) {
-//             axis += nd;
-//         }
-//         if(axis < 0)
-//         {
-//             std::stringstream ss;
-//             ss << "The axis value \""<< *axes_arr_iter <<"\" specifies an "
-//                << "axis < 0!";
-//             throw IndexError(ss.str());
-//         }
-//         else if(axis >= nd)
-//         {
-//             std::stringstream ss;
-//             ss << "The axis value \""<< axis <<"\" must be smaller than the "
-//                << "dimensionality of the histogram, i.e. smaller than "
-//                << nd <<"!";
-//             throw IndexError(ss.str());
-//         }
-//         if(! axes.insert(axis).second)
-//         {
-//             std::stringstream ss;
-//             ss << "The axis value \""<< axis <<"\" has been "
-//                << "specified at least twice!";
-//             throw ValueError(ss.str());
-//         }
-//         ++axes_arr_iter;
-//     }
-//     return project_fct_(*this, axes);
-// }
+ndhist
+ndhist::
+project(bp::object const & dims) const
+{
+    intptr_t const nd = get_nd();
+    bn::ndarray axes_arr = bn::from_object(dims, bn::dtype::get_builtin<intptr_t>(), 0, 1, bn::ndarray::ALIGNED);
+    std::set<intptr_t> axes;
+    bn::iterators::flat_iterator< bn::iterators::single_value<intptr_t> > axes_arr_iter(axes_arr);
+    while(! axes_arr_iter.is_end())
+    {
+        intptr_t axis = *axes_arr_iter;
+        if(axis < 0) {
+            axis += nd;
+        }
+        if(axis < 0)
+        {
+            std::stringstream ss;
+            ss << "The axis value \""<< *axes_arr_iter <<"\" specifies an "
+               << "axis < 0!";
+            throw IndexError(ss.str());
+        }
+        else if(axis >= nd)
+        {
+            std::stringstream ss;
+            ss << "The axis value \""<< axis <<"\" must be smaller than the "
+               << "dimensionality of the histogram, i.e. smaller than "
+               << nd <<"!";
+            throw IndexError(ss.str());
+        }
+        if(! axes.insert(axis).second)
+        {
+            std::stringstream ss;
+            ss << "The axis value \""<< axis <<"\" has been "
+               << "specified at least twice!";
+            throw ValueError(ss.str());
+        }
+        ++axes_arr_iter;
+    }
+    return project_fct_(*this, axes);
+}
 
 bp::tuple
 ndhist::

@@ -194,13 +194,13 @@ void register_ndhist()
             , "Checks if the given ndhist object is compatible with this "
               "ndhist object. This means, the dimensionality and the edges of "
               "all axes must match.")
-//         .def("project", &ndhist::project
-//             , (bp::arg("self"), bp::arg("dims"))
-//             , "Create a new ndhist object that is the projection of this        \n"
-//               "histogram containing only the dimensions, which have been        \n"
-//               "specified through the *dims* argument.                           \n"
-//               "All other dimensions are collapsed (summed) accordingly into     \n"
-//               "the remaining specified dimensions.                              \n")
+        .def("project", &ndhist::project
+            , (bp::arg("self"), bp::arg("dims"))
+            , "Create a new ndhist object that is the projection of this        \n"
+              "histogram containing only the dimensions, which have been        \n"
+              "specified through the *dims* argument.                           \n"
+              "All other dimensions are collapsed (summed) accordingly into     \n"
+              "the remaining specified dimensions.                              \n")
 
 //         // Slicing.
 //         .def("__getitem__", &ndhist::operator[]

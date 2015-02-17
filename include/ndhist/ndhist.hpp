@@ -328,12 +328,12 @@ class ndhist
     void
     py_fill(bp::object const & ndvalue_obj, bp::object weight_obj);
 
-//     /**
-//      * @brief Create a new ndhist from this ndhist object, where only the
-//      *        specified dimensions are included and the others are summed over.
-//      */
-//     ndhist
-//     project(bp::object const & dims) const;
+    /**
+     * @brief Create a new ndhist from this ndhist object, where only the
+     *        specified dimensions are included and the others are summed over.
+     */
+    ndhist
+    project(bp::object const & dims) const;
 
     inline
     std::vector< boost::shared_ptr<Axis> > &

@@ -7,13 +7,6 @@
   * overflow behavior,
   * auto extendable axis
 
-- Rename full_multi_axis_index_iter to multi_axis_index_iter and adjust it to
-  assume, that the given shape, already includes under- and overflow bins.
-
-- Construct the ndarray within the py_get_noe_ndarray, py_get_sow_ndarray and
-  py_get_sows_ndarray functions only for bins without the under- and overflow
-  bins. This means, calculate strides and shape for only the "visible" bins.
-
 - Implement the most up-to-date fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_trais)
 
