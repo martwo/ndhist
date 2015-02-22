@@ -45,7 +45,8 @@ class ndhist
 {
   public:
 
-    /** Constructor for creating a generic shaped histogram with equal or
+    /**
+     * @brief Constructor for creating a generic shaped histogram with equal or
      *  non-equal sized bins. The shape of the histogram is determined
      *  automatically from the given axis objects.
      *
@@ -68,6 +69,17 @@ class ndhist
         bp::tuple const & axes
       , bp::object const & dt
       , bp::object const & bc_class = bp::object()
+    );
+
+    /**
+     * @brief Constructs a new ndhist object, that shares the bin content array
+     *     with the given parent ndhist object. The slices tuple, which must be
+     *     of length *ndim* of the parent ndhist object, specified a (sub) view
+     *     into the parent's histogram.
+     */
+    ndhist(
+        ndhist const & parent
+      , bp::tuple const & slices
     );
 
     virtual
@@ -112,12 +124,16 @@ class ndhist
     template <typename T>
     ndhist operator/(T const & rhs) const;
 
-//     /**
-//      * @brief Gets a "sub"-histogram of this histogram specified through bin
-//      *        index slices, one for each dimension.
-//      *
-//      */
-//     ndhist operator[](bp::object dim_slices) const;
+    /**
+     * @brief Gets a "sub"-histogram of this histogram specified through bin
+     *     indexing of this histogram.
+     *     According to the indexing documentation of numpy [1] we support
+     *     basic indexing, i.e. the returned (sub) histogram is a view into this
+     *     histogram object.
+     *
+     *     [1] http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html
+     */
+    ndhist operator[](bp::object const & arg) const;
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist

@@ -42,7 +42,8 @@
 #include <ndhist/detail/bin_utils.hpp>
 #include <ndhist/detail/limits.hpp>
 #include <ndhist/detail/multi_axis_iter.hpp>
-#include <ndhist/detail/utils.hpp>
+#include <ndhist/detail/py_arg_inspector.hpp>
+#include <ndhist/detail/py_seq_inspector.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -674,6 +675,24 @@ ndhist(
     }
 }
 
+// ndhist::
+// ndhist(
+//     ndhist const & parent
+//   , bp::tuple const & slices
+// )
+// {
+//     if(bp::len(slices) != parent.get_nd())
+//     {
+//         std::stringstream ss;
+//         ss << "The number of slices must be equal to the dimensionality of "
+//            << "the given ndhist object, i.e. must be "<<parent.get_nd()<< ", "
+//            << "but is "<<bp::len(slices)<<"!";
+//         throw ValueError(ss.str());
+//     }
+//
+//
+// }
+
 ndhist::
 ~ndhist()
 {
@@ -720,112 +739,173 @@ operator+(ndhist const & rhs) const
     return newhist;
 }
 
-/*
 ndhist
 ndhist::
-operator[](bp::object dim_slices) const
+operator[](bp::object const & arg) const
 {
-    // TODO: convert single object to list of length 1 first.
-    if(! PyTuple_Check(dim_slices.ptr()))
+    // According to the indexing documentation of numpy, basic indexing occures
+    // when obj is a slice object, an integer, or a tuple of slice
+    // objects or integers. Basic indexing is also initiated, when obj is a
+    // list of slice objects. Note, a list of integers does NOT initiate basic
+    // indexing!
+    //
+    // Check if we have to initialize basic indexing.
+    detail::py::arg_inspector arginsp(arg);
+    if(   arginsp.is_of_type(PyInt_Type, PySlice_Type, PyEllipsis_Type)
+       || arginsp.is_tuple_of(PyInt_Type, PySlice_Type, PyEllipsis_Type)
+       || (arginsp.is_list_of(PyInt_Type, PySlice_Type, PyEllipsis_Type) && !arginsp.is_list_of(PyInt_Type))
+      )
     {
-        dim_slices = bp::make_tuple(dim_slices);
-    }
+        // The given argument initializes basic indexing.
+        bp::object seq;
 
-    // Determine the bin edges arrays of the new histogram.
-    uintptr_t const dim = bp::len(dim_slices);
-    if(dim > nd_)
-    {
-        std::stringstream ss;
-        ss << "The number of given slices must not exceed "<< nd_ << "!";
-        throw IndexError(ss.str());
-    }
-
-    if(dim < nd_)
-    {
-        // If all specified axes are intergers, the user has selected a certain
-        // sub-histogram of this histogram which those indices fixed and full
-        // axis range for the remaining axes.
-
-        // But if one of 
-    }
-
-    std::cout << "Got "<< dim << " axes indices." << std::endl;
-    bp::list newaxes_list;
-    for(uintptr_t i=0; i<dim; ++i)
-    {
-        bp::object dim_slice_obj = dim_slices[i];
-        if(bn::is_any_scalar(dim_slice_obj))
+        // First convert a single object into a tuple of length one.
+        // Note, if arg is a list, we keep it as a list.
+        if(arginsp.is_of_type(PyInt_Type, PySlice_Type, PyEllipsis_Type))
         {
-            intptr_t const start = bp::extract<intptr_t>(dim_slice_obj);
-            std::cout << "Got scalar '"<<start<<"' for axis '"<<i<<"'"<<std::endl;
-            dim_slice_obj = bp::slice(start, start+1, 1);
-        }
-
-        if(detail::py::are_same_type_objects(dim_slice_obj, bp::slice()))
-        {
-            // Note: The dim_slice_obj is supposed to include the underflow (0) and
-            // overflow bin (nbin) but the edges array does not have an explicit
-            // underflow (-inf) and overflow (+inf) edge.
-            uintptr_t const axis_size = axes_[i]->get_n_bins_fct(axes_[i]->data_);
-
-            bp::slice axis_slice = bp::extract<bp::slice>(dim_slice_obj);
-            detail::axis_index_iter axis_idx_iter(axis_size, detail::axis::UNDERFLOW_INDEX, detail::axis::OVERFLOW_INDEX);
-            detail::axis_index_iter axis_idx_iter_end = axis_idx_iter.end();
-            bp::slice::range<detail::axis_index_iter> axis_iter_range = axis_slice.get_indices(axis_idx_iter, axis_idx_iter_end);
-
-            std::cout << "axis="<<i<<", sliced indices=";
-            while(axis_iter_range.start != axis_iter_range.stop)
-            {
-                intptr_t idx = *axis_iter_range.start;
-                if(idx == detail::axis::UNDERFLOW_INDEX) {
-                    std::cout << "U,";
-                }
-                else if(idx == detail::axis::OVERFLOW_INDEX) {
-                    std::cout << "O,";
-                }
-                else {
-                    std::cout << idx << ",";
-                }
-                std::advance(axis_iter_range.start, axis_iter_range.step);
-            }
-            intptr_t idx = *axis_iter_range.start;
-            if(idx == detail::axis::UNDERFLOW_INDEX) {
-                std::cout << "U,";
-            }
-            else if(idx == detail::axis::OVERFLOW_INDEX) {
-                std::cout << "O,";
-            }
-            else {
-                std::cout << idx << ",";
-            }
-
-            std::cout << std::endl << std::flush;
-        }
-        else if(bn::is_ndarray(dim_slice_obj))
-        {
-            throw TypeError("ndarray indexing is not supported yet.");
+            seq = bp::make_tuple<bp::object>(arg);
         }
         else
         {
+            seq = arg;
+        }
+
+        size_t const nsdim = bp::len(seq);
+
+        // We are not supporting newaxis, so the number of slice dimensions
+        // (nsdim) cannot be greater than the dimensionality of the histogram.
+        if(nsdim > nd_)
+        {
             std::stringstream ss;
-            ss << "The dimension slices must be given either as integer or "
-               << "slice objects!";
+            ss << "The number of slice dimensions must not exceed the "
+               << "dimensionality of the histogram ("<< nd_ << ")!";
             throw IndexError(ss.str());
         }
 
+        // Check that there is only one possible ellipsis object in the slicing
+        // sequence.
+        detail::py::seq_inspector seqinsp(seq);
+        if(! seqinsp.has_unique_object_of_type(PyEllipsis_Type))
+        {
+            std::stringstream ss;
+            ss << "There must be at most one ellipse object present in the "
+               << "slicing sequence!";
+            throw IndexError(ss.str());
+        }
+
+        // Loop over the slicing sequence and construct the axes of the new
+        // (sub) histogram.
+        std::vector<intptr_t> shape;
+        std::vector<intptr_t> strides;
+        intptr_t offset; // The byte offset of the new histogram bin content array.
+        size_t oaxis = 0; // The current axis of the original histogram.
+        std::vector<intptr_t> const & histshape = bc_->get_shape_vector();
+        std::vector<intptr_t> const & histstrides = bc_->get_data_strides_vector();
+        for(size_t i=0; i<nsdim; ++i)
+        {
+            bp::object const item = bp::extract<bp::object>(seq[i]);
+            if(detail::py::is_object_of_type(item, PyInt_Type))
+            {
+                // A single integer reduces the number of dimensions by one.
+                // The previous dimensions get an offset
+                // according to the given index (the integer). That means, one
+                // has to jump over the index indices of the current dimension.
+                intptr_t const index = bp::extract<intptr_t>(item);
+                offset += index*histstrides[oaxis];
+                ++oaxis;
+            }
+            else if(detail::py::is_object_of_type(item, PySlice_Type))
+            {
+                // A slice object keeps the dimension. It changes its
+                // stride if the step size is >1. Also it changes the offset,
+                // if start >0 and it changes the shape of that dimension if
+                // stop-start != histshape[oaxis].
+                bp::slice sl = bp::extract<bp::slice>(item);
+
+                // Construct the interval [start, stop) with jumps of size step.
+
+                // Extract the step size.
+                intptr_t step = 1;
+                if(sl.step() != bp::object())
+                {
+                    step = bp::extract<intptr_t>(sl.step());
+                }
+                if(step == 0)
+                {
+                    std::stringstream ss;
+                    ss << "The step of the slice for dimension "
+                        << oaxis << " cannot be zero!";
+                    throw IndexError(ss.str());
+                }
+
+                // Setup the start index.
+                intptr_t start = 0;
+                if(sl.start() == bp::object())
+                {
+                    if(step < 0)
+                    {
+                        start = histshape[oaxis]-1;
+                    }
+                }
+                else
+                {
+                    start = bp::extract<intptr_t>(sl.start());
+                    start += (start < 0 ? histshape[oaxis] : 0);
+                }
+                if(start < 0 || start >= histshape[oaxis])
+                {
+                    std::stringstream ss;
+                    ss << "The start index of the slice for dimension "
+                        << oaxis << " must be in the interval ["
+                        << "-"<<histshape[oaxis] << ", " << histshape[oaxis]
+                        << ")!";
+                    throw IndexError(ss.str());
+                }
+
+                // Setup the stop index.
+                intptr_t stop = histshape[oaxis];
+                if(sl.stop() == bp::object())
+                {
+                    if(step < 0)
+                    {
+                        stop = -1;
+                    }
+                }
+                else
+                {
+                    stop = bp::extract<intptr_t>(sl.stop());
+                    stop += (stop < 0 ? histshape[oaxis] : 0);
+                }
+                if(stop < -1 || stop > histshape[oaxis])
+                {
+                    std::stringstream ss;
+                    ss << "The stop index of the slice for dimension "
+                        << oaxis << " must be in the interval ["
+                        << "-"<<histshape[oaxis]+1<<", "<<histshape[oaxis]
+                        << ")!";
+                    throw IndexError(ss.str());
+                }
+
+                // Setup shape, strides, and offset for this slice.
+                //FIXME
+
+                ++oaxis;
+            }
+        }
 
 
-
-
-        // Create the axis definition for the new sub-axis.
-//         bn::ndarray edges_arr = axes_[i]->get_edges_ndarray_fct(axes_[i]->data_);
-//         bn::ndarray subedges_arr = edges_arr[dim_slice_obj];
-//         newaxes_list.append(get_axis_definition(i, subedges_arr));
     }
-    bp::tuple newaxes(newaxes_list);
-    return empty_like();
+    else
+    {
+        std::stringstream ss;
+        ss << "The given slicing object does not initialize basic indexing "
+           << "according numpy basic indexing!";
+        throw ValueError(ss.str());
+    }
+
+
+    return empty_like(); // FIXME
 }
-*/
 
 bool
 ndhist::
