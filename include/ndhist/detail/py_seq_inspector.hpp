@@ -43,7 +43,7 @@ struct seq_inspector
         for(size_t i=0; i<n; ++i)
         {
             bp::object item = bp::extract<bp::object>(seq_[i]);
-            if(! py::is_object_of_type(item, type_obj))
+            if(py::is_object_of_type(item, type_obj))
             {
                 if(found_once)
                 {

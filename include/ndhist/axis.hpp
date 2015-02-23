@@ -234,6 +234,12 @@ class Axis
         get_axis_base().extend_fct_(get_axis_base(), f_n_extra_bins, b_n_extra_bins);
     }
 
+    inline
+    create_axis_slice(intptr_t const start, intptr_t const stop, intptr_t const step)
+    {
+        get_axis_base().create_axis_slice_fct_(get_axis_base(), start, stop, step);
+    }
+
   protected:
     /** In case this Axis object wraps an other Axis object, this stores the
      *  pointer to it.
@@ -309,6 +315,14 @@ class Axis
      */
     boost::function<void (Axis &, intptr_t const, intptr_t const)>
         extend_fct_;
+
+    /**
+     * @brief This function is supposed to create an axis of the same type as
+     *     this axis but is slice of this axis. The slice is defined by start,
+     *     stop, and step, nbins.
+     */
+    boost::function<boost::shared_ptr<Axis> (Axis const &, intptr_t const, intptr_t const, intptr_t const, intptr_t const)>
+        create_axis_slice_fct_;
 };
 
 /** The axis_pyinterface template provides a boost::python::def_visitor for

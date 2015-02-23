@@ -133,7 +133,7 @@ class ndhist
      *
      *     [1] http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html
      */
-    ndhist operator[](bp::object const & arg) const;
+    bn::ndarray operator[](bp::object const & arg) const;
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist

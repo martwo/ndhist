@@ -85,6 +85,7 @@ class ConstantBinWidthAxis
         get_n_bins_fct_        = &get_n_bins;
         request_extension_fct_ = &request_extension;
         extend_fct_            = &extend;
+        create_axis_slice_fct_ = &create_axis_slice;
 
         std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
         n_bins_ = edges.shape(0) - 1;
@@ -279,6 +280,39 @@ class ConstantBinWidthAxis
         {
             axis.n_bins_ += b_n_extra_bins;
         }
+    }
+
+    static
+    boost::shared_ptr<Axis>
+    create_axis_slice(Axis const & axisbase, intptr_t const start, intptr_t const stop, intptr_t const & step, intptr_t const nbins)
+    {
+        typedef bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> >
+                iter_t;
+        bn::ndarray alledges = axisbase.get_edges_ndarray();
+        iter_t const begin(alledges);
+        iter_t const end(begin.end());
+        bp::slice sl(start, stop, step);
+        bp::slice::range<iter_t> r = sl.get_indices(begin, end);
+
+        // Construct the edges array.
+        std::vector<intptr_t> shape(1, nbins+1);
+        bn::ndarray edges = bn::empty(shape, alledges.get_dtype());
+        iter_t it(edges);
+        while(r.start != r.end)
+        {
+            *it = *r.start;
+            ++it;
+            std::advance(r.start, r.step);
+        }
+        *it = *r.start;
+        // Add the upper (step == +1) or lower edge (step == -1).
+        ++it;
+        std::advance(r.start, r.step);
+        *it = *r.start;
+
+        // Construct the axis object.
+        //FIXME
+
     }
 };
 

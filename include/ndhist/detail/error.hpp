@@ -7,8 +7,9 @@ namespace detail {
 struct AssertionErrorType {};
 struct IndexErrorType     {};
 struct MemoryErrorType    {};
-struct ValueErrorType     {};
+struct RuntimeErrorType   {};
 struct TypeErrorType      {};
+struct ValueErrorType     {};
 
 template<class ErrType>
 class error: public std::exception

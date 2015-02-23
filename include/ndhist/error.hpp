@@ -19,8 +19,9 @@ namespace ndhist {
 typedef detail::error<detail::AssertionErrorType> AssertionError;
 typedef detail::error<detail::IndexErrorType>     IndexError;
 typedef detail::error<detail::MemoryErrorType>    MemoryError;
-typedef detail::error<detail::ValueErrorType>     ValueError;
+typedef detail::error<detail::RuntimeErrorType>   RuntimeError;
 typedef detail::error<detail::TypeErrorType>      TypeError;
+typedef detail::error<detail::ValueErrorType>     ValueError;
 
 }// namespace ndhist
 

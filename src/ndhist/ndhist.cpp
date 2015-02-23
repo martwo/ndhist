@@ -739,7 +739,7 @@ operator+(ndhist const & rhs) const
     return newhist;
 }
 
-ndhist
+bn::ndarray
 ndhist::
 operator[](bp::object const & arg) const
 {
@@ -763,6 +763,7 @@ operator[](bp::object const & arg) const
         // Note, if arg is a list, we keep it as a list.
         if(arginsp.is_of_type(PyInt_Type, PySlice_Type, PyEllipsis_Type))
         {
+            std::cout << "Make tuple from scalar value"<<std::endl;
             seq = bp::make_tuple<bp::object>(arg);
         }
         else
@@ -797,7 +798,7 @@ operator[](bp::object const & arg) const
         // (sub) histogram.
         std::vector<intptr_t> shape;
         std::vector<intptr_t> strides;
-        intptr_t offset; // The byte offset of the new histogram bin content array.
+        intptr_t offset = 0; // The byte offset of the new histogram bin content array.
         size_t oaxis = 0; // The current axis of the original histogram.
         std::vector<intptr_t> const & histshape = bc_->get_shape_vector();
         std::vector<intptr_t> const & histstrides = bc_->get_data_strides_vector();
@@ -810,7 +811,16 @@ operator[](bp::object const & arg) const
                 // The previous dimensions get an offset
                 // according to the given index (the integer). That means, one
                 // has to jump over the index indices of the current dimension.
-                intptr_t const index = bp::extract<intptr_t>(item);
+                intptr_t index = bp::extract<intptr_t>(item);
+                index += (index < 0 ? histshape[oaxis] : 0);
+                if(index < 0 || index >= histshape[oaxis])
+                {
+                    std::stringstream ss;
+                    ss << "The index for axis "<<oaxis<<" must be in the "
+                       << "interval [-"<<histshape[oaxis]<<", "
+                       << histshape[oaxis]<<")!";
+                    throw IndexError(ss.str());
+                }
                 offset += index*histstrides[oaxis];
                 ++oaxis;
             }
@@ -886,14 +896,91 @@ operator[](bp::object const & arg) const
                     throw IndexError(ss.str());
                 }
 
-                // Setup shape, strides, and offset for this slice.
-                //FIXME
+                intptr_t const dist = stop - start;
+                if(dist == 0)
+                {
+                    std::stringstream ss;
+                    ss << "The slice of dimension "<<oaxis<<" does not select "
+                       << "any bin!";
+                    throw IndexError(ss.str());
+                }
 
+                // Check if the step and distance sign match up.
+                if((dist > 0) != (step > 0))
+                {
+                    std::stringstream ss;
+                    ss << "The sign of step does not match up with the sign "
+                       << "of stop-start for dimension "<<oaxis<<"!";
+                    throw IndexError(ss.str());
+                }
+
+                // Setup shape, strides, and offset for this slice.
+                intptr_t n = 0;
+                if(dist < 0)
+                {
+                    n = -dist / -step + ((-dist % -step) != 0);
+                }
+                else
+                {
+                    n = dist / step + ((dist % step) != 0);
+                }
+                std::cout << "axis "<<oaxis<<": start = "<<start<<std::endl;
+                std::cout << "axis "<<oaxis<<": stop = "<<stop<<std::endl;
+                std::cout << "axis "<<oaxis<<": step = "<<step<<std::endl;
+                std::cout << "axis "<<oaxis<<": n = "<<n<<std::endl;
+                shape.push_back(n);
+
+                // Setup the stride.
+                strides.push_back(step*histstrides[oaxis]);
+
+                // Setup the offset.
+                offset += start * histstrides[oaxis];
+
+                std::cout << "axis "<<oaxis<<": stride = "<<strides[strides.size()-1]<<std::endl;
+                std::cout << "axis "<<oaxis<<": offset = "<<offset<<std::endl;
+                ++oaxis;
+            }
+            else if(detail::py::is_object_of_type(item, PyEllipsis_Type))
+            {
+                // The ellipsis means that it should take the full range of
+                // each dimension that follows, until the last dimensions are
+                // specified explicitly.
+                size_t const remaining_oaxes = nsdim - (i+1);
+                size_t const n_axes = nd_ - oaxis - remaining_oaxes;
+                for(size_t j=0; j<n_axes; ++j)
+                {
+                    // Add a full axis range for each axis.
+                    shape.push_back(histshape[oaxis]);
+                    strides.push_back(histstrides[oaxis]);
+                    ++oaxis;
+                }
+            }
+        }
+        // Check if all dimensions have been adressed already. If not the
+        // remaining dimensions are added with there full range.
+        if(oaxis < nd_)
+        {
+            // Add the remaining axes as full ranges to the selection.
+            size_t const n_axes = nd_ - oaxis;
+
+            for(size_t j=0; j<n_axes; ++j)
+            {
+                shape.push_back(histshape[oaxis]);
+                strides.push_back(histstrides[oaxis]);
+                std::cout << "Auto add axis "<<oaxis<<std::endl;
                 ++oaxis;
             }
         }
+        else if(oaxis > nd_)
+        {
+            std::stringstream ss;
+            ss << "The internal axis counting failed. This is a BUG!";
+            throw RuntimeError(ss.str());
+        }
 
+        bn::ndarray arr = bn::from_data(bc_->get_data()+offset+sizeof(intptr_t), bc_weight_dt_, shape, strides, /*owner=*/NULL, /*set_owndata_flag=*/false);
 
+        return arr;
     }
     else
     {
@@ -904,7 +991,7 @@ operator[](bp::object const & arg) const
     }
 
 
-    return empty_like(); // FIXME
+    //return empty_like(); // FIXME
 }
 
 bool
@@ -935,7 +1022,7 @@ empty_like() const
     bp::list axis_list;
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        axis_list.append(axes_[i]);
+        axis_list.append(*axes_[i]);
     }
     bp::tuple axes(axis_list);
     return ndhist(axes, bc_weight_dt_, bc_class_);
