@@ -97,11 +97,14 @@ class GenericAxis
         bn::ndarray const & edges
       , std::string const & label
       , std::string const & name
+      , bool has_oor_bins
     )
       : Axis(
-            edges
+            edges.get_size()-1
+          , edges.get_dtype()
           , label
           , name
+          , has_oor_bins
           , false // is_extendable
           , 0     // extension_max_fcap
           , 0     // extension_max_bcap
@@ -117,14 +120,17 @@ class GenericAxis
         bn::ndarray const & edges
       , std::string const & label
       , std::string const & name
+      , bool has_oor_bins
       , bool     /*is_extendable*/
       , intptr_t /*extension_max_fcap*/
       , intptr_t /*extension_max_bcap*/
     )
       : Axis(
-            edges
+            edges.get_size()-1
+          , edges.get_dtype()
           , label
           , name
+          , has_oor_bins
           , false // is_extendable
           , 0     // extension_max_fcap
           , 0     // extension_max_bcap
@@ -142,6 +148,7 @@ class GenericAxis
         get_n_bins_fct_        = &get_n_bins;
         request_extension_fct_ = NULL;
         extend_fct_            = NULL;
+        create_axis_slice_fct_ = &create_axis_slice<type>;
 
         intptr_t const nbins = edges.get_size() - 1;
         if(nbins < 1)

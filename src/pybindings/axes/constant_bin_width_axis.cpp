@@ -35,6 +35,7 @@ void register_constant_bin_width_axis()
           , std::string const &
           , std::string const &
           , bool
+          , bool
           , intptr_t
           , intptr_t
           >(
@@ -42,6 +43,7 @@ void register_constant_bin_width_axis()
           , bp::arg("edges")
           , bp::arg("label")=std::string("")
           , bp::arg("name")=std::string("")
+          , bp::arg("has_oor_bins")=true
           , bp::arg("is_extendable")=false
           , bp::arg("extension_max_fcap")=0
           , bp::arg("extension_max_bcap")=0

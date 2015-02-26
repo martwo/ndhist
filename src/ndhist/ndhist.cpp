@@ -581,16 +581,20 @@ ndhist(
         // extendable. The +1 is for the under- or overflow bin, which will be
         // always zero but important to have when making a view to the under-
         // and overflow bin arrays.
+        intptr_t & axis_max_fcap = & axis->get_extension_max_fcap_ptr();
+        intptr_t & axis_max_bcap = & axis->get_extension_max_bcap_ptr();
         if(axis->is_extendable())
         {
-            axes_extension_max_fcap_vec_[i] = axis->get_extension_max_fcap() + 1;
-            axes_extension_max_bcap_vec_[i] = axis->get_extension_max_bcap() + 1;
+            axis_max_fcap += 1;
+            axis_max_bcap += 1;
         }
         else
         {
-            axes_extension_max_fcap_vec_[i] = 0;
-            axes_extension_max_bcap_vec_[i] = 0;
+            axis_max_fcap = 0;
+            axis_max_bcap = 0;
         }
+        axes_extension_max_fcap_vec_[i] = axis_max_fcap;
+        axes_extension_max_bcap_vec_[i] = axis_max_bcap;
 
         // Add the axis to the axes vector.
         axes_.push_back(axis);
@@ -599,10 +603,12 @@ ndhist(
     // TODO: Make this as an option in the constructor.
     intptr_t value_cache_size = 65536;
 
-    // Create a ndarray for the bin content. Each bin content element consists
-    // of three sub-elements: n_entries, sum_of_weights, sum_of_weights_squared.
+    // Create a ndarray_storage for the bin content array. Each bin content
+    // element consists of three sub-elements:
+    // number_of_entries (noe), sum_of_weights (sow), and sum_of_weights_squared
+    // (sows).
     bn::dtype bc_dt = bn::dtype::new_builtin<void>();
-    bc_dt.add_field("n",    bc_noe_dt_);
+    bc_dt.add_field("noe",  bc_noe_dt_);
     bc_dt.add_field("sow",  bc_weight_dt_);
     bc_dt.add_field("sows", bc_weight_dt_);
     bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, bc_dt));
@@ -675,23 +681,48 @@ ndhist(
     }
 }
 
-// ndhist::
-// ndhist(
-//     ndhist const & parent
-//   , bp::tuple const & slices
-// )
-// {
-//     if(bp::len(slices) != parent.get_nd())
-//     {
-//         std::stringstream ss;
-//         ss << "The number of slices must be equal to the dimensionality of "
-//            << "the given ndhist object, i.e. must be "<<parent.get_nd()<< ", "
-//            << "but is "<<bp::len(slices)<<"!";
-//         throw ValueError(ss.str());
-//     }
-//
-//
-// }
+ndhist::
+ndhist(
+    ndhist const & owner
+  , std::vector< boost::shared_ptr<Axis> > const & axes
+  , intptr_t const data_offset
+  , std::vector<intptr_t> const & data_shape
+  , std::vector<intptr_t> const & data_strides
+)
+  : nd_(axes.size())
+  , ndvalues_dt_(bn::dtype::new_builtin<void>())
+  , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
+  , bc_weight_dt_(owner.get_weight_dtype())
+  , bc_class_(owner.get_weight_class())
+{
+    if(data_shape.size() != data_strides.size())
+    {
+        std::stringstream ss;
+        ss << "The lengths of the data_shape and data_strides vectors must "
+           << "match! Currently, they are "<< data_shape.size() <<" and "
+           << data_strides.size() << ", respectively!";
+        throw AssertionError(ss.str());
+    }
+
+    axes_extension_max_fcap_vec_.resize(nd_);
+    axes_extension_max_bcap_vec_.resize(nd_);
+
+    // Setup the axes related properties of ndhist.
+    for(size_t i=0; i<nd_; ++i)
+    {
+        boost::shared_ptr<Axis> const & axis = axes[i];
+
+        ndvalues_dt_.add_field(axis->get_name(), axis->get_dtype());
+
+        axes_extension_max_fcap_vec_[i] = axis->get_extension_max_fcap();
+        axes_extension_max_bcap_vec_[i] = axis->get_extension_max_bcap();
+        axes_.push_back(axis);
+    }
+
+    // Create a ndarray_storage object that shares its internal data with the
+    // bin content array ndarray_storage object of the owner ndhist object.
+    //TODO
+}
 
 ndhist::
 ~ndhist()
@@ -796,6 +827,7 @@ operator[](bp::object const & arg) const
 
         // Loop over the slicing sequence and construct the axes of the new
         // (sub) histogram.
+        std::vector< boost::shared_ptr<Axis> > axes;
         std::vector<intptr_t> shape;
         std::vector<intptr_t> strides;
         intptr_t offset = 0; // The byte offset of the new histogram bin content array.
@@ -840,11 +872,15 @@ operator[](bp::object const & arg) const
                 {
                     step = bp::extract<intptr_t>(sl.step());
                 }
-                if(step == 0)
+                // We support only steps of +1 and -1. Otherwise the slicing
+                // would result into non-contiguous histogram axes. Such axes
+                // are not supported in this version of ndhist and probably will
+                // never be.
+                if(step != 1 && step != -1)
                 {
                     std::stringstream ss;
                     ss << "The step of the slice for dimension "
-                        << oaxis << " cannot be zero!";
+                        << oaxis << " can only be 1 or -1!";
                     throw IndexError(ss.str());
                 }
 
@@ -915,20 +951,20 @@ operator[](bp::object const & arg) const
                 }
 
                 // Setup shape, strides, and offset for this slice.
-                intptr_t n = 0;
+                intptr_t nbins = 0;
                 if(dist < 0)
                 {
-                    n = -dist / -step + ((-dist % -step) != 0);
+                    nbins = -dist / -step + ((-dist % -step) != 0);
                 }
                 else
                 {
-                    n = dist / step + ((dist % step) != 0);
+                    nbins = dist / step + ((dist % step) != 0);
                 }
                 std::cout << "axis "<<oaxis<<": start = "<<start<<std::endl;
                 std::cout << "axis "<<oaxis<<": stop = "<<stop<<std::endl;
                 std::cout << "axis "<<oaxis<<": step = "<<step<<std::endl;
-                std::cout << "axis "<<oaxis<<": n = "<<n<<std::endl;
-                shape.push_back(n);
+                std::cout << "axis "<<oaxis<<": nbins = "<<nbins<<std::endl;
+                shape.push_back(nbins);
 
                 // Setup the stride.
                 strides.push_back(step*histstrides[oaxis]);
@@ -938,6 +974,9 @@ operator[](bp::object const & arg) const
 
                 std::cout << "axis "<<oaxis<<": stride = "<<strides[strides.size()-1]<<std::endl;
                 std::cout << "axis "<<oaxis<<": offset = "<<offset<<std::endl;
+
+                axes.push_back(axes_[oaxis]->create_axis_slice(start, stop, step, nbins));
+
                 ++oaxis;
             }
             else if(detail::py::is_object_of_type(item, PyEllipsis_Type))
@@ -952,6 +991,9 @@ operator[](bp::object const & arg) const
                     // Add a full axis range for each axis.
                     shape.push_back(histshape[oaxis]);
                     strides.push_back(histstrides[oaxis]);
+
+                    axes.push_back(axes_[oaxis]->create_axis_slice(0, histshape[oaxis], 1, histshape[oaxis]));
+
                     ++oaxis;
                 }
             }
@@ -977,6 +1019,9 @@ operator[](bp::object const & arg) const
             ss << "The internal axis counting failed. This is a BUG!";
             throw RuntimeError(ss.str());
         }
+
+        // TODO: Create an ndhist object, that shares the bin content array
+        //       with this ndhist object.
 
         bn::ndarray arr = bn::from_data(bc_->get_data()+offset+sizeof(intptr_t), bc_weight_dt_, shape, strides, /*owner=*/NULL, /*set_owndata_flag=*/false);
 

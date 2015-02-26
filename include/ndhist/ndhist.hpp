@@ -73,13 +73,18 @@ class ndhist
 
     /**
      * @brief Constructs a new ndhist object, that shares the bin content array
-     *     with the given parent ndhist object. The slices tuple, which must be
-     *     of length *ndim* of the parent ndhist object, specified a (sub) view
-     *     into the parent's histogram.
+     *     with the given owner ndhist object. The given axes define the axes
+     *     of the new ndhist object. The data_offset, data_shape, and
+     *     data_strides constants define the data view into the bin content
+     *     array. The lengths of data_shape and data_strides vectors must match.
+     *     They define the dimensionality of the new ndhist histogram.
      */
     ndhist(
-        ndhist const & parent
-      , bp::tuple const & slices
+        ndhist const & owner
+      , std::vector< boost::shared_ptr<Axis> > const & axes
+      , intptr_t const data_offset
+      , std::vector<intptr_t> const & data_shape
+      , std::vector<intptr_t> const & data_strides
     );
 
     virtual
@@ -377,6 +382,20 @@ class ndhist
     get_ndvalues_dtype() const
     {
         return ndvalues_dt_;
+    }
+
+    inline
+    bn::dtype
+    get_weight_dtype() const
+    {
+        return bc_weight_dt_;
+    }
+
+    inline
+    bp::object
+    get_weight_class() const
+    {
+        return bc_class_;
     }
 
     template <typename WeightValueType>

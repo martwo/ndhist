@@ -36,11 +36,13 @@ void register_generic_axis()
             bn::ndarray const &
           , std::string const &
           , std::string const &
+          , bool
           >(
           ( bp::arg("self")
           , bp::arg("edges")
           , bp::arg("label")=std::string("")
           , bp::arg("name")=std::string("")
+          , bp::arg("has_oor_bins")=true
           )
           )
         )
