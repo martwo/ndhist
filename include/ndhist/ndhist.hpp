@@ -138,7 +138,7 @@ class ndhist
      *
      *     [1] http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html
      */
-    bn::ndarray operator[](bp::object const & arg) const;
+    ndhist operator[](bp::object const & arg) const;
 
     /**
      * @brief Checks if the given ndhist object is compatible with this ndhist
@@ -167,11 +167,26 @@ class ndhist
     }
 
     /**
+     * @brief Create a boost::python::tuple object holding the shape of the
+     *     histogram. The shape numbers are the number of bins for each axis,
+     *     where possible under- and overflow bins are included.
+     */
+    bp::tuple
+    py_get_shape() const;
+
+    /**
      * @brief Creates a boost::python::tuple object holding the number of bins
      *        for each axis.
      */
     bp::tuple
     py_get_nbins() const;
+
+    /**
+     * @brief Creates a boost::python::tuple object holding the Axis objects
+     *     of this histogram.
+     */
+    bp::tuple
+    py_get_axes() const;
 
     /**
      * @brief Constructs the number of entries ndarray for releasing it to
@@ -405,6 +420,16 @@ class ndhist
         return *static_cast< detail::ValueCache<WeightValueType> * >(value_cache_.get());
     }
 
+    /**
+     * @brief Checks if this ndhist object shares the bin content array with an
+     *     other ndhist object, i.e. does not own the data.
+     */
+    bool
+    is_view()
+    {
+        return (! bc_->owns_data());
+    }
+
     void
     extend_axes(
         std::vector<intptr_t> const & f_n_extra_bins_vec
@@ -448,7 +473,22 @@ class ndhist
       , bc_weight_dt_(bn::dtype::get_builtin<void>())
       , bc_class_(bp::object())
     {};
+
   protected:
+    /**
+     * @brief Setups the ndhist's function pointers based on the weight data
+     *     type.
+     */
+    void
+    setup_function_pointers();
+
+    /**
+     * @brief Setups the ndhist's value cache, that depends on the weight data
+     *     type.
+     */
+    void
+    setup_value_cache(intptr_t const value_cache_size);
+
     /**
      * @brief Calculates the shape, front and back capacities needed for a view
      *     into the bin content array that represents only the core bin content
@@ -470,7 +510,7 @@ class ndhist
             // Note, that extendable axes have only virtual under- and
             // overflow bins, that are included in the front and back
             // capacities.
-            if(! axes_[i]->is_extendable())
+            if(!axes_[i]->is_extendable() && axes_[i]->has_oor_bins())
             {
                 shape[i] -= 2;
                 front_capacity[i] += 1;
@@ -597,7 +637,6 @@ operator/(T const & rhs) const
 #if BOOST_PP_ITERATION_FLAGS() == 1
 
 #define ND BOOST_PP_ITERATION()
-
 
 template <>
 struct specific_nd_traits<ND>
@@ -866,22 +905,23 @@ struct specific_nd_traits<ND>
 };
 
 #undef ND
+
 #else
 #if BOOST_PP_ITERATION_FLAGS() == 2
 
 #define ND BOOST_PP_ITERATION()
 
-#define NDHIST_SPECIFIC_ND_TRAITS_WEIGHT_VALUE_TYPE_SUPPORT(r, data, BCDTYPE)  \
-    if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
+#define NDHIST_SPECIFIC_ND_TRAITS_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)  \
+    if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
     {                                                                          \
-        if(bc_dtype_supported) {                                               \
+        if(bc_dtype_supported)                                                 \
+        {                                                                      \
             std::stringstream ss;                                              \
             ss << "The bin content data type is supported by more than one "   \
                << "possible C++ data type! This is an internal error!";        \
             throw TypeError(ss.str());                                         \
         }                                                                      \
-        value_cache_ = boost::shared_ptr< detail::ValueCache<BCDTYPE> >(new detail::ValueCache<BCDTYPE>(nd_, value_cache_size));\
-        fill_fct_ = &detail::specific_nd_traits<ND>::fill_traits<BCDTYPE>::fill;\
+        fill_fct_ = &detail::specific_nd_traits<ND>::fill_traits<WEIGHT_VALUE_TYPE>::fill;\
         bc_dtype_supported = true;                                             \
     }
 

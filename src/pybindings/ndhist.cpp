@@ -46,6 +46,12 @@ void register_ndhist()
 
         .add_property("ndim", &ndhist::get_nd
             , "The dimensionality of the histogram.")
+        .add_property("shape", &ndhist::py_get_shape
+            , "The tuple holding the shape of the histogram. A shape entry "
+              "corresponds to the number of bins of each axis, "
+              "including possible under- and overflow bins.")
+        .add_property("axes", &ndhist::py_get_axes
+            , "The tuple holding the axis objects of this histogram.")
         .add_property("nbins", &ndhist::py_get_nbins
             , "The tuple holding the number of bins (excluding the possible "
               "under- and overflow bins) for each axis.")
@@ -58,6 +64,9 @@ void register_ndhist()
             , "The title of the histogram.")
         .add_property("labels", &ndhist::py_get_labels
             , "The tuple holding the labels of the axes.")
+        .add_property("is_view", &ndhist::is_view
+            , "The flag if this ndhist object is a view into the bin content "
+              "array of an other ndhist object.")
 
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.

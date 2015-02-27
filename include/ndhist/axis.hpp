@@ -331,14 +331,16 @@ class Axis
         *it = *r.start;
 
         // Construct the axis object.
+        // Since it defines a data view, no out-of-range bins are supported,
+        // it cannot be extended, and it can't have extra capacity.
         boost::shared_ptr<Axis> axis(new AxisType(
             edges
           , axisbase.get_label()
           , axisbase.get_name()
           , /*has_oor_bins=*/false
-          , axisbase.is_extendable()
-          , axisbase.get_extension_max_fcap()
-          , axisbase.get_extension_max_bcap()
+          , /*is_extendable=*/false
+          , /*extension_max_fcap=*/0
+          , /*extension_max_bcap=*/0
         ));
 
         return axis;

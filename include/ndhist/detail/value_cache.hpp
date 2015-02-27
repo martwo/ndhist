@@ -36,6 +36,12 @@ struct ValueCacheBase
 
     intptr_t nd_;
     intptr_t capacity_;
+
+    intptr_t
+    get_capacity() const
+    {
+        return capacity_;
+    }
 };
 
 

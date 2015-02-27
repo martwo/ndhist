@@ -1,3 +1,7 @@
+- Implement the base_ property of ndhist that refers to the ndhist object when
+  the ndhist object is a view into that. This might make the owner property of
+  ndarray_storage obsolete.
+
 - Implement the arithmetic operation ndhist += scalar which adds an entry to all
   bins. Possible usecase would be to generate a histogram with a given offset
   (baseline).

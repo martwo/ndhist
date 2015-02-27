@@ -29,6 +29,7 @@
 #include <boost/numpy/iterators/flat_iterator.hpp>
 #include <boost/numpy/iterators/indexed_iterator.hpp>
 #include <boost/numpy/iterators/multi_flat_iterator.hpp>
+#include <boost/numpy/python/make_tuple_from_container.hpp>
 #include <boost/numpy/dstream.hpp>
 #include <boost/numpy/utilities.hpp>
 
@@ -298,14 +299,24 @@ get_field_axes_oor_ndarrays(
 )
 {
     uintptr_t const nd = self.get_nd();
-    std::vector<intptr_t> complete_bc_arr_shape = self.bc_->get_shape_vector();
+    std::vector<intptr_t> complete_bc_arr_shape          = self.bc_->get_shape_vector();
     std::vector<intptr_t> complete_bc_arr_front_capacity = self.bc_->get_front_capacity_vector();
-    std::vector<intptr_t> complete_bc_arr_back_capacity = self.bc_->get_back_capacity_vector();
+    std::vector<intptr_t> complete_bc_arr_back_capacity  = self.bc_->get_back_capacity_vector();
     // Add the under- and overflow bins of the extendable axes to the shape, and
     // remove them from the front- and back capacities, in order to calculate
     // the data offset and strides correctly.
     for(uintptr_t i=0; i<nd; ++i)
     {
+        // Check if any axis does not provide oor bins at all.
+        if(! self.axes_[i]->has_oor_bins())
+        {
+            std::stringstream ss;
+            ss << "Axis "<<i<<" does not provide out-of-range bins at all! "
+               << "In case the ndhist object is a data view into an other "
+               << "ndhist object, this is expected and thus not an error!";
+            throw AssertionError(ss.str());
+        }
+
         if(self.axes_[i]->is_extendable())
         {
             complete_bc_arr_shape[i] += 2;
@@ -581,8 +592,8 @@ ndhist(
         // extendable. The +1 is for the under- or overflow bin, which will be
         // always zero but important to have when making a view to the under-
         // and overflow bin arrays.
-        intptr_t & axis_max_fcap = & axis->get_extension_max_fcap_ptr();
-        intptr_t & axis_max_bcap = & axis->get_extension_max_bcap_ptr();
+        intptr_t & axis_max_fcap = * axis->get_extension_max_fcap_ptr();
+        intptr_t & axis_max_bcap = * axis->get_extension_max_bcap_ptr();
         if(axis->is_extendable())
         {
             axis_max_fcap += 1;
@@ -613,53 +624,9 @@ ndhist(
     bc_dt.add_field("sows", bc_weight_dt_);
     bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, bc_dt));
 
-    // Set the fill function based on the bin content data type.
-    bool bc_dtype_supported = false;
-    #define BOOST_PP_ITERATION_PARAMS_1                                        \
-        (4, (1, NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND, <ndhist/ndhist.hpp>, 2))
-    #include BOOST_PP_ITERATE()
-    else
-    {
-        // nd is greater than NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND.
-        #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, BCDTYPE)              \
-            if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<BCDTYPE>()))\
-            {                                                                   \
-                if(bc_dtype_supported)                                          \
-                {                                                               \
-                    std::stringstream ss;                                       \
-                    ss << "The bin content data type is supported by more than "\
-                       << "one possible C++ data type! This is an internal "    \
-                       << "error!";                                             \
-                    throw TypeError(ss.str());                                  \
-                }                                                               \
-                value_cache_ = boost::shared_ptr< detail::ValueCache<BCDTYPE> >(new detail::ValueCache<BCDTYPE>(nd_, value_cache_size));\
-                /*fill_fct_ = &detail::generic_nd_traits::fill_traits<BCDTYPE>::fill;*/\
-                bc_dtype_supported = true;                                      \
-            }
-        BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
-        #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
-    }
-    if(!bc_dtype_supported)
-    {
-        std::stringstream ss;
-        ss << "The data type of the bin content array is not supported.";
-        throw TypeError(ss.str());
-    }
-
-    // Setup the function pointers, which depend on the weight value type.
-    #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)        \
-        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
-        {                                                                       \
-            iadd_fct_ = &detail::iadd_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
-            idiv_fct_ = &detail::idiv_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
-            imul_fct_ = &detail::imul_fct_traits<WEIGHT_VALUE_TYPE>::apply;     \
-            get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;\
-            project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
-        }
-    BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
-    #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
-
-    get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
+    // Setup the function pointers and the value cache.
+    setup_function_pointers();
+    setup_value_cache(value_cache_size);
 
     // Initialize the bin content array with objects using their default
     // constructor when the bin content array is an object array.
@@ -704,24 +671,43 @@ ndhist(
         throw AssertionError(ss.str());
     }
 
-    axes_extension_max_fcap_vec_.resize(nd_);
-    axes_extension_max_bcap_vec_.resize(nd_);
-
     // Setup the axes related properties of ndhist.
     for(size_t i=0; i<nd_; ++i)
     {
         boost::shared_ptr<Axis> const & axis = axes[i];
 
+        // Check that the has_oor_bins flag and the is_extendable flag is set
+        // to false for the axis.
+        if(! (   axis->has_oor_bins() == false
+              && axis->is_extendable() == false
+              && axis->get_extension_max_fcap() == 0
+              && axis->get_extension_max_bcap() == 0
+             ))
+        {
+            std::stringstream ss;
+            ss << "The axis "<<i<<" must have the has_oor_bins flag set to "
+               << "false, the is_extendable flag set to false, and the maximal "
+               << "front and back capacities set to 0!";
+            throw AssertionError(ss.str());
+        }
+
         ndvalues_dt_.add_field(axis->get_name(), axis->get_dtype());
 
-        axes_extension_max_fcap_vec_[i] = axis->get_extension_max_fcap();
-        axes_extension_max_bcap_vec_[i] = axis->get_extension_max_bcap();
         axes_.push_back(axis);
     }
 
+    // For a data view no front and back capacity is allowed, because the bins
+    // of the additional front and back capacities could overlap with existing
+    // bins.
+    axes_extension_max_fcap_vec_.resize(nd_, 0);
+    axes_extension_max_bcap_vec_.resize(nd_, 0);
+
     // Create a ndarray_storage object that shares its internal data with the
     // bin content array ndarray_storage object of the owner ndhist object.
-    //TODO
+    bc_ = owner.bc_->create_data_view(data_offset, data_shape, data_strides);
+
+    setup_function_pointers();
+    setup_value_cache(owner.value_cache_->get_capacity());
 }
 
 ndhist::
@@ -742,6 +728,70 @@ ndhist::
             ++bc_iter;
         }
     }
+}
+
+void
+ndhist::
+setup_function_pointers()
+{
+    // Set the fill function based on the weight data type.
+    bool bc_dtype_supported = false;
+    #define BOOST_PP_ITERATION_PARAMS_1                                     \
+        (4, (1, NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND, <ndhist/ndhist.hpp>, 2))
+    #include BOOST_PP_ITERATE()
+    else
+    {
+        // nd is greater than NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND.
+        #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)\
+            if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
+            {                                                               \
+                if(bc_dtype_supported)                                      \
+                {                                                           \
+                    std::stringstream ss;                                   \
+                    ss << "The bin content data type is supported by more than "\
+                       << "one possible C++ data type! This is an internal "\
+                       << "error!";                                         \
+                    throw TypeError(ss.str());                              \
+                }                                                           \
+                /*fill_fct_ = &detail::generic_nd_traits::fill_traits<WEIGHT_VALUE_TYPE>::fill;*/\
+                bc_dtype_supported = true;                                  \
+            }
+        BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
+        #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
+    }
+    if(!bc_dtype_supported)
+    {
+        std::stringstream ss;
+        ss << "The data type of the bin content array is not supported.";
+        throw TypeError(ss.str());
+    }
+
+    #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)    \
+        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
+        {                                                                   \
+            iadd_fct_ = &detail::iadd_fct_traits<WEIGHT_VALUE_TYPE>::apply; \
+            idiv_fct_ = &detail::idiv_fct_traits<WEIGHT_VALUE_TYPE>::apply; \
+            imul_fct_ = &detail::imul_fct_traits<WEIGHT_VALUE_TYPE>::apply; \
+            get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;\
+            project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
+        }
+    BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
+    #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
+
+    get_noe_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<uintptr_t>;
+}
+
+void
+ndhist::
+setup_value_cache(intptr_t const value_cache_size)
+{
+    #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)    \
+        if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
+        {                                                                   \
+            value_cache_ = boost::shared_ptr< detail::ValueCache<WEIGHT_VALUE_TYPE> >(new detail::ValueCache<WEIGHT_VALUE_TYPE>(nd_, value_cache_size));\
+        }
+    BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
+    #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
 }
 
 ndhist &
@@ -770,7 +820,7 @@ operator+(ndhist const & rhs) const
     return newhist;
 }
 
-bn::ndarray
+ndhist
 ndhist::
 operator[](bp::object const & arg) const
 {
@@ -780,7 +830,7 @@ operator[](bp::object const & arg) const
     // list of slice objects. Note, a list of integers does NOT initiate basic
     // indexing!
     //
-    // Check if we have to initialize basic indexing.
+    // Check if we have to initiate basic indexing.
     detail::py::arg_inspector arginsp(arg);
     if(   arginsp.is_of_type(PyInt_Type, PySlice_Type, PyEllipsis_Type)
        || arginsp.is_tuple_of(PyInt_Type, PySlice_Type, PyEllipsis_Type)
@@ -828,9 +878,9 @@ operator[](bp::object const & arg) const
         // Loop over the slicing sequence and construct the axes of the new
         // (sub) histogram.
         std::vector< boost::shared_ptr<Axis> > axes;
-        std::vector<intptr_t> shape;
-        std::vector<intptr_t> strides;
-        intptr_t offset = 0; // The byte offset of the new histogram bin content array.
+        std::vector<intptr_t> data_shape;
+        std::vector<intptr_t> data_strides;
+        intptr_t data_offset = 0; // The byte offset of the new histogram bin content array.
         size_t oaxis = 0; // The current axis of the original histogram.
         std::vector<intptr_t> const & histshape = bc_->get_shape_vector();
         std::vector<intptr_t> const & histstrides = bc_->get_data_strides_vector();
@@ -853,7 +903,7 @@ operator[](bp::object const & arg) const
                        << histshape[oaxis]<<")!";
                     throw IndexError(ss.str());
                 }
-                offset += index*histstrides[oaxis];
+                data_offset += index*histstrides[oaxis];
                 ++oaxis;
             }
             else if(detail::py::is_object_of_type(item, PySlice_Type))
@@ -964,16 +1014,16 @@ operator[](bp::object const & arg) const
                 std::cout << "axis "<<oaxis<<": stop = "<<stop<<std::endl;
                 std::cout << "axis "<<oaxis<<": step = "<<step<<std::endl;
                 std::cout << "axis "<<oaxis<<": nbins = "<<nbins<<std::endl;
-                shape.push_back(nbins);
+                data_shape.push_back(nbins);
 
                 // Setup the stride.
-                strides.push_back(step*histstrides[oaxis]);
+                data_strides.push_back(step*histstrides[oaxis]);
 
                 // Setup the offset.
-                offset += start * histstrides[oaxis];
+                data_offset += start * histstrides[oaxis];
 
-                std::cout << "axis "<<oaxis<<": stride = "<<strides[strides.size()-1]<<std::endl;
-                std::cout << "axis "<<oaxis<<": offset = "<<offset<<std::endl;
+                std::cout << "axis "<<oaxis<<": stride = "<<data_strides[data_strides.size()-1]<<std::endl;
+                std::cout << "axis "<<oaxis<<": offset = "<<data_offset<<std::endl;
 
                 axes.push_back(axes_[oaxis]->create_axis_slice(start, stop, step, nbins));
 
@@ -989,8 +1039,8 @@ operator[](bp::object const & arg) const
                 for(size_t j=0; j<n_axes; ++j)
                 {
                     // Add a full axis range for each axis.
-                    shape.push_back(histshape[oaxis]);
-                    strides.push_back(histstrides[oaxis]);
+                    data_shape.push_back(histshape[oaxis]);
+                    data_strides.push_back(histstrides[oaxis]);
 
                     axes.push_back(axes_[oaxis]->create_axis_slice(0, histshape[oaxis], 1, histshape[oaxis]));
 
@@ -1007,8 +1057,11 @@ operator[](bp::object const & arg) const
 
             for(size_t j=0; j<n_axes; ++j)
             {
-                shape.push_back(histshape[oaxis]);
-                strides.push_back(histstrides[oaxis]);
+                data_shape.push_back(histshape[oaxis]);
+                data_strides.push_back(histstrides[oaxis]);
+
+                axes.push_back(axes_[oaxis]->create_axis_slice(0, histshape[oaxis], 1, histshape[oaxis]));
+
                 std::cout << "Auto add axis "<<oaxis<<std::endl;
                 ++oaxis;
             }
@@ -1020,23 +1073,16 @@ operator[](bp::object const & arg) const
             throw RuntimeError(ss.str());
         }
 
-        // TODO: Create an ndhist object, that shares the bin content array
-        //       with this ndhist object.
-
-        bn::ndarray arr = bn::from_data(bc_->get_data()+offset+sizeof(intptr_t), bc_weight_dt_, shape, strides, /*owner=*/NULL, /*set_owndata_flag=*/false);
-
-        return arr;
+        // Create an ndhist object, is a data view into this ndhist object.
+        return ndhist(*this, axes, data_offset, data_shape, data_strides);
     }
     else
     {
         std::stringstream ss;
-        ss << "The given slicing object does not initialize basic indexing "
-           << "according numpy basic indexing!";
+        ss << "The given slicing object does not initiate basic indexing "
+           << "according to numpy basic indexing!";
         throw ValueError(ss.str());
     }
-
-
-    //return empty_like(); // FIXME
 }
 
 bool
@@ -1116,21 +1162,34 @@ project(bp::object const & dims) const
 
 bp::tuple
 ndhist::
+py_get_shape() const
+{
+    std::vector<intptr_t> shape(nd_);
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        shape[i] = axes_[i]->get_n_bins();
+    }
+    return boost::python::make_tuple_from_container(shape.begin(), shape.end());
+}
+
+bp::tuple
+ndhist::
 py_get_nbins() const
 {
-    std::vector<intptr_t> const & shape = bc_->get_shape_vector();
     std::vector<intptr_t> nbins(nd_);
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        nbins[i] = (axes_[i]->is_extendable() ? shape[i] : shape[i]-2);
+        intptr_t const axis_nbins = axes_[i]->get_n_bins();
+        nbins[i] = (axes_[i]->is_extendable() ? axis_nbins : (axes_[i]->has_oor_bins() ? axis_nbins-2 : axis_nbins));
     }
-    bp::list shape_list;
-    for(uintptr_t i=0; i<nd_; ++i)
-    {
-        shape_list.append(nbins[i]);
-    }
-    bp::tuple shape_tuple(shape_list);
-    return shape_tuple;
+    return boost::python::make_tuple_from_container(nbins.begin(), nbins.end());
+}
+
+bp::tuple
+ndhist::
+py_get_axes() const
+{
+    return boost::python::make_tuple_from_container(axes_.begin(), axes_.end());
 }
 
 bn::ndarray
@@ -1188,193 +1247,145 @@ bp::tuple
 ndhist::
 py_get_labels() const
 {
-    bp::list labels_list;
+    std::vector<std::string> labels;
+    labels.reserve(nd_);
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        labels_list.append(axes_[i]->get_label());
+        labels.push_back(axes_[i]->get_label());
     }
-    bp::tuple labels_tuple(labels_list);
-    return labels_tuple;
+    return boost::python::make_tuple_from_container(labels.begin(), labels.end());
 }
 
 bp::tuple
 ndhist::
 py_get_underflow_entries() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 0);
+    std::vector<bn::ndarray> arrays = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 0);
 
-    bp::list underflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
+    for(size_t i=0; i<arrays.size(); ++i)
     {
-        underflow_list.append(array_vec[i].deepcopy());
+        arrays[i] = arrays[i].deepcopy();
     }
-    bp::tuple underflow(underflow_list);
-    return underflow;
+
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_underflow_entries_view() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 0);
-
-    bp::list underflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
-    {
-        underflow_list.append(array_vec[i]);
-    }
-    bp::tuple underflow(underflow_list);
-    return underflow;
+    std::vector<bn::ndarray> arrays = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 0);
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_overflow_entries() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 0);
+    std::vector<bn::ndarray> arrays = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 0);
 
-    bp::list overflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
+    for(size_t i=0; i<arrays.size(); ++i)
     {
-        overflow_list.append(array_vec[i].deepcopy());
+        arrays[i] = arrays[i].deepcopy();
     }
-    bp::tuple overflow(overflow_list);
-    return overflow;
+
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_overflow_entries_view() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 0);
-
-    bp::list overflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
-    {
-        overflow_list.append(array_vec[i]);
-    }
-    bp::tuple overflow(overflow_list);
-    return overflow;
+    std::vector<bn::ndarray> arrays = this->get_noe_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 0);
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_underflow() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 1);
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 1);
 
-    bp::list underflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
+    for(size_t i=0; i<arrays.size(); ++i)
     {
-        underflow_list.append(array_vec[i].deepcopy());
+        arrays[i] = arrays[i].deepcopy();
     }
-    bp::tuple underflow(underflow_list);
-    return underflow;
+
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_underflow_view() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 1);
-
-    bp::list underflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
-    {
-        underflow_list.append(array_vec[i]);
-    }
-    bp::tuple underflow(underflow_list);
-    return underflow;
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 1);
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_overflow() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 1);
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 1);
 
-    bp::list overflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
+    for(size_t i=0; i<arrays.size(); ++i)
     {
-        overflow_list.append(array_vec[i].deepcopy());
+        arrays[i] = arrays[i].deepcopy();
     }
-    bp::tuple overflow(overflow_list);
-    return overflow;
+
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_overflow_view() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 1);
-
-    bp::list overflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
-    {
-        overflow_list.append(array_vec[i]);
-    }
-    bp::tuple overflow(overflow_list);
-    return overflow;
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 1);
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_underflow_squaredweights() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 2);
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 2);
 
-    bp::list underflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
+    for(size_t i=0; i<arrays.size(); ++i)
     {
-        underflow_list.append(array_vec[i].deepcopy());
+        arrays[i] = arrays[i].deepcopy();
     }
-    bp::tuple underflow(underflow_list);
-    return underflow;
+
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_underflow_squaredweights_view() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 2);
-
-    bp::list underflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
-    {
-        underflow_list.append(array_vec[i]);
-    }
-    bp::tuple underflow(underflow_list);
-    return underflow;
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_UNDERFLOW, 2);
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_overflow_squaredweights() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 2);
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 2);
 
-    bp::list overflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
+    for(size_t i=0; i<arrays.size(); ++i)
     {
-        overflow_list.append(array_vec[i].deepcopy());
+        arrays[i] = arrays[i].deepcopy();
     }
-    bp::tuple overflow(overflow_list);
-    return overflow;
+
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bp::tuple
 ndhist::
 py_get_overflow_squaredweights_view() const
 {
-    std::vector<bn::ndarray> array_vec = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 2);
-
-    bp::list overflow_list;
-    for(size_t i=0; i<array_vec.size(); ++i)
-    {
-        overflow_list.append(array_vec[i]);
-    }
-    bp::tuple overflow(overflow_list);
-    return overflow;
+    std::vector<bn::ndarray> arrays = this->get_weight_type_field_axes_oor_ndarrays_fct_(*this, axis::OOR_OVERFLOW, 2);
+    return boost::python::make_tuple_from_container(arrays.begin(), arrays.end());
 }
 
 bn::ndarray
