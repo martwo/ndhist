@@ -715,7 +715,7 @@ ndhist::
 {
     // If the bin content array is an object array, we need to decref the
     // objects we have created (and incref'ed) at construction time.
-    if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
+    if(!is_view() && bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
         bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_->get_dtype());
         bn::iterators::flat_iterator< detail::bin_iter_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
@@ -1073,7 +1073,26 @@ operator[](bp::object const & arg) const
             throw RuntimeError(ss.str());
         }
 
+        // Check if the slicing selected a single bin, which would result into
+        // a zero-dimensional histogram. But in order to preserve the bin edges
+        // information for that bin, we need to insert an axis with one bin.
+        if(axes.size() == 0)
+        {
+            // Note: In order to achieve a zero-dimensional histogram at all,
+            // the last specified dimension slice must be an integer, that
+            // specifies the bin in question.
+            bp::object const item = bp::extract<bp::object>(seq[nsdim-1]);
+            assert(detail::py::is_object_of_type(item, PyInt_Type));
+            intptr_t index = bp::extract<intptr_t>(item);
+            index += (index < 0 ? histshape[nd_-1] : 0);
+
+            axes.push_back(axes_[nd_-1]->create_axis_slice(index, index+1, 1, 1));
+            data_shape.push_back(1);
+            data_strides.push_back(bc_->get_dtype().get_itemsize());
+        }
+
         // Create an ndhist object, is a data view into this ndhist object.
+        std::cout << "data_offset = " << data_offset << std::endl;
         return ndhist(*this, axes, data_offset, data_shape, data_strides);
     }
     else

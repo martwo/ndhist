@@ -1,3 +1,13 @@
+- In case a slicing results into a zero-dim histogram, i.e. a single bin, still
+  a 1-dimensional histogram is returned, so that the bin edges of that bin are
+  preserved.
+
+- Implemented the basic slicing of ndhist according to numpy basic slicing
+  rules. Basic slicing produces always a data view. Thus, ndhist objects that
+  are views (can be checked through the *is_view* property), don't have under-
+  and overflow bins. Although, they might be views into the original under- and
+  overflow bins.
+
 - Reimplemented the project method of the ndhist class to handle the new
   out-of-range bin scheme.
 

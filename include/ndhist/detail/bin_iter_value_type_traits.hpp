@@ -49,7 +49,22 @@ struct bin_iter_value_type_traits
     {}
 
     std::vector<intptr_t> fields_byte_offsets_;
-    bin_value<WeightValueType> bin_value_;
+    value_type bin_value_;
+
+    static
+    void
+    set_value(
+        bn::iterators::value_type_traits & vtt_base
+      , char * data_ptr
+      , value_ref_type newbin
+    )
+    {
+        value_ref_type bin = type_t::dereference(vtt_base, data_ptr);
+
+        *bin.noe_  = *newbin.noe_;
+        *bin.sow_  = *newbin.sow_;
+        *bin.sows_ = *newbin.sows_;
+    }
 
     static
     value_ref_type
@@ -90,7 +105,22 @@ struct bin_iter_value_type_traits<bp::object>
     {}
 
     std::vector<intptr_t> fields_byte_offsets_;
-    bin_value<bp::object> bin_value_;
+    value_type bin_value_;
+
+    static
+    void
+    set_value(
+        bn::iterators::value_type_traits & vtt_base
+      , char * data_ptr
+      , value_ref_type newbin
+    )
+    {
+        value_ref_type bin = type_t::dereference(vtt_base, data_ptr);
+
+        *bin.noe_          = *newbin.noe_;
+        *bin.sow_obj_ptr_  = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(newbin.sow_obj_.ptr()));
+        *bin.sows_obj_ptr_ = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(newbin.sows_obj_.ptr()));
+    }
 
     static
     value_ref_type

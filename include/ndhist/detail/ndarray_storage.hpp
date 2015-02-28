@@ -161,7 +161,12 @@ class ndarray_storage
       , std::vector<intptr_t> const & data_strides
     )
     {
-        return boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(*this, data_offset, data_shape, data_strides));
+        return boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(
+            *this
+          , data_offset_ + data_offset
+          , data_shape
+          , data_strides
+        ));
     }
 
     inline

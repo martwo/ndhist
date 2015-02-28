@@ -302,33 +302,37 @@ class Axis
     boost::shared_ptr<Axis>
     create_axis_slice(Axis const & axisbase, intptr_t const start, intptr_t const stop, intptr_t const & step, intptr_t const nbins)
     {
+
+        std::cout << "create_axis_slice"<<std::endl;
+        std::cout << "start = "<<start<<", stop = "<<stop << ", step = "<<step<<", nbins="<<nbins << std::endl;
         // Construct the edges array.
         typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
                 iter_t;
 
         boost::numpy::ndarray alledges = axisbase.get_edges_ndarray();
-        iter_t const begin(alledges);
-        iter_t const end(begin.end()-1);
+        iter_t begin(alledges);
+        iter_t end(begin);
+        std::advance(end, alledges.get_size()-1);
         boost::python::slice sl(start, stop, step);
-        boost::python::slice::range<iter_t> r = sl.get_indices(begin, end);
+        boost::python::slice::range<iter_t> r = sl.get_indices<iter_t>(begin, end);
         // Define the shape of the edges array, it is the number of bins
         // plus the upper edge at the end.
-        std::vector<intptr_t> shape(1, nbins + 1);
+        std::vector<intptr_t> const shape(1, nbins + 1);
         boost::numpy::ndarray edges = boost::numpy::empty(shape, alledges.get_dtype());
         iter_t it(edges);
         while(r.start != r.stop)
         {
             // If the step is negative, we need to use the upper edge, instead
             // of the lower edge.
-            *it = *(r.start + (step < 0));
+            it.set_value( *(r.start + (step < 0)) );
             ++it;
             std::advance(r.start, r.step);
         }
-        *it = *(r.start + (step < 0));
+        it.set_value( *(r.start + (step < 0)) );
         // Add the upper (step == +1) or lower edge (step == -1).
         ++it;
         std::advance(r.start, r.step);
-        *it = *r.start;
+        it.set_value( *r.start );
 
         // Construct the axis object.
         // Since it defines a data view, no out-of-range bins are supported,

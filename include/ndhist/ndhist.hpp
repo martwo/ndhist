@@ -190,27 +190,27 @@ class ndhist
 
     /**
      * @brief Constructs the number of entries ndarray for releasing it to
-     *        Python.
-     *        The lifetime of this new object and this ndhist object will be
-     *        managed through the BoostNumpy ndarray_accessor_return() policy.
+     *     Python.
+     *     The lifetime of this new object and this ndhist object will be
+     *     managed through the BoostNumpy ndarray_accessor_return() policy.
      */
     bn::ndarray
     py_get_noe_ndarray();
 
     /**
      * @brief Constructs the sum of weights ndarray for releasing it to
-     *        Python.
-     *        The lifetime of this new object and this ndhist object will be
-     *        managed through the BoostNumpy ndarray_accessor_return() policy.
+     *     Python.
+     *     The lifetime of this new object and this ndhist object will be
+     *     managed through the BoostNumpy ndarray_accessor_return() policy.
      */
     bn::ndarray
     py_get_sow_ndarray();
 
     /**
      * @brief Constructs the sum of weights squared ndarray for releasing
-     *        it to Python.
-     *        The lifetime of this new object and this ndhist object will be
-     *        managed through the BoostNumpy ndarray_accessor_return() policy.
+     *     it to Python.
+     *     The lifetime of this new object and this ndhist object will be
+     *     managed through the BoostNumpy ndarray_accessor_return() policy.
      */
     bn::ndarray
     py_get_sows_ndarray();

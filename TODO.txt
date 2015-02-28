@@ -1,15 +1,15 @@
 - Implement the base_ property of ndhist that refers to the ndhist object when
   the ndhist object is a view into that. This might make the owner property of
-  ndarray_storage obsolete.
-
-- Implement the arithmetic operation ndhist += scalar which adds an entry to all
-  bins. Possible usecase would be to generate a histogram with a given offset
-  (baseline).
+  ndarray_storage obsolete. This is actually important for object bin arrays,
+  where the elements need to be deref'ed by the correct ndhist object, ie. the
+  owner.
 
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,
   * overflow behavior,
   * auto extendable axis
+
+- Write unit tests for basic ndhist slicing.
 
 - Implement the most up-to-date fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_trais)

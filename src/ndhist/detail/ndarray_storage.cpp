@@ -38,6 +38,10 @@ calc_data_offset(
 )
 {
     const int nd = shape.size();
+    if(nd == 0)
+    {
+        return sub_item_byte_offset;
+    }
     intptr_t offset = front_capacity[nd-1];
     intptr_t dim_offsets = 1;
     for(intptr_t i=nd-2; i>=0; --i)
@@ -61,6 +65,10 @@ calc_data_strides(
 )
 {
     size_t const nd = shape.size();
+    if(nd == 0)
+    {
+        return;
+    }
     int const itemsize = dt.get_itemsize();
     strides[nd-1] = itemsize;
     for(intptr_t i=nd-2; i>=0; --i)
@@ -83,7 +91,7 @@ construct_ndarray(
   , bool set_owndata_flag
 )
 {
-    intptr_t const data_offset = calc_data_offset(storage.get_dtype(), shape, front_capacity, back_capacity, sub_item_byte_offset);
+    intptr_t const data_offset = storage.data_offset_ + calc_data_offset(storage.get_dtype(), shape, front_capacity, back_capacity, sub_item_byte_offset);
 
     std::vector<intptr_t> strides(shape.size());
     calc_data_strides(strides, storage.get_dtype(), shape, front_capacity, back_capacity);
