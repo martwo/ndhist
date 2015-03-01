@@ -15,7 +15,6 @@
 #include <iostream>
 #include <vector>
 
-#include <boost/enable_shared_from_this.hpp>
 #include <boost/python.hpp>
 
 #include <boost/numpy/dtype.hpp>
@@ -37,21 +36,18 @@ namespace detail {
  * The storage can be bigger than what the ndarray accesses. This allows to add
  * additional (hidden) capacity to arrays, which can be used for growing the
  * ndarray without memory re-allocation.
- *
  */
 class ndarray_storage
-  : public boost::noncopyable
-  , public boost::enable_shared_from_this<ndarray_storage>
 {
   public:
     /**
-     * @brief Calculates the offset of the data pointer needed for a ndarray
-     *     wrapping a ndarray storage. If given, the sub_item_byte_offset is
-     *     added to the address.
+     * @brief Calculates the data offset w.r.t. the bytearray_data_offset for
+     *     the given data type, shape, front and back capacities.
+     *     If given, the sub_item_byte_offset is added to the address.
      */
     static
     intptr_t
-    calc_data_offset(
+    calc_first_shape_element_data_offset(
         bn::dtype const & dt
       , std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
@@ -92,20 +88,28 @@ class ndarray_storage
     );
 
     /**
+     * @brief Default constructor.
+     */
+    ndarray_storage()
+      : dt_(bn::dtype::get_builtin<void>())
+      , bytearray_data_offset_(0)
+    {}
+
+    /**
      * @brief Constructs a new ndarray_storage with new (c-contiguous) allocated
-     *     data with the specified shape and data type.
+     *     data with the specified data type, shape, front- and back capacities.
      */
     ndarray_storage(
-        std::vector<intptr_t> const & shape
+        boost::numpy::dtype   const & dt
+      , std::vector<intptr_t> const & shape
       , std::vector<intptr_t> const & front_capacity
       , std::vector<intptr_t> const & back_capacity
-      , boost::numpy::dtype   const & dt
     )
       : shape_(shape)
       , front_capacity_(front_capacity)
       , back_capacity_(back_capacity)
-      , dt_(dt)
-      , data_offset_(calc_data_offset(dt_, shape_, front_capacity_, back_capacity_, 0))
+      , dt_(bn::dtype(dt))
+      , bytearray_data_offset_(0)
       , bytearray_(create_bytearray(shape_, front_capacity_, back_capacity_, dt_.get_itemsize()))
     {
         data_strides_.resize(shape_.size());
@@ -113,34 +117,32 @@ class ndarray_storage
     }
 
     /**
-     * @brief Constructs a new ndarray_storage that shares data with an other
-     *     ndarray_storage, i.e. the new created ndarray_storage is just a view
-     *     into the data that is owned by the given ndarray_storage object (or
-     *     its data owner).
+     * @brief Constructs a new ndarray_storage that defines a data view into the
+     *     bytearray of an other ndarray_storage object.
      */
     ndarray_storage(
-        ndarray_storage const & owner
-      , intptr_t const data_offset
+        ndarray_storage const & base
+      , intptr_t const bytearray_data_offset
       , std::vector<intptr_t> const & data_shape
       , std::vector<intptr_t> const & data_strides
     )
       : shape_(data_shape)
       , front_capacity_(std::vector<intptr_t>(shape_.size(), 0))
       , back_capacity_(std::vector<intptr_t>(shape_.size(), 0))
-      , dt_(owner.get_dtype())
+      , dt_(base.get_dtype())
       , data_strides_(data_strides)
-      , data_offset_(data_offset)
-      , bytearray_(owner.bytearray_)
-      , bytearray_owner_(owner.bytearray_owner_.get() == NULL ? owner.shared_from_this() : owner.bytearray_owner_)
+      , bytearray_data_offset_(bytearray_data_offset)
+      , bytearray_(base.bytearray_)
     {}
 
-    size_t get_nd() const { return shape_.size(); }
-
-    /** Constructs a boost::numpy::ndarray object wrapping this ndarray storage
-     *  with the correct layout, i.e. offset and strides. If the field_idx
-     *  is greater than 0, it is assumed, that the data storage was created with
-     *  a structured dtype object and the correct byte offset will be calculated
-     *  automatically to select the field having the given index.
+    /**
+     * @brief Constructs a boost::numpy::ndarray object wrapping the data of
+     *     this ndarray storage with the correct layout, i.e. offset and
+     *     strides.
+     *     If the field_idx is greater than 0, it is assumed, that the data
+     *     storage was created with a structured dtype object and the correct
+     *     byte offset will be calculated automatically to select the field
+     *     having the given index.
      */
     bn::ndarray
     construct_ndarray(
@@ -148,25 +150,35 @@ class ndarray_storage
       , size_t             field_idx = 0
       , bp::object const * data_owner = NULL
       , bool               set_owndata_flag = true
-    );
+    ) const;
 
     /**
      * @brief Creates a ndarray_storage object, that defines a view into the
      *     data of this ndarray_storage object.
+     *     The bytearray_data_offset is supposed to be the offset w.r.t. the
+     *     bytearray_data_offset of this ndarray_storage object.
      */
-    boost::shared_ptr<ndarray_storage>
+    inline
+    ndarray_storage
     create_data_view(
-        intptr_t const data_offset
+        intptr_t const bytearray_data_offset
       , std::vector<intptr_t> const & data_shape
       , std::vector<intptr_t> const & data_strides
-    )
+    ) const
     {
-        return boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(
+        return ndarray_storage(
             *this
-          , data_offset_ + data_offset
+          , bytearray_data_offset_ + bytearray_data_offset
           , data_shape
           , data_strides
-        ));
+        );
+    }
+
+    inline
+    size_t
+    get_nd() const
+    {
+        return shape_.size();
     }
 
     inline
@@ -199,9 +211,16 @@ class ndarray_storage
 
     inline
     intptr_t
-    get_data_offset() const
+    get_bytearray_data_offset() const
     {
-        return data_offset_;
+        return bytearray_data_offset_;
+    }
+
+    inline
+    intptr_t
+    calc_first_shape_element_data_offset()
+    {
+        return calc_first_shape_element_data_offset(dt_, shape_, front_capacity_, back_capacity_, 0);
     }
 
     /**
@@ -210,9 +229,9 @@ class ndarray_storage
      */
     inline
     char *
-    get_data()
+    get_data() const
     {
-        return bytearray_->data_;
+        return bytearray_->get();
     }
 
     inline
@@ -220,17 +239,6 @@ class ndarray_storage
     get_data_strides_vector() const
     {
         return data_strides_;
-    }
-
-    /**
-     * @brief Check if this ndarray_storage object owns the data, i.e. it does
-     *     not share the data with an other ndarray_storage object.
-     */
-    inline
-    bool
-    owns_data()
-    {
-        return (bytearray_owner_ == NULL);
     }
 
     /**
@@ -275,7 +283,7 @@ class ndarray_storage
     std::vector<intptr_t> shape_;
 
     /** The additional front and back capacities define how many additional
-     *  elements each dimension has.
+     *  elements each dimension has before and after the shape elements.
      */
     std::vector<intptr_t> front_capacity_;
     std::vector<intptr_t> back_capacity_;
@@ -289,22 +297,15 @@ class ndarray_storage
      */
     std::vector<intptr_t> data_strides_;
 
-    /** The data address offset for the first sub item of the structured data
-     *  type using the set shape, front and back capacities.
+    /** The data offset specifies the byte offset for this data view w.r.t.
+     *  bytearray_->get(), i.e. start address of the byte data.
      */
-    intptr_t data_offset_;
+    intptr_t bytearray_data_offset_;
 
     /** The shared pointer to the bytearray, that might be shared between
      *  different ndarray_storage objects.
      */
     boost::shared_ptr<bytearray> bytearray_;
-
-    /** The owner of the bytearray. If that is non-NULL, this ndarray_storage
-     *  object does not own the data and is not allowed to change it. In case
-     *  changes (e.g. the shape) are required, the bytearray needs to be copied
-     *  before.
-     */
-    boost::shared_ptr<ndarray_storage const> bytearray_owner_;
 
   protected:
     /** Creates (i.e. allocates data) bytearray object for the given array

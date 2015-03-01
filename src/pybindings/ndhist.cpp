@@ -68,6 +68,12 @@ void register_ndhist()
             , "The flag if this ndhist object is a view into the bin content "
               "array of an other ndhist object.")
 
+        .add_property("base", //bp::make_function(
+              &ndhist::py_get_base
+            //, bp::return_internal_reference<>())
+            , "In case this ndhist object provides a data view into an other "
+              "ndhist object, the base is a reference to this ndhist object.")
+
         // We use the bn::ndarray_accessor_return CallPolicy to keep the
         // ndhist object alive as long as the returned ndarray is alive.
         .add_property("binentries", bp::make_function(
@@ -228,6 +234,7 @@ void register_ndhist()
         BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES_WITHOUT_OBJECT)
         #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
     ;
+    //bp::implicitly_convertible< boost::shared_ptr<ndhist>, boost::shared_ptr<ndhist const> >();
 }
 
 }// namespace ndhist

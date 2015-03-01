@@ -1,9 +1,3 @@
-- Implement the base_ property of ndhist that refers to the ndhist object when
-  the ndhist object is a view into that. This might make the owner property of
-  ndarray_storage obsolete. This is actually important for object bin arrays,
-  where the elements need to be deref'ed by the correct ndhist object, ie. the
-  owner.
-
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,
   * overflow behavior,

@@ -87,7 +87,7 @@ class GenericAxis
             type;
 
   protected:
-    boost::shared_ptr< ::ndhist::detail::ndarray_storage > edges_arr_storage_;
+    ::ndhist::detail::ndarray_storage edges_arr_storage_;
     bp::object edges_arr_;
     bn::iterators::flat_iterator< axis_value_type_traits > edges_arr_iter_;
     bn::iterators::flat_iterator< axis_value_type_traits > edges_arr_iter_end_;
@@ -161,11 +161,9 @@ class GenericAxis
         std::vector<intptr_t> shape(1, nbins);
         std::vector<intptr_t> front_capacity(1, 0);
         std::vector<intptr_t> back_capacity(1, 0);
-        edges_arr_storage_ = boost::shared_ptr< ::ndhist::detail::ndarray_storage >(
-            new ::ndhist::detail::ndarray_storage(shape, front_capacity, back_capacity, edges.get_dtype()));
+        edges_arr_storage_ = ::ndhist::detail::ndarray_storage(edges.get_dtype(), shape, front_capacity, back_capacity);
         // Copy the data from the user provided edge array to the storage array.
-        bp::object owner;
-        edges_arr_ = edges_arr_storage_->construct_ndarray(edges_arr_storage_->get_dtype(), 0, &owner);
+        edges_arr_ = edges_arr_storage_.construct_ndarray(edges_arr_storage_.get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         bn::ndarray & arr = *static_cast<bn::ndarray*>(&edges_arr_);
         if(! bn::copy_into(arr, edges))
         {

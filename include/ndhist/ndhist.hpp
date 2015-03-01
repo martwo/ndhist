@@ -25,6 +25,7 @@
 #include <boost/preprocessor/iterate.hpp>
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <boost/python.hpp>
+#include <boost/enable_shared_from_this.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <boost/numpy/dtype.hpp>
@@ -42,6 +43,7 @@ namespace bn = boost::numpy;
 namespace ndhist {
 
 class ndhist
+  : public boost::enable_shared_from_this<ndhist>
 {
   public:
 
@@ -80,9 +82,9 @@ class ndhist
      *     They define the dimensionality of the new ndhist histogram.
      */
     ndhist(
-        ndhist const & owner
+        ndhist const & base
       , std::vector< boost::shared_ptr<Axis> > const & axes
-      , intptr_t const data_offset
+      , intptr_t const bytearray_data_offset
       , std::vector<intptr_t> const & data_shape
       , std::vector<intptr_t> const & data_strides
     );
@@ -193,27 +195,33 @@ class ndhist
      *     Python.
      *     The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
      */
-    bn::ndarray
-    py_get_noe_ndarray();
+    bp::object
+    py_get_noe_ndarray() const;
 
     /**
      * @brief Constructs the sum of weights ndarray for releasing it to
      *     Python.
      *     The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
      */
-    bn::ndarray
-    py_get_sow_ndarray();
+    bp::object
+    py_get_sow_ndarray() const;
 
     /**
      * @brief Constructs the sum of weights squared ndarray for releasing
      *     it to Python.
      *     The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
      */
-    bn::ndarray
-    py_get_sows_ndarray();
+    bp::object
+    py_get_sows_ndarray() const;
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -364,6 +372,12 @@ class ndhist
     void
     py_fill(bp::object const & ndvalue_obj, bp::object weight_obj);
 
+    boost::shared_ptr<ndhist>
+    py_get_base() const
+    {
+        return boost::const_pointer_cast<ndhist, ndhist const>(base_);
+    }
+
     /**
      * @brief Create a new ndhist from this ndhist object, where only the
      *        specified dimensions are included and the others are summed over.
@@ -382,7 +396,7 @@ class ndhist
     detail::ndarray_storage &
     get_bc_storage()
     {
-        return *bc_;
+        return bc_;
     }
 
     inline
@@ -427,7 +441,7 @@ class ndhist
     bool
     is_view()
     {
-        return (! bc_->owns_data());
+        return (base_ != NULL);
     }
 
     void
@@ -494,30 +508,12 @@ class ndhist
      *     into the bin content array that represents only the core bin content
      *     array, i.e. excluding the under- and overflow bins.
      */
-    inline
     void
     calc_core_bin_content_ndarray_settings(
         std::vector<intptr_t> & shape
       , std::vector<intptr_t> & front_capacity
       , std::vector<intptr_t> & back_capacity
-    )
-    {
-        shape = bc_->get_shape_vector();
-        front_capacity = bc_->get_front_capacity_vector();
-        back_capacity = bc_->get_back_capacity_vector();
-        for(uintptr_t i=0; i<nd_; ++i)
-        {
-            // Note, that extendable axes have only virtual under- and
-            // overflow bins, that are included in the front and back
-            // capacities.
-            if(!axes_[i]->is_extendable() && axes_[i]->has_oor_bins())
-            {
-                shape[i] -= 2;
-                front_capacity[i] += 1;
-                back_capacity[i] += 1;
-            }
-        }
-    }
+    ) const;
 
   public:
     /** The number of dimenions of this histogram.
@@ -536,12 +532,14 @@ class ndhist
     std::vector<intptr_t> axes_extension_max_fcap_vec_;
     std::vector<intptr_t> axes_extension_max_bcap_vec_;
 
-    /** The bin contents.
+    /** The bin content.
      *  bc_ holds the actual data of the bins.
+     *  bc_noe_dt_ is the dtype object describing the data type of the number
+     *      of entries.
      *  bc_weight_dt_ is the dtype object describing the data type of the
      *      weights.
      */
-    boost::shared_ptr<detail::ndarray_storage> bc_;
+    detail::ndarray_storage bc_;
     bn::dtype const bc_noe_dt_;
     bn::dtype const bc_weight_dt_;
 
@@ -563,6 +561,11 @@ class ndhist
     /** The title string of the histogram, useful for plotting purposes.
      */
     std::string title_;
+
+    /** The ndhist object owning the bin content array, in cases this ndhist
+     *  object provides a data view into that ndhist object.
+     */
+    boost::shared_ptr<ndhist const> base_;
 };
 
 template <typename T>
@@ -733,14 +736,14 @@ struct specific_nd_traits<ND>
             std::vector<intptr_t> relative_indices(ND, 0);
             std::vector<intptr_t> f_n_extra_bins_vec(ND, 0);
             std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
-            std::vector<intptr_t> const & bc_fcap = self.bc_->get_front_capacity_vector();
-            std::vector<intptr_t> const & bc_bcap = self.bc_->get_back_capacity_vector();
+            std::vector<intptr_t> const & bc_fcap = self.bc_.get_front_capacity_vector();
+            std::vector<intptr_t> const & bc_bcap = self.bc_.get_back_capacity_vector();
             bool is_oor;
             bool extend_axes;
             bool reallocation_upon_extension = false;
             bool value_cached;
             ::ndhist::axis::out_of_range_t oor_flag;
-            intptr_t bc_data_offset = self.bc_->get_data_offset();
+            intptr_t bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
             char * bc_data_addr;
             do {
                 intptr_t size = iter.get_inner_loop_size();
@@ -755,8 +758,8 @@ struct specific_nd_traits<ND>
                     extend_axes = false;
                     value_cached = false;
 
-                    std::vector<intptr_t> const & bc_data_strides = self.bc_->get_data_strides_vector();
-                    bc_data_addr = self.bc_->get_data() + bc_data_offset;
+                    std::vector<intptr_t> const & bc_data_strides = self.bc_.get_data_strides_vector();
+                    bc_data_addr = self.bc_.get_data() + bc_data_offset;
                     for(size_t i=0; i<ND; ++i)
                     {
                         // Don't waste time for values, which can't be filled
@@ -849,7 +852,7 @@ struct specific_nd_traits<ND>
                                 //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                                bc_data_offset = self.bc_->get_data_offset();
+                                bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
 
                                 flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
 
@@ -865,14 +868,14 @@ struct specific_nd_traits<ND>
                             //std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
                             self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                             self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            bc_data_offset = self.bc_->get_data_offset();
+                            bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
                             memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                             memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
 
                             // Since the strides have changed, we need to
                             // recompute the bc_data_addr.
-                            std::vector<intptr_t> const & bc_data_strides = self.bc_->get_data_strides_vector();
-                            bc_data_addr = self.bc_->get_data() + bc_data_offset;
+                            std::vector<intptr_t> const & bc_data_strides = self.bc_.get_data_strides_vector();
+                            bc_data_addr = self.bc_.get_data() + bc_data_offset;
                             for(size_t i=0; i<ND; ++i)
                             {
                                 bc_data_addr += indices[i]*bc_data_strides[i];
@@ -896,7 +899,7 @@ struct specific_nd_traits<ND>
             {
                 self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                bc_data_offset = self.bc_->get_data_offset();
+                bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
 
                 flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
             }

@@ -1,12 +1,18 @@
-- In case a slicing results into a zero-dim histogram, i.e. a single bin, still
-  a 1-dimensional histogram is returned, so that the bin edges of that bin are
-  preserved.
+- Implemented the *base* property of ndhist that refers to the ndhist object
+  when the ndhist object is a view into that. This maked the owner property of
+  ndarray_storage obsolete. This is actually important for object bin arrays,
+  where the elements need to be deref'ed by the correct ndhist object, ie. the
+  base.
+
+- Scalarized the return value of binentries, bincontent, and squaredweights
+  properties if the ndhist object is a zero-dimensional histogram.
 
 - Implemented the basic slicing of ndhist according to numpy basic slicing
   rules. Basic slicing produces always a data view. Thus, ndhist objects that
   are views (can be checked through the *is_view* property), don't have under-
   and overflow bins. Although, they might be views into the original under- and
-  overflow bins.
+  overflow bins. In case the ndhist is a data view, the *base* property is set
+  to that ndhist object.
 
 - Reimplemented the project method of the ndhist class to handle the new
   out-of-range bin scheme.

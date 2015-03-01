@@ -82,7 +82,7 @@ class bytearray
     /**
      * @brief Returns the pointer to the beginning of the byte array.
      */
-    char * get() { return data_; }
+    char * get() const { return data_; }
 
   private:
     bytearray()

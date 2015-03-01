@@ -33,7 +33,7 @@ ConstructDataStorage(bn::ndarray const & shape, bn::dtype const & dt)
     std::vector<intptr_t> back_capacity(shape.get_size(), 0);
 
     return boost::shared_ptr<detail::ndarray_storage>(
-        new detail::ndarray_storage(shape_vec, front_capacity, back_capacity, dt));
+        new detail::ndarray_storage(dt, shape_vec, front_capacity, back_capacity));
 }
 
 ndtable::

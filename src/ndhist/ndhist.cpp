@@ -72,8 +72,8 @@ flush_value_cache(
     {
         typename ValueCache<WeightValueType>::cache_entry_type const & entry = value_cache.get_entry(idx);
 
-        std::vector<intptr_t> const & arr_strides = self.bc_->get_data_strides_vector();
-        bin_data_addr = self.bc_->get_data() + bc_data_offset;
+        std::vector<intptr_t> const & arr_strides = self.bc_.get_data_strides_vector();
+        bin_data_addr = self.bc_.get_data() + bc_data_offset;
 
         // Translate the relative indices into an absolute
         // data address for the extended bin content array.
@@ -110,8 +110,8 @@ struct iadd_fct_traits
                 >
                 multi_iter_t;
 
-        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
-        bn::ndarray other_bc_arr = other.bc_->construct_ndarray(other.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray self_bc_arr = self.bc_.construct_ndarray(self.bc_.get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray other_bc_arr = other.bc_.construct_ndarray(other.bc_.get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         multi_iter_t bc_it(
             self_bc_arr
           , other_bc_arr
@@ -144,7 +144,7 @@ struct idiv_fct_traits
                 >
                 multi_iter_t;
 
-        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray self_bc_arr = self.bc_.construct_ndarray(self.bc_.get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         multi_iter_t bc_it(
             self_bc_arr
           , const_cast<bn::ndarray &>(value_arr)
@@ -177,7 +177,7 @@ struct imul_fct_traits
                 >
                 multi_iter_t;
 
-        bn::ndarray self_bc_arr = self.bc_->construct_ndarray(self.bc_->get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray self_bc_arr = self.bc_.construct_ndarray(self.bc_.get_dtype(), 0, /*owner=*/NULL, /*set_owndata_flag=*/false);
         multi_iter_t bc_it(
             self_bc_arr
           , const_cast<bn::ndarray &>(value_arr)
@@ -221,8 +221,8 @@ struct project_fct_traits
         typedef multi_axis_iter< bin_iter_value_type_traits<WeightValueType> >
                 multi_axis_iter_t;
 
-        multi_axis_iter_t proj_iter(proj.bc_->construct_ndarray(proj.bc_->get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
-        multi_axis_iter_t self_iter(self.bc_->construct_ndarray(self.bc_->get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+        multi_axis_iter_t proj_iter(proj.bc_.construct_ndarray(proj.bc_.get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+        multi_axis_iter_t self_iter(self.bc_.construct_ndarray(self.bc_.get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
 
         // Iterate over *all* the bins (including underflow & overflow bins) of
         // the projection bin content array.
@@ -231,7 +231,7 @@ struct project_fct_traits
         std::vector<intptr_t> self_iter_axes_range_max(self_nd);
         for(uintptr_t i=0; i<self_nd; ++i)
         {
-            self_iter_axes_range_max[i] = self.bc_->get_shape_vector()[i];
+            self_iter_axes_range_max[i] = self.bc_.get_shape_vector()[i];
         }
 
         std::vector<intptr_t> proj_fixed_axes_indices(proj_nd, axis::FLAGS_FLOATING_INDEX);
@@ -239,7 +239,7 @@ struct project_fct_traits
         std::vector<intptr_t> proj_iter_axes_range_max(proj_nd);
         for(uintptr_t i=0; i<proj_nd; ++i)
         {
-            proj_iter_axes_range_max[i] = proj.bc_->get_shape_vector()[i];
+            proj_iter_axes_range_max[i] = proj.bc_.get_shape_vector()[i];
         }
 
         proj_iter.init_iteration(proj_fixed_axes_indices, proj_iter_axes_range_min, proj_iter_axes_range_max);
@@ -299,9 +299,9 @@ get_field_axes_oor_ndarrays(
 )
 {
     uintptr_t const nd = self.get_nd();
-    std::vector<intptr_t> complete_bc_arr_shape          = self.bc_->get_shape_vector();
-    std::vector<intptr_t> complete_bc_arr_front_capacity = self.bc_->get_front_capacity_vector();
-    std::vector<intptr_t> complete_bc_arr_back_capacity  = self.bc_->get_back_capacity_vector();
+    std::vector<intptr_t> complete_bc_arr_shape          = self.bc_.get_shape_vector();
+    std::vector<intptr_t> complete_bc_arr_front_capacity = self.bc_.get_front_capacity_vector();
+    std::vector<intptr_t> complete_bc_arr_back_capacity  = self.bc_.get_back_capacity_vector();
     // Add the under- and overflow bins of the extendable axes to the shape, and
     // remove them from the front- and back capacities, in order to calculate
     // the data offset and strides correctly.
@@ -325,7 +325,7 @@ get_field_axes_oor_ndarrays(
         }
     }
 
-    intptr_t const sub_item_byte_offset = (field_idx == 0 ? 0 : self.bc_->get_dtype().get_fields_byte_offsets()[field_idx]);
+    intptr_t const sub_item_byte_offset = (field_idx == 0 ? 0 : self.bc_.get_dtype().get_fields_byte_offsets()[field_idx]);
 
     // Allocate vectors for the shape, front and back capacities that are used
     // to construct the views of the returned individual ndarrays.
@@ -366,7 +366,7 @@ get_field_axes_oor_ndarrays(
         }
 
         // Construct the ndarray, that is a view into the bin content array.
-        bn::ndarray arr = ndarray_storage::construct_ndarray(*self.bc_, dt, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray arr = ndarray_storage::construct_ndarray(self.bc_, dt, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
         array_vec.push_back(arr);
     }
 
@@ -622,7 +622,7 @@ ndhist(
     bc_dt.add_field("noe",  bc_noe_dt_);
     bc_dt.add_field("sow",  bc_weight_dt_);
     bc_dt.add_field("sows", bc_weight_dt_);
-    bc_ = boost::shared_ptr<detail::ndarray_storage>(new detail::ndarray_storage(shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_, bc_dt));
+    bc_ = detail::ndarray_storage(bc_dt, shape, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_);
 
     // Setup the function pointers and the value cache.
     setup_function_pointers();
@@ -632,7 +632,7 @@ ndhist(
     // constructor when the bin content array is an object array.
     if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
-        bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_->get_dtype());
+        bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_.get_dtype());
         bn::iterators::flat_iterator< detail::bin_iter_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         while(! bc_iter.is_end())
         {
@@ -650,17 +650,18 @@ ndhist(
 
 ndhist::
 ndhist(
-    ndhist const & owner
+    ndhist const & base
   , std::vector< boost::shared_ptr<Axis> > const & axes
-  , intptr_t const data_offset
+  , intptr_t const bytearray_data_offset
   , std::vector<intptr_t> const & data_shape
   , std::vector<intptr_t> const & data_strides
 )
   : nd_(axes.size())
   , ndvalues_dt_(bn::dtype::new_builtin<void>())
   , bc_noe_dt_(bn::dtype::get_builtin<uintptr_t>())
-  , bc_weight_dt_(owner.get_weight_dtype())
-  , bc_class_(owner.get_weight_class())
+  , bc_weight_dt_(base.get_weight_dtype())
+  , bc_class_(base.get_weight_class())
+  , base_(base.shared_from_this())
 {
     if(data_shape.size() != data_strides.size())
     {
@@ -704,20 +705,21 @@ ndhist(
 
     // Create a ndarray_storage object that shares its internal data with the
     // bin content array ndarray_storage object of the owner ndhist object.
-    bc_ = owner.bc_->create_data_view(data_offset, data_shape, data_strides);
+    bc_ = base.bc_.create_data_view(bytearray_data_offset, data_shape, data_strides);
 
     setup_function_pointers();
-    setup_value_cache(owner.value_cache_->get_capacity());
+    setup_value_cache(base.value_cache_->get_capacity());
 }
 
 ndhist::
 ~ndhist()
 {
+    std::cout << "Destructing ndhist"<<std::endl;
     // If the bin content array is an object array, we need to decref the
     // objects we have created (and incref'ed) at construction time.
     if(!is_view() && bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>()))
     {
-        bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_->get_dtype());
+        bn::ndarray bc_arr = construct_complete_bin_content_ndarray(bc_.get_dtype());
         bn::iterators::flat_iterator< detail::bin_iter_value_type_traits<bp::object> > bc_iter(bc_arr, bn::detail::iter_operand::flags::READWRITE::value);
         while(! bc_iter.is_end())
         {
@@ -792,6 +794,31 @@ setup_value_cache(intptr_t const value_cache_size)
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
+}
+
+void
+ndhist::
+calc_core_bin_content_ndarray_settings(
+    std::vector<intptr_t> & shape
+  , std::vector<intptr_t> & front_capacity
+  , std::vector<intptr_t> & back_capacity
+) const
+{
+    shape          = bc_.get_shape_vector();
+    front_capacity = bc_.get_front_capacity_vector();
+    back_capacity  = bc_.get_back_capacity_vector();
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        // Note, that extendable axes have only virtual under- and
+        // overflow bins, that are included in the front and back
+        // capacities.
+        if(!axes_[i]->is_extendable() && axes_[i]->has_oor_bins())
+        {
+            shape[i] -= 2;
+            front_capacity[i] += 1;
+            back_capacity[i] += 1;
+        }
+    }
 }
 
 ndhist &
@@ -882,8 +909,8 @@ operator[](bp::object const & arg) const
         std::vector<intptr_t> data_strides;
         intptr_t data_offset = 0; // The byte offset of the new histogram bin content array.
         size_t oaxis = 0; // The current axis of the original histogram.
-        std::vector<intptr_t> const & histshape = bc_->get_shape_vector();
-        std::vector<intptr_t> const & histstrides = bc_->get_data_strides_vector();
+        std::vector<intptr_t> const & histshape = bc_.get_shape_vector();
+        std::vector<intptr_t> const & histstrides = bc_.get_data_strides_vector();
         for(size_t i=0; i<nsdim; ++i)
         {
             bp::object const item = bp::extract<bp::object>(seq[i]);
@@ -1073,24 +1100,6 @@ operator[](bp::object const & arg) const
             throw RuntimeError(ss.str());
         }
 
-        // Check if the slicing selected a single bin, which would result into
-        // a zero-dimensional histogram. But in order to preserve the bin edges
-        // information for that bin, we need to insert an axis with one bin.
-        if(axes.size() == 0)
-        {
-            // Note: In order to achieve a zero-dimensional histogram at all,
-            // the last specified dimension slice must be an integer, that
-            // specifies the bin in question.
-            bp::object const item = bp::extract<bp::object>(seq[nsdim-1]);
-            assert(detail::py::is_object_of_type(item, PyInt_Type));
-            intptr_t index = bp::extract<intptr_t>(item);
-            index += (index < 0 ? histshape[nd_-1] : 0);
-
-            axes.push_back(axes_[nd_-1]->create_axis_slice(index, index+1, 1, 1));
-            data_shape.push_back(1);
-            data_strides.push_back(bc_->get_dtype().get_itemsize());
-        }
-
         // Create an ndhist object, is a data view into this ndhist object.
         std::cout << "data_offset = " << data_offset << std::endl;
         return ndhist(*this, axes, data_offset, data_shape, data_strides);
@@ -1211,9 +1220,9 @@ py_get_axes() const
     return boost::python::make_tuple_from_container(axes_.begin(), axes_.end());
 }
 
-bn::ndarray
+bp::object
 ndhist::
-py_get_noe_ndarray()
+py_get_noe_ndarray() const
 {
     // The core part of the bin content array excludes the under- and
     // overflow bins. So we need to create an appropriate view into the bin
@@ -1225,12 +1234,17 @@ py_get_noe_ndarray()
 
     intptr_t const sub_item_byte_offset = 0;
 
-    return detail::ndarray_storage::construct_ndarray(*bc_, bc_noe_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    bn::ndarray arr = detail::ndarray_storage::construct_ndarray(bc_, bc_noe_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
 }
 
-bn::ndarray
+bp::object
 ndhist::
-py_get_sow_ndarray()
+py_get_sow_ndarray() const
 {
     // The core part of the bin content array excludes the under- and
     // overflow bins. So we need to create an appropriate view into the bin
@@ -1240,14 +1254,19 @@ py_get_sow_ndarray()
     std::vector<intptr_t> back_capacity;
     calc_core_bin_content_ndarray_settings(shape, front_capacity, back_capacity);
 
-    intptr_t const sub_item_byte_offset = bc_->get_dtype().get_fields_byte_offsets()[1];
+    intptr_t const sub_item_byte_offset = bc_.get_dtype().get_fields_byte_offsets()[1];
 
-    return detail::ndarray_storage::construct_ndarray(*bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    bn::ndarray arr = detail::ndarray_storage::construct_ndarray(bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
 }
 
-bn::ndarray
+bp::object
 ndhist::
-py_get_sows_ndarray()
+py_get_sows_ndarray() const
 {
     // The core part of the bin content array excludes the under- and
     // overflow bins. So we need to create an appropriate view into the bin
@@ -1257,9 +1276,14 @@ py_get_sows_ndarray()
     std::vector<intptr_t> back_capacity;
     calc_core_bin_content_ndarray_settings(shape, front_capacity, back_capacity);
 
-    intptr_t const sub_item_byte_offset = bc_->get_dtype().get_fields_byte_offsets()[2];
+    intptr_t const sub_item_byte_offset = bc_.get_dtype().get_fields_byte_offsets()[2];
 
-    return detail::ndarray_storage::construct_ndarray(*bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    bn::ndarray arr = detail::ndarray_storage::construct_ndarray(bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
 }
 
 bp::tuple
@@ -1653,7 +1677,7 @@ extend_bin_content_array(
 )
 {
     // Extend the bin content array. This might cause a reallocation of memory.
-    bc_->extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_);
+    bc_.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec, axes_extension_max_fcap_vec_, axes_extension_max_bcap_vec_);
 
     // We need to initialize the new bin content values, if the data type
     // is object.
@@ -1686,9 +1710,9 @@ construct_complete_bin_content_ndarray(
   , size_t const field_idx
 ) const
 {
-    std::vector<intptr_t> shape = bc_->get_shape_vector();
-    std::vector<intptr_t> front_capacity = bc_->get_front_capacity_vector();
-    std::vector<intptr_t> back_capacity = bc_->get_back_capacity_vector();
+    std::vector<intptr_t> shape          = bc_.get_shape_vector();
+    std::vector<intptr_t> front_capacity = bc_.get_front_capacity_vector();
+    std::vector<intptr_t> back_capacity  = bc_.get_back_capacity_vector();
     // Add the under- and overflow bins of the extendable axes to the shape, and
     // remove them from the front- and back capacities, in order to calculate
     // the data offset and strides correctly.
@@ -1702,9 +1726,9 @@ construct_complete_bin_content_ndarray(
         }
     }
 
-    intptr_t const sub_item_byte_offset = (field_idx == 0 ? 0 : bc_->get_dtype().get_fields_byte_offsets()[field_idx]);
+    intptr_t const sub_item_byte_offset = (field_idx == 0 ? 0 : bc_.get_dtype().get_fields_byte_offsets()[field_idx]);
 
-    return detail::ndarray_storage::construct_ndarray(*bc_, dt, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    return detail::ndarray_storage::construct_ndarray(bc_, dt, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
 }
 
 }//namespace ndhist
