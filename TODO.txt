@@ -1,3 +1,26 @@
+- Implement the bincenters property of ndhist (w/o the under and overflow bins).
+
+- Implement the binwidths property of ndhist (w/o the under and overflow bins).
+
+- Implement clear() method, that sets all bin content values to zero.
+
+- Implement the ndhist.copy() method that creates a deep copy of the ndhist
+  object.
+
+- Implement rebin_axis(axis, nbins_to_merge) that should change the current
+  ndhist object. In case a copy is needed beforehand, the user should call
+  ndhist.copy().rebin_axis(). So rebin_axis must return a reference to its
+  ndhist object.
+  The reason for letting rebin_axis operate on the ndhist object itself is the
+  fact, that this operation can be done very efficiently without the need of
+  a copy of all the data. In principle rebin_axis could take a kwarg named
+  copy=True, that would call the copy() method first if needed. This would mimic
+  the behavior of dashi, that always creates a copy when rebinning.
+  In principle, rebin_axis could also take a tuple for axis and nbins_to_merge
+  and could rebin several axes at once.
+
+- Implement advanced slicing a la numpy.
+
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,
   * overflow behavior,
