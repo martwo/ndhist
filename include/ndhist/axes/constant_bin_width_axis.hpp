@@ -83,12 +83,13 @@ class ConstantBinWidthAxis
         )
     {
         // Set up the axis's function pointers.
-        get_bin_index_fct_     = &get_bin_index;
-        get_edges_ndarray_fct_ = &get_edges_ndarray;
-        get_n_bins_fct_        = &get_n_bins;
-        request_extension_fct_ = &request_extension;
-        extend_fct_            = &extend;
-        create_axis_slice_fct_ = &create_axis_slice<type>;
+        get_bin_index_fct_          = &get_bin_index;
+        get_binedges_ndarray_fct_   = &get_binedges_ndarray;
+        get_bincenters_ndarray_fct_ = &get_bincenters_ndarray<type>;
+        get_n_bins_fct_             = &get_n_bins;
+        request_extension_fct_      = &request_extension;
+        extend_fct_                 = &extend;
+        create_axis_slice_fct_      = &create_axis_slice<type>;
 
         std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
         n_bins_ = edges.shape(0) - 1;
@@ -135,7 +136,7 @@ class ConstantBinWidthAxis
 
     static
     bn::ndarray
-    get_edges_ndarray(Axis const & axisbase)
+    get_binedges_ndarray(Axis const & axisbase)
     {
         type const & axis = *static_cast<type const *>(&axisbase);
 

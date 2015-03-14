@@ -1122,8 +1122,13 @@ is_compatible(ndhist const & other) const
     }
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        bn::ndarray const this_axis_edges_arr = this->axes_[i]->get_edges_ndarray();
-        bn::ndarray const other_axis_edges_arr = other.axes_[i]->get_edges_ndarray();
+        bn::ndarray const this_axis_edges_arr = this->axes_[i]->get_binedges_ndarray();
+        bn::ndarray const other_axis_edges_arr = other.axes_[i]->get_binedges_ndarray();
+
+        if(this_axis_edges_arr.shape(0) != other_axis_edges_arr.shape(0))
+        {
+            return false;
+        }
 
         if(bn::all(bn::equal(this_axis_edges_arr, other_axis_edges_arr), 0) == false)
         {
@@ -1433,7 +1438,7 @@ py_get_overflow_squaredweights_view() const
 
 bn::ndarray
 ndhist::
-get_edges_ndarray(intptr_t axis) const
+get_binedges_ndarray(intptr_t axis) const
 {
     // Count axis from the back if axis is negative.
     if(axis < 0) {
@@ -1449,7 +1454,7 @@ get_edges_ndarray(intptr_t axis) const
         throw IndexError(ss.str());
     }
 
-    return axes_[axis]->get_edges_ndarray();
+    return axes_[axis]->get_binedges_ndarray();
 }
 
 bp::object
@@ -1460,17 +1465,55 @@ py_get_binedges() const
     // length 1.
     if(nd_ == 1)
     {
-        return get_edges_ndarray(0);
+        return get_binedges_ndarray(0);
     }
 
-    bp::list edges_list;
+    std::vector<bn::ndarray> vec;
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        bn::ndarray edges = get_edges_ndarray(i);
-        edges_list.append(edges);
+        vec.push_back(get_binedges_ndarray(i));
     }
-    bp::tuple edges_tuple(edges_list);
-    return edges_tuple;
+    return boost::python::make_tuple_from_container(vec.begin(), vec.end());
+}
+
+bn::ndarray
+ndhist::
+get_bincenters_ndarray(intptr_t axis) const
+{
+    // Count axis from the back if axis is negative.
+    if(axis < 0) {
+        axis += axes_.size();
+    }
+
+    if(axis < 0 || axis >= intptr_t(axes_.size()))
+    {
+        std::stringstream ss;
+        ss << "The axis parameter must be in the interval "
+           << "[0, " << axes_.size()-1 << "] or "
+           << "[-1, -"<< axes_.size() <<"]!";
+        throw IndexError(ss.str());
+    }
+
+    return axes_[axis]->get_bincenters_ndarray();
+}
+
+bp::object
+ndhist::
+py_get_bincenters() const
+{
+    // Special case for 1d histograms, where we skip the extra tuple of
+    // length 1.
+    if(nd_ == 1)
+    {
+        return get_bincenters_ndarray(0);
+    }
+
+    std::vector<bn::ndarray> vec;
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        vec.push_back(get_bincenters_ndarray(i));
+    }
+    return boost::python::make_tuple_from_container(vec.begin(), vec.end());
 }
 
 void

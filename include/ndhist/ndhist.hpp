@@ -230,7 +230,7 @@ class ndhist
      *        does not make sense.
      */
     bn::ndarray
-    get_edges_ndarray(intptr_t axis=0) const;
+    get_binedges_ndarray(intptr_t axis=0) const;
 
     /**
      * @brief In case of a 1-dimensional histogram it returns a ndarray holding
@@ -239,6 +239,23 @@ class ndhist
      */
     bp::object
     py_get_binedges() const;
+
+    /**
+     * @brief Returns the ndarray holding the bin centers of the given axis.
+     *        Note, that this is always a copy, since the edges are supposed
+     *        to be readonly, because a re-edging of an already filled histogram
+     *        does not make sense.
+     */
+    bn::ndarray
+    get_bincenters_ndarray(intptr_t axis=0) const;
+
+    /**
+     * @brief In case of a 1-dimensional histogram it returns a ndarray holding
+     *        the bin center values, otherwise a tuple of ndarray objects
+     *        holding the bin centers for each axis.
+     */
+    bp::object
+    py_get_bincenters() const;
 
     std::string py_get_title() const                    { return title_; }
     void        py_set_title(std::string const & title) { title_ = title; }

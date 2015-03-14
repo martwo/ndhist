@@ -5,7 +5,7 @@ import numpy as np
 
 from ndhist.core import constant_bin_width_axis
 
-def linear(start, stop, width, label='', name='', extend=False, extracap=0):
+def linear(start, stop, width=1, label='', name='', extend=False, extracap=0):
     """Creates a linear axis with bins in the range [``start``, ``stop``]
     having a constant bin width of ``width``.
 
@@ -57,7 +57,7 @@ def linear(start, stop, width, label='', name='', extend=False, extracap=0):
     axis = constant_bin_width_axis(edges, label, name, True, extend, extracap, extracap)
     return axis
 
-def linear_bins(start, nbins, width, label='', name='', extend=False, extracap=0):
+def linear_bins(start, nbins, width=1, label='', name='', extend=False, extracap=0):
     """Creates a linear axis with ``nbins`` starting from ``start`` and having
     the constant bin width of ``width``.
 

@@ -271,9 +271,16 @@ class Axis
 
     inline
     boost::numpy::ndarray
-    get_edges_ndarray() const
+    get_binedges_ndarray() const
     {
-        return get_axis_base().get_edges_ndarray_fct_(get_axis_base());
+        return get_axis_base().get_binedges_ndarray_fct_(get_axis_base());
+    }
+
+    inline
+    boost::numpy::ndarray
+    get_bincenters_ndarray() const
+    {
+        return get_axis_base().get_bincenters_ndarray_fct_(get_axis_base());
     }
 
     inline
@@ -299,6 +306,33 @@ class Axis
 
     template <class AxisType>
     static
+    boost::numpy::ndarray
+    get_bincenters_ndarray(Axis const & axisbase)
+    {
+        boost::numpy::ndarray const binedges = axisbase.get_binedges_ndarray();
+        intptr_t shape[1];
+        shape[0] = binedges.shape(0) - 1;
+        boost::numpy::ndarray bincenters = boost::numpy::empty(1, shape, boost::numpy::dtype::get_builtin<typename AxisType::axis_value_type>());
+        typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
+                iter_t;
+        iter_t binedges_it0(binedges);
+        iter_t binedges_it1(binedges);
+        ++binedges_it1;
+        iter_t bincenters_it(bincenters);
+        while(! bincenters_it.is_end())
+        {
+            typename AxisType::axis_value_type v = *binedges_it0 + *binedges_it1;
+            v *= 0.5;
+            bincenters_it.set_value(v);
+            ++bincenters_it;
+            ++binedges_it0;
+            ++binedges_it1;
+        }
+        return bincenters;
+    }
+
+    template <class AxisType>
+    static
     boost::shared_ptr<Axis>
     create_axis_slice(Axis const & axisbase, intptr_t const start, intptr_t const stop, intptr_t const & step, intptr_t const nbins)
     {
@@ -309,7 +343,7 @@ class Axis
         typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
                 iter_t;
 
-        boost::numpy::ndarray alledges = axisbase.get_edges_ndarray();
+        boost::numpy::ndarray alledges = axisbase.get_binedges_ndarray();
         iter_t begin(alledges);
         iter_t end(begin);
         std::advance(end, alledges.get_size()-1);
@@ -404,7 +438,14 @@ class Axis
      *  boost::numpy::ndarray object.
      */
     boost::function<boost::numpy::ndarray (Axis const &)>
-        get_edges_ndarray_fct_;
+        get_binedges_ndarray_fct_;
+
+    /** This function is supposed to return (a copy of) the bincenters array
+     *  (including the possible under- and overflow bins) as a
+     *  boost::numpy::ndarray object.
+     */
+    boost::function<boost::numpy::ndarray (Axis const &)>
+        get_bincenters_ndarray_fct_;
 
     /** This function is supposed to return the number of bins of the axis
      *  (including the possible under- and overflow bins).

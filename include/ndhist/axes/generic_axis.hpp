@@ -143,12 +143,13 @@ class GenericAxis
     void init(bn::ndarray const & edges)
     {
         // Set up the axis's function pointers.
-        get_bin_index_fct_     = &get_bin_index;
-        get_edges_ndarray_fct_ = &get_edges_ndarray;
-        get_n_bins_fct_        = &get_n_bins;
-        request_extension_fct_ = NULL;
-        extend_fct_            = NULL;
-        create_axis_slice_fct_ = &create_axis_slice<type>;
+        get_bin_index_fct_          = &get_bin_index;
+        get_binedges_ndarray_fct_   = &get_binedges_ndarray;
+        get_bincenters_ndarray_fct_ = &get_bincenters_ndarray<type>;
+        get_n_bins_fct_             = &get_n_bins;
+        request_extension_fct_      = NULL;
+        extend_fct_                 = NULL;
+        create_axis_slice_fct_      = &create_axis_slice<type>;
 
         intptr_t const nbins = edges.get_size() - 1;
         if(nbins < 1)
@@ -211,7 +212,7 @@ class GenericAxis
 
     static
     bn::ndarray
-    get_edges_ndarray(Axis const & axisbase)
+    get_binedges_ndarray(Axis const & axisbase)
     {
         type const & axis = *static_cast<type const *>(&axisbase);
         bn::ndarray const & edges_arr = *static_cast<bn::ndarray const *>(&axis.edges_arr_);

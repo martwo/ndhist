@@ -59,6 +59,10 @@ void register_ndhist()
             , "The tuple holding ndarray objects with the bin edges for each "
               "axis. In case the histogram is 1-dimensional, just a single "
               "ndarray is returned.")
+        .add_property("bincenters", &ndhist::py_get_bincenters
+            , "The tuple holding ndarray objects with the bin centers for each "
+              "axis. In case the histogram is 1-dimensional, just a single "
+              "ndarray is returned.")
 
         .add_property("title", &ndhist::py_get_title, &ndhist::py_set_title
             , "The title of the histogram.")
@@ -68,9 +72,8 @@ void register_ndhist()
             , "The flag if this ndhist object is a view into the bin content "
               "array of an other ndhist object.")
 
-        .add_property("base", //bp::make_function(
+        .add_property("base",
               &ndhist::py_get_base
-            //, bp::return_internal_reference<>())
             , "In case this ndhist object provides a data view into an other "
               "ndhist object, the base is a reference to this ndhist object.")
 
@@ -191,9 +194,13 @@ void register_ndhist()
               "ndvalue function argument. Otherwise a structured array needs "
               "to be used as ndvalue argument.")
 
-        .def("get_bin_edges", &ndhist::get_edges_ndarray
+        .def("get_binedges", &ndhist::get_binedges_ndarray
             , (bp::arg("self"), bp::arg("axis")=0)
-            , "Gets the ndarray holding the bin edges for the given axis. "
+            , "Gets the ndarray holding the bin edges of the given axis. "
+              "The default axis is 0.")
+        .def("get_bincenters", &ndhist::get_bincenters_ndarray
+            , (bp::arg("self"), bp::arg("axis")=0)
+            , "Gets the ndarray holding the bin centers of the given axis. "
               "The default axis is 0.")
         .def("fill", &ndhist::py_fill
             , (bp::arg("ndvalues"), bp::arg("weight")=bp::object())
