@@ -226,8 +226,8 @@ class ndhist
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
      *        Note, that this is always a copy, since the edges are supposed
-     *        to be readonly, because a re-edging of an already filled histogram
-     *        does not make sense.
+     *        to be readonly, because some axis types do not store the edges
+     *        array internally.
      */
     bn::ndarray
     get_binedges_ndarray(intptr_t axis=0) const;
@@ -243,8 +243,8 @@ class ndhist
     /**
      * @brief Returns the ndarray holding the bin centers of the given axis.
      *        Note, that this is always a copy, since the edges are supposed
-     *        to be readonly, because a re-edging of an already filled histogram
-     *        does not make sense.
+     *        to be readonly, because some axis types do not store the edges
+     *        array internally.
      */
     bn::ndarray
     get_bincenters_ndarray(intptr_t axis=0) const;
@@ -257,9 +257,43 @@ class ndhist
     bp::object
     py_get_bincenters() const;
 
-    std::string py_get_title() const                    { return title_; }
-    void        py_set_title(std::string const & title) { title_ = title; }
+    /**
+     * @brief Returns the ndarray holding the bin widths of the given axis.
+     *        Note, that this is always a copy, since the edges are supposed
+     *        to be readonly, because some axis types do not store the edges
+     *        array internally.
+     */
+    bn::ndarray
+    get_binwidths_ndarray(intptr_t axis=0) const;
 
+    /**
+     * @brief In case of a 1-dimensional histogram it returns a ndarray holding
+     *        the bin width values, otherwise a tuple of ndarray objects
+     *        holding the bin widths for each axis.
+     */
+    bp::object
+    py_get_binwidths() const;
+
+    /**
+     * @brief Gets the title of the histogram.
+     */
+    std::string py_get_title() const
+    {
+        return title_;
+    }
+
+    /**
+     * @brief Sets the title of the histogram to the given title string value.
+     */
+    void
+    py_set_title(std::string const & title)
+    {
+        title_ = title;
+    }
+
+    /**
+     * @brief Returns a tuple of str object holding the labels of each axis.
+     */
     bp::tuple
     py_get_labels() const;
 

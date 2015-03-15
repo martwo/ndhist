@@ -5,7 +5,7 @@ import numpy as np
 
 from ndhist.core import constant_bin_width_axis
 
-def linear(start, stop, width=1, label='', name='', extend=False, extracap=0):
+def linear(start, stop, width=1, label='', name='', addoorbins=True, extend=False, extracap=0):
     """Creates a linear axis with bins in the range [``start``, ``stop``]
     having a constant bin width of ``width``.
 
@@ -29,6 +29,10 @@ def linear(start, stop, width=1, label='', name='', extend=False, extracap=0):
         structured numpy ndarray when filling ndvalues through a structured
         array.
 
+    :type  addoorbins: bool
+    :param addoorbins: The switch, if out-of-range (oor) bins should be added
+        to the edges array automatically.
+
     :type  extend: bool
     :param extend: The switch if the axis is extendable (True) or not (False).
         In case it is extendable, no under- and overflow bins will be added
@@ -46,18 +50,21 @@ def linear(start, stop, width=1, label='', name='', extend=False, extracap=0):
     edges = np.linspace(start, stop, num=nbins, endpoint=True)
 
     # Add under- and overflow bin edges if the axis is not extendable.
-    if(not extend):
-        edges_new = np.empty((edges.size+2,), edges.dtype)
-        edges_new[1:-1] = edges
-        edges_new[0]  = -np.inf
-        edges_new[-1] = +np.inf
-        edges = edges_new
+    if(extend):
+        addoorbins = False
+    else:
+        if(addoorbins):
+            edges_new = np.empty((edges.size+2,), edges.dtype)
+            edges_new[1:-1] = edges
+            edges_new[0]  = -np.inf
+            edges_new[-1] = +np.inf
+            edges = edges_new
 
     print(edges)
-    axis = constant_bin_width_axis(edges, label, name, True, extend, extracap, extracap)
+    axis = constant_bin_width_axis(edges, label, name, addoorbins, extend, extracap, extracap)
     return axis
 
-def linear_bins(start, nbins, width=1, label='', name='', extend=False, extracap=0):
+def linear_bins(start, nbins, width=1, label='', name='', addoorbins=True, extend=False, extracap=0):
     """Creates a linear axis with ``nbins`` starting from ``start`` and having
     the constant bin width of ``width``.
 
@@ -79,6 +86,10 @@ def linear_bins(start, nbins, width=1, label='', name='', extend=False, extracap
         structured numpy ndarray when filling ndvalues through a structured
         array.
 
+    :type  addoorbins: bool
+    :param addoorbins: The switch, if out-of-range (oor) bins should be added
+        to the edges array automatically.
+
     :type  extend: bool
     :param extend: The switch if the axis is extendable (True) or not (False).
         In case it is extendable, no under- and overflow bins will be added
@@ -93,4 +104,4 @@ def linear_bins(start, nbins, width=1, label='', name='', extend=False, extracap
 
     """
     stop = start + nbins*width
-    return linear(start, stop, width, label, name, extend, extracap)
+    return linear(start, stop, width, label, name, addoorbins, extend, extracap)

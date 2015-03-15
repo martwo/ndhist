@@ -1454,6 +1454,15 @@ get_binedges_ndarray(intptr_t axis) const
         throw IndexError(ss.str());
     }
 
+    // If the axis has oor bins, we need to cut them and return the cutted
+    // result.
+    if(axes_[axis]->has_oor_bins())
+    {
+        bn::ndarray const allbinedges = axes_[axis]->get_binedges_ndarray();
+        bp::slice sl(1, -1, 1);
+        return allbinedges[sl];
+    }
+
     return axes_[axis]->get_binedges_ndarray();
 }
 
@@ -1494,6 +1503,15 @@ get_bincenters_ndarray(intptr_t axis) const
         throw IndexError(ss.str());
     }
 
+    // If the axis has oor bins, we need to cut them and return the cutted
+    // result.
+    if(axes_[axis]->has_oor_bins())
+    {
+        bn::ndarray const allbincenters = axes_[axis]->get_bincenters_ndarray();
+        bp::slice sl(1, -1, 1);
+        return allbincenters[sl];
+    }
+
     return axes_[axis]->get_bincenters_ndarray();
 }
 
@@ -1512,6 +1530,55 @@ py_get_bincenters() const
     for(uintptr_t i=0; i<nd_; ++i)
     {
         vec.push_back(get_bincenters_ndarray(i));
+    }
+    return boost::python::make_tuple_from_container(vec.begin(), vec.end());
+}
+
+bn::ndarray
+ndhist::
+get_binwidths_ndarray(intptr_t axis) const
+{
+    // Count axis from the back if axis is negative.
+    if(axis < 0) {
+        axis += axes_.size();
+    }
+
+    if(axis < 0 || axis >= intptr_t(axes_.size()))
+    {
+        std::stringstream ss;
+        ss << "The axis parameter must be in the interval "
+           << "[0, " << axes_.size()-1 << "] or "
+           << "[-1, -"<< axes_.size() <<"]!";
+        throw IndexError(ss.str());
+    }
+
+    // If the axis has oor bins, we need to cut them and return the cutted
+    // result.
+    if(axes_[axis]->has_oor_bins())
+    {
+        bn::ndarray const allbinwidths = axes_[axis]->get_binwidths_ndarray();
+        bp::slice sl(1, -1, 1);
+        return allbinwidths[sl];
+    }
+
+    return axes_[axis]->get_binwidths_ndarray();
+}
+
+bp::object
+ndhist::
+py_get_binwidths() const
+{
+    // Special case for 1d histograms, where we skip the extra tuple of
+    // length 1.
+    if(nd_ == 1)
+    {
+        return get_binwidths_ndarray(0);
+    }
+
+    std::vector<bn::ndarray> vec;
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        vec.push_back(get_binwidths_ndarray(i));
     }
     return boost::python::make_tuple_from_container(vec.begin(), vec.end());
 }

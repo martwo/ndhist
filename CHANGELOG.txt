@@ -1,3 +1,16 @@
+- Implemented the binwidths property of ndhist (w/o the under and overflow
+  bins).
+
+- Make the addition of oor bins optional in the axes utility functions.
+
+- Implemented the bincenters property of ndhist (w/o the possible under and
+  overflow bins).
+
+- Drop support for integer axis values, because bin centers cannot be
+  represented by integer values.
+
+- Adjusted the binedges property to exclude possible under- and overflow bins.
+
 - Implemented the *base* property of ndhist that refers to the ndhist object
   when the ndhist object is a view into that. This maked the owner property of
   ndarray_storage obsolete. This is actually important for object bin arrays,

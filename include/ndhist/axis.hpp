@@ -85,6 +85,10 @@ class Axis
                    << "must be 2! Currently it is "<<nedges<<"!";
                 throw ValueError(ss.str());
             }
+
+            // If the axis is extendable, there are no under- and overflow bins
+            // available.
+            has_oor_bins_ = false;
         }
         else
         {
@@ -115,7 +119,8 @@ class Axis
         }
     }
 
-    virtual ~Axis()
+    virtual
+    ~Axis()
     {
         std::cout << "Destruct Axis"<<std::endl<<std::flush;
     }
@@ -131,7 +136,7 @@ class Axis
     std::string
     py_get_name() const
     {
-        return get_axis_base().name_;
+        return get_name();
     }
 
     void
@@ -284,6 +289,13 @@ class Axis
     }
 
     inline
+    boost::numpy::ndarray
+    get_binwidths_ndarray() const
+    {
+        return get_axis_base().get_binwidths_ndarray_fct_(get_axis_base());
+    }
+
+    inline
     intptr_t
     request_extension(char * const value_ptr, axis::out_of_range_t const oor_flag)
     {
@@ -324,11 +336,39 @@ class Axis
             typename AxisType::axis_value_type v = *binedges_it0 + *binedges_it1;
             v *= 0.5;
             bincenters_it.set_value(v);
+
             ++bincenters_it;
             ++binedges_it0;
             ++binedges_it1;
         }
         return bincenters;
+    }
+
+    template <class AxisType>
+    static
+    boost::numpy::ndarray
+    get_binwidths_ndarray(Axis const & axisbase)
+    {
+        boost::numpy::ndarray const binedges = axisbase.get_binedges_ndarray();
+        intptr_t shape[1];
+        shape[0] = binedges.shape(0) - 1;
+        boost::numpy::ndarray binwidths = boost::numpy::empty(1, shape, boost::numpy::dtype::get_builtin<typename AxisType::axis_value_type>());
+        typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
+                iter_t;
+        iter_t binedges_it0(binedges);
+        iter_t binedges_it1(binedges);
+        ++binedges_it1;
+        iter_t binwidths_it(binwidths);
+        while(! binwidths_it.is_end())
+        {
+            typename AxisType::axis_value_type v = *binedges_it1 - *binedges_it0;
+            binwidths_it.set_value(v);
+
+            ++binwidths_it;
+            ++binedges_it0;
+            ++binedges_it1;
+        }
+        return binwidths;
     }
 
     template <class AxisType>
@@ -446,6 +486,13 @@ class Axis
      */
     boost::function<boost::numpy::ndarray (Axis const &)>
         get_bincenters_ndarray_fct_;
+
+    /** This function is supposed to return (a copy of) the binwidths array
+     *  (including the possible under- and overflow bins) as a
+     *  boost::numpy::ndarray object.
+     */
+    boost::function<boost::numpy::ndarray (Axis const &)>
+        get_binwidths_ndarray_fct_;
 
     /** This function is supposed to return the number of bins of the axis
      *  (including the possible under- and overflow bins).

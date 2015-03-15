@@ -1,9 +1,4 @@
-- Adjust the binedges and bincenters property to exclude possible under- and
-  overflow bins.
-
-- Implement the bincenters property of ndhist (w/o the under and overflow bins).
-
-- Implement the binwidths property of ndhist (w/o the under and overflow bins).
+- Add pybindings for binedges, bincenter, and binwidths of the Axis class.
 
 - Implement clear() method, that sets all bin content values to zero.
 

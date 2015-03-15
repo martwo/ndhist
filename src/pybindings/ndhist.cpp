@@ -63,6 +63,10 @@ void register_ndhist()
             , "The tuple holding ndarray objects with the bin centers for each "
               "axis. In case the histogram is 1-dimensional, just a single "
               "ndarray is returned.")
+        .add_property("binwidths", &ndhist::py_get_binwidths
+            , "The tuple holding ndarray objects with the bin widths for each "
+              "axis. In case the histogram is 1-dimensional, just a single "
+              "ndarray is returned.")
 
         .add_property("title", &ndhist::py_get_title, &ndhist::py_set_title
             , "The title of the histogram.")

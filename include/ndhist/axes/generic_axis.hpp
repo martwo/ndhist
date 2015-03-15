@@ -146,6 +146,7 @@ class GenericAxis
         get_bin_index_fct_          = &get_bin_index;
         get_binedges_ndarray_fct_   = &get_binedges_ndarray;
         get_bincenters_ndarray_fct_ = &get_bincenters_ndarray<type>;
+        get_binwidths_ndarray_fct_  = &get_binwidths_ndarray<type>;
         get_n_bins_fct_             = &get_n_bins;
         request_extension_fct_      = NULL;
         extend_fct_                 = NULL;

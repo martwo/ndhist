@@ -36,8 +36,13 @@ struct bin_iter_value_type_traits
 
     typedef bin_value<WeightValueType>
             value_type;
+
     typedef value_type &
             value_ref_type;
+
+    typedef value_type const &
+            value_cref_type;
+
     typedef value_type *
             value_ptr_type;
 
@@ -56,7 +61,7 @@ struct bin_iter_value_type_traits
     set_value(
         bn::iterators::value_type_traits & vtt_base
       , char * data_ptr
-      , value_ref_type newbin
+      , value_cref_type newbin
     )
     {
         value_ref_type bin = type_t::dereference(vtt_base, data_ptr);
@@ -92,8 +97,13 @@ struct bin_iter_value_type_traits<bp::object>
 
     typedef bin_value<bp::object>
             value_type;
+
     typedef value_type &
             value_ref_type;
+
+    typedef value_type const &
+            value_cref_type;
+
     typedef value_type *
             value_ptr_type;
 
@@ -112,7 +122,7 @@ struct bin_iter_value_type_traits<bp::object>
     set_value(
         bn::iterators::value_type_traits & vtt_base
       , char * data_ptr
-      , value_ref_type newbin
+      , value_cref_type newbin
     )
     {
         value_ref_type bin = type_t::dereference(vtt_base, data_ptr);
