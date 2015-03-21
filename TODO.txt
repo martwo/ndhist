@@ -1,5 +1,3 @@
-- Add pybindings for binedges, bincenter, and binwidths of the Axis class.
-
 - Implement clear() method, that sets all bin content values to zero.
 
 - Implement the ndhist.copy() method that creates a deep copy of the ndhist

@@ -133,39 +133,6 @@ class Axis
         return get_axis_base().dt_;
     }
 
-    std::string
-    py_get_name() const
-    {
-        return get_name();
-    }
-
-    void
-    py_set_name(std::string const & name)
-    {
-        get_axis_base().name_ = name;
-    }
-
-    bool
-    py_has_oor_bins() const
-    {
-        return has_oor_bins();
-    }
-
-    /**
-     * @brief Returns ``true`` if the axis is extendable.
-     */
-    bool
-    py_is_extendable() const
-    {
-        return is_extendable();
-    }
-
-    intptr_t
-    py_get_n_bins() const
-    {
-        return get_axis_base().get_n_bins_fct_(get_axis_base());
-    }
-
     /** Wraps the given other Axis object. This means, it sets the wrapped_axis_
      *  member to the wrapped Axis object, which is returned whenever the
      *  get_axis_base method is called.
@@ -272,6 +239,19 @@ class Axis
     get_name()
     {
         return get_axis_base().name_;
+    }
+
+    std::string
+    py_get_name()
+    {
+        return get_name();
+    }
+
+    inline
+    void
+    set_name(std::string const & name)
+    {
+        get_axis_base().name_ = name;
     }
 
     inline
@@ -553,25 +533,40 @@ class axis_pyinterface
     void visit(ClassT & cls) const
     {
         cls.add_property("name"
-            , &AxisType::py_get_name
-            , &AxisType::py_set_name
-            , "The name of the axis. It is the name of the column in the "
-              "structured ndarray, when filling values via a structured "
-              "ndarray."
+          , &AxisType::py_get_name
+          , &AxisType::set_name
+          , "The name of the axis. It is the name of the column in the "
+            "structured ndarray, when filling values via a structured "
+            "ndarray."
         );
         cls.add_property("has_oor_bins"
-            , &AxisType::py_has_oor_bins
-            , "Flag if the axis has out-of-range bins. This is usually true "
-              "for a non-extendable axis, but is false for axis of slice "
-              "histograms."
+          , &AxisType::has_oor_bins
+          , "Flag if the axis has out-of-range bins. This is usually true "
+            "for a non-extendable axis, but is false for axis of slice "
+            "histograms."
         );
         cls.add_property("is_extendable"
-            , &AxisType::py_is_extendable
-            , "Flag if the axis is extendable (True) or not (False)."
+          , &AxisType::is_extendable
+          , "Flag if the axis is extendable (True) or not (False)."
         );
         cls.add_property("nbins"
-            , &AxisType::py_get_n_bins
-            , "The number of bins this axis has."
+          , &AxisType::get_n_bins
+          , "The number of bins this axis has."
+        );
+        cls.add_property("binedges"
+          , &AxisType::get_binedges_ndarray
+          , "The ndarray holding the bin edges values of the axis "
+            "(including possible under- and overflow bins)."
+        );
+        cls.add_property("bincenters"
+          , (boost::numpy::ndarray (AxisType::*)() const) &AxisType::get_bincenters_ndarray
+          , "The ndarray holding the bin center values of the axis "
+            "(including possible under- and overflow bins)."
+        );
+        cls.add_property("binwidths"
+          , (boost::numpy::ndarray (AxisType::*)() const) &AxisType::get_binwidths_ndarray
+          , "The ndarray holding the bin width values of the axis "
+            "(including possible under- and overflow bins)."
         );
     }
 };
