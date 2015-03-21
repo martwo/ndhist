@@ -425,7 +425,7 @@ class Axis
 
     /** The data type of the axis values.
      */
-    boost::numpy::dtype dt_;
+    boost::numpy::dtype const dt_;
 
     /** The label of the axis.
      */
