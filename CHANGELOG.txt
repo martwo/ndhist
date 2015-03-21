@@ -1,3 +1,5 @@
+- Added pybindings for label to the Axis class.
+
 - Added pybindings for binedges, bincenter, and binwidths to the Axis class.
 
 - Implemented the binwidths property of ndhist (w/o the under and overflow

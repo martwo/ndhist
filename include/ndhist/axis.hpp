@@ -220,6 +220,19 @@ class Axis
         return get_axis_base().label_;
     }
 
+    std::string
+    py_get_label()
+    {
+        return get_label();
+    }
+
+    inline
+    void
+    set_label(std::string const & label)
+    {
+        get_axis_base().label_ = label;
+    }
+
     inline
     intptr_t
     get_n_bins() const
@@ -538,6 +551,12 @@ class axis_pyinterface
           , "The name of the axis. It is the name of the column in the "
             "structured ndarray, when filling values via a structured "
             "ndarray."
+        );
+        cls.add_property("label"
+          , &AxisType::py_get_label
+          , &AxisType::set_label
+          , "The label of the axis. It can be used for visualization purposes, "
+            "e.g. to label the axis on a plot."
         );
         cls.add_property("has_oor_bins"
           , &AxisType::has_oor_bins
