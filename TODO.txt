@@ -1,3 +1,14 @@
+- Implement copy constructor for the Axis class and its derived classes, i.e.
+  constant_bin_width_axis and generic_axis.
+
+- Implement copy constructor for detail::ndarray_storage that copies also the
+  bytearray.
+
+- Introduce interface via static function calls to the ValueCache class, so it
+  can be hold by ndhist directly as member (without the need for a shared
+  pointer). This eliminates the need for an explicit copy constructor for
+  ValueCache.
+
 - Implement clear() method, that sets all bin content values to zero.
 
 - Implement the ndhist.copy() method that creates a deep copy of the ndhist
