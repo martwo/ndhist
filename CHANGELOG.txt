@@ -1,3 +1,9 @@
+- Implemented the copy constructor for detail::ndarray_storage that copies also
+  the bytearray.
+
+- Implemented copy constructor for the Axis class and its derived classes, i.e.
+  constant_bin_width_axis and generic_axis.
+
 - Added pybindings for label to the Axis class.
 
 - Added pybindings for binedges, bincenter, and binwidths to the Axis class.

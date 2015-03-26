@@ -119,6 +119,34 @@ class Axis
         }
     }
 
+    /**
+     * Copy constructor.
+     * @note If the given axis is wrapped, the new axis will be a copy of the
+     *     wrapped axis.
+     *
+     * @internal All the function pointers are pointers to static functions, so
+     *     we can just copy the raw pointers.
+     */
+    Axis(Axis const & other)
+      : dt_(other.get_axis_base().dt_)
+      , label_(other.get_axis_base().label_)
+      , name_(other.get_axis_base().name_)
+      , has_oor_bins_(other.get_axis_base().has_oor_bins_)
+      , is_extendable_(other.get_axis_base().is_extendable_)
+      , extension_max_fcap_(other.get_axis_base().extension_max_fcap_)
+      , extension_max_bcap_(other.get_axis_base().extension_max_bcap_)
+      , get_bin_index_fct_(other.get_axis_base().get_bin_index_fct_)
+      , get_binedges_ndarray_fct_(other.get_axis_base().get_binedges_ndarray_fct_)
+      , get_bincenters_ndarray_fct_(other.get_axis_base().get_bincenters_ndarray_fct_)
+      , get_binwidths_ndarray_fct_(other.get_axis_base().get_binwidths_ndarray_fct_)
+      , get_n_bins_fct_(other.get_axis_base().get_n_bins_fct_)
+      , request_extension_fct_(other.get_axis_base().request_extension_fct_)
+      , extend_fct_(other.get_axis_base().extend_fct_)
+      , create_axis_slice_fct_(other.get_axis_base().create_axis_slice_fct_)
+    {
+        std::cout << "Copy the Axis"<<std::endl<<std::flush;
+    }
+
     virtual
     ~Axis()
     {
@@ -651,6 +679,13 @@ class PyExtendableAxisWrapper
         // Wrap the axis_ Axis object.
         wrap_axis(wrapped_axis_ptr);
     }
+
+    /**
+     * Copy constructor.
+     */
+    PyExtendableAxisWrapper(PyExtendableAxisWrapper const & other)
+      : Axis(other)
+    {}
 };
 
 /** The PyNonExtendableAxisWrapper template provides a wrapper for an axis
@@ -706,6 +741,13 @@ class PyNonExtendableAxisWrapper
         // Wrap the axis_ Axis object.
         wrap_axis(wrapped_axis_ptr);
     }
+
+    /**
+     * Copy constructor.
+     */
+    PyNonExtendableAxisWrapper(PyNonExtendableAxisWrapper const & other)
+      : Axis(other)
+    {}
 };
 
 }//namespace ndhist

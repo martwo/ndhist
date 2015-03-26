@@ -136,6 +136,20 @@ class ndarray_storage
     {}
 
     /**
+     * @brief Copy constructor.
+     * @note This copies also the underlaying bytearray.
+     */
+    ndarray_storage(ndarray_storage const & other)
+      : shape_(other.shape_)
+      , front_capacity_(other.front_capacity_)
+      , back_capacity_(other.back_capacity_)
+      , dt_(other.dt_)
+      , data_strides_(other.data_strides_)
+      , bytearray_data_offset_(other.bytearray_data_offset_)
+      , bytearray_(other.bytearray_->deepcopy())
+    {}
+
+    /**
      * @brief Constructs a boost::numpy::ndarray object wrapping the data of
      *     this ndarray storage with the correct layout, i.e. offset and
      *     strides.

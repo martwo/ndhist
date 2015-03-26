@@ -12,7 +12,10 @@
 #ifndef NDHIST_DETAIL_BYTEARRAY_H_INCLUDED
 #define NDHIST_DETAIL_BYTEARRAY_H_INCLUDED
 
+#include <cstring>
 #include <iostream>
+
+#include <boost/shared_ptr.hpp>
 
 namespace ndhist {
 namespace detail {
@@ -83,6 +86,16 @@ class bytearray
      * @brief Returns the pointer to the beginning of the byte array.
      */
     char * get() const { return data_; }
+
+    /**
+     * @brief Creates a deepcopy of this bytearray on the heap.
+     */
+    boost::shared_ptr<bytearray>
+    deepcopy()
+    {
+        // Use the copy constructor to make the actual copy.
+        return boost::shared_ptr<bytearray>(new bytearray(*this));
+    }
 
   private:
     bytearray()

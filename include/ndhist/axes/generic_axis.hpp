@@ -139,6 +139,17 @@ class GenericAxis
         init(edges);
     }
 
+    /**
+     * Copy constructor.
+     */
+    GenericAxis(GenericAxis const & other)
+      : Axis(other)
+      , edges_arr_storage_((*static_cast<type const *>(&other.get_axis_base())).edges_arr_storage_)
+      , edges_arr_((*static_cast<bn::ndarray*>(&(*static_cast<type const *>(&other.get_axis_base())).edges_arr_)).deepcopy())
+      , edges_arr_iter_(bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> >(*static_cast<bn::ndarray*>(&edges_arr_), bn::detail::iter_operand::flags::READONLY::value))
+      , edges_arr_iter_end_(edges_arr_iter_.end())
+    {}
+
     inline
     void init(bn::ndarray const & edges)
     {

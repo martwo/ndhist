@@ -45,6 +45,7 @@ class ConstantBinWidthAxis
     typedef ConstantBinWidthAxis<axis_value_type>
             type;
 
+  protected:
     /// The number of bins, including the possible under- and overflow bins.
     intptr_t n_bins_;
 
@@ -62,6 +63,7 @@ class ConstantBinWidthAxis
     /// The upper edge of the overflow bin.
     axis_value_type overflow_edge_;
 
+  public:
     ConstantBinWidthAxis(
         bn::ndarray const & edges
       , std::string const & label
@@ -125,6 +127,18 @@ class ConstantBinWidthAxis
             overflow_edge_ = *edges_iter;
         }
     }
+
+    /**
+     * Copy constructor.
+     */
+    ConstantBinWidthAxis(ConstantBinWidthAxis const & other)
+      : Axis(other)
+      , n_bins_((*static_cast<type const *>(&other.get_axis_base())).n_bins_)
+      , bin_width_((*static_cast<type const *>(&other.get_axis_base())).bin_width_)
+      , min_((*static_cast<type const *>(&other.get_axis_base())).min_)
+      , underflow_edge_((*static_cast<type const *>(&other.get_axis_base())).underflow_edge_)
+      , overflow_edge_((*static_cast<type const *>(&other.get_axis_base())).overflow_edge_)
+    {}
 
     static
     intptr_t
