@@ -15,7 +15,7 @@
 #include <cstring>
 #include <vector>
 
-#include <ndhist/limits.hpp>
+#include <boost/function.hpp>
 
 namespace ndhist {
 namespace detail {
