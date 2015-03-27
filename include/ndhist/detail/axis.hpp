@@ -16,8 +16,8 @@ namespace ndhist {
 namespace detail {
 namespace axis {
 
-intptr_t const UNDERFLOW_INDEX = -1;
-intptr_t const OVERFLOW_INDEX  = -2;
+// intptr_t const UNDERFLOW_INDEX = -1;
+// intptr_t const OVERFLOW_INDEX  = -2;
 
 enum axis_flags_t
 {

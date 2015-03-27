@@ -1,3 +1,7 @@
+- Introduced interface via static function calls to the ValueCacheBase class,
+  so it can be hold by ndhist directly as member (without the need for a shared
+  pointer).
+
 - Implemented the copy constructor for detail::ndarray_storage that copies also
   the bytearray.
 

@@ -58,7 +58,7 @@ static
 void
 flush_value_cache(
     ndhist                      & self
-  , ValueCache<WeightValueType> & value_cache
+  , ValueCacheBase              & value_cache
   , std::vector<intptr_t> const & f_n_extra_bins_vec
   , uintptr_t const               bc_data_offset
 )
@@ -70,7 +70,8 @@ flush_value_cache(
     intptr_t idx = value_cache.get_size();
     while(idx--)
     {
-        typename ValueCache<WeightValueType>::cache_entry_type const & entry = value_cache.get_entry(idx);
+        void const * entry_ptr = value_cache.get_entry(idx);
+        typename ValueCache<WeightValueType>::cache_entry_type const & entry = *reinterpret_cast<typename detail::ValueCache<WeightValueType>::cache_entry_type const *>(entry_ptr);
 
         std::vector<intptr_t> const & arr_strides = self.bc_.get_data_strides_vector();
         bin_data_addr = self.bc_.get_data() + bc_data_offset;
@@ -79,10 +80,10 @@ flush_value_cache(
         // data address for the extended bin content array.
         for(intptr_t axis=0; axis<nd; ++axis)
         {
-            bin_data_addr += (f_n_extra_bins_vec[axis] + entry.relative_indices[axis]) * arr_strides[axis];
+            bin_data_addr += (f_n_extra_bins_vec[axis] + entry.relative_indices_[axis]) * arr_strides[axis];
         }
 
-        bin_utils<WeightValueType>::increment_bin(bin_data_addr, entry.weight);
+        bin_utils<WeightValueType>::increment_bin(bin_data_addr, entry.weight_);
     }
 
     // Finally, clear the stack.
@@ -708,7 +709,7 @@ ndhist(
     bc_ = base.bc_.create_data_view(bytearray_data_offset, data_shape, data_strides);
 
     setup_function_pointers();
-    setup_value_cache(base.value_cache_->get_capacity());
+    setup_value_cache(base.value_cache_.get_capacity());
 }
 
 ndhist::
@@ -790,7 +791,7 @@ setup_value_cache(intptr_t const value_cache_size)
     #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)    \
         if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
         {                                                                   \
-            value_cache_ = boost::shared_ptr< detail::ValueCache<WEIGHT_VALUE_TYPE> >(new detail::ValueCache<WEIGHT_VALUE_TYPE>(nd_, value_cache_size));\
+            value_cache_ = detail::ValueCache<WEIGHT_VALUE_TYPE>(nd_, value_cache_size);\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
