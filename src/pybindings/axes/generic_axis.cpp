@@ -27,26 +27,28 @@ namespace axes {
 
 void register_generic_axis()
 {
-    bp::class_<py::generic_axis, bp::bases<Axis>, boost::shared_ptr<py::generic_axis> >("generic_axis"
-        , "The generic_axis class provides an axis for axes with non-constant "
-          "bin widths. Due to the generic bin nature of this axis, it is not "
-          "extendable at all. So the under- and overflow bin edges must always "
-          "be provided."
-        , bp::init<
+    bp::class_<py::generic_axis, bp::bases<Axis>, boost::shared_ptr<py::generic_axis> >(
+        "generic_axis"
+      , "The generic_axis class provides an axis for axes with non-constant "
+        "bin widths. Due to the generic bin nature of this axis, it is not "
+        "extendable at all. So the under- and overflow bin edges must always "
+        "be provided."
+      , bp::init<
             bn::ndarray const &
           , std::string const &
           , std::string const &
           , bool
-          >(
+          , bool
+        >(
           ( bp::arg("self")
           , bp::arg("edges")
           , bp::arg("label")=std::string("")
           , bp::arg("name")=std::string("")
           , bp::arg("has_oor_bins")=true
           )
-          )
         )
-        .def(axis_pyinterface<py::generic_axis>())
+      )
+      .def(axis_pyinterface<py::generic_axis>())
     ;
 }
 

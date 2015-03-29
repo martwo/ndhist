@@ -198,6 +198,10 @@ void register_ndhist()
               "ndvalue function argument. Otherwise a structured array needs "
               "to be used as ndvalue argument.")
 
+        .def("copy", &ndhist::copy
+            , (bp::arg("self"))
+            , "Copies this ndhist object.")
+
         .def("get_binedges", &ndhist::get_binedges_ndarray
             , (bp::arg("self"), bp::arg("axis")=0)
             , "Gets the ndarray holding the bin edges of the given axis. "

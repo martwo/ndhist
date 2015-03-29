@@ -137,7 +137,8 @@ class ndarray_storage
 
     /**
      * @brief Copy constructor.
-     * @note This copies also the underlaying bytearray.
+     * @note This creates a shallow copy, i.e. the underlaying bytearray is not
+     *     copied!
      */
     ndarray_storage(ndarray_storage const & other)
       : shape_(other.shape_)
@@ -146,8 +147,30 @@ class ndarray_storage
       , dt_(other.dt_)
       , data_strides_(other.data_strides_)
       , bytearray_data_offset_(other.bytearray_data_offset_)
-      , bytearray_(other.bytearray_->deepcopy())
+      , bytearray_(other.bytearray_)
     {}
+
+    /**
+     * @brief Creates a deep copy of this ndarray_storage object, i.e. the
+     *     underlaying bytearray is also copied.
+     */
+    ndarray_storage
+    deepcopy() const
+    {
+        ndarray_storage thecopy(*this);
+        thecopy.bytearray_ = this->bytearray_->deepcopy();
+        return thecopy;
+    }
+
+    /**
+     * @brief Creates a shallow copy of this ndarray_storage object by using
+     *     the copy constructor, i.e. the underlaying bytearray is not copied.
+     */
+    ndarray_storage
+    shallowcopy() const
+    {
+        return ndarray_storage(*this);
+    }
 
     /**
      * @brief Constructs a boost::numpy::ndarray object wrapping the data of

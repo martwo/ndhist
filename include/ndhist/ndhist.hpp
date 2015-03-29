@@ -93,6 +93,14 @@ class ndhist
     virtual
     ~ndhist();
 
+    /**
+     * @brief Copies this ndhist object. If this ndhist object is a view, the
+     *     resulting ndhist object is also a view and the internal bytearray is
+     *     not copied.
+     */
+    ndhist
+    copy() const;
+
     // Operator overloads.
     /**
      * @brief Adds the given right-hand-side histogram to this ndhist object and
@@ -164,7 +172,8 @@ class ndhist
      *        function argument. Otherwise a structured ndarray needs to be used
      *        as ndvalue argument.
      */
-    intptr_t get_max_tuple_fill_nd() const
+    intptr_t
+    get_max_tuple_fill_nd() const
     {
         return NDHIST_DETAIL_LIMIT_TUPLE_FILL_MAX_ND;
     }
@@ -484,7 +493,7 @@ class ndhist
      *     other ndhist object, i.e. does not own the data.
      */
     bool
-    is_view()
+    is_view() const
     {
         return (base_ != NULL);
     }
@@ -523,6 +532,13 @@ class ndhist
         bn::dtype const & dt
       , size_t const field_idx=0
     ) const;
+
+    template <typename WeightValueType>
+    detail::ValueCache<WeightValueType> &
+    get_value_cache()
+    {
+        return *static_cast<detail::ValueCache<WeightValueType> *>(value_cache_.get());
+    }
 
   private:
     ndhist()
@@ -593,7 +609,7 @@ class ndhist
      */
     bp::object const bc_class_;
 
-    detail::ValueCacheBase value_cache_;
+    boost::shared_ptr<detail::ValueCacheBase> value_cache_;
 
     boost::function<void (ndhist &, ndhist const &)> iadd_fct_;
     boost::function<void (ndhist &, bn::ndarray const &)> idiv_fct_;
@@ -773,6 +789,9 @@ struct specific_nd_traits<ND>
             );
             iter.init_full_iteration();
 
+            // Get a handle on the value cache.
+            detail::ValueCache<BCValueType> & value_cache = self.get_value_cache<BCValueType>();
+
             // Do the iteration.
             std::vector<intptr_t> indices(ND, 0);
             std::vector<intptr_t> relative_indices(ND, 0);
@@ -889,14 +908,14 @@ struct specific_nd_traits<ND>
                             // need to extent the axes and fill the cached
                             // values in.
                             value_cached = true;
-                            if(self.value_cache_.push_back(relative_indices, &weight))
+                            if(value_cache.push_back(relative_indices, weight))
                             {
                                 //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
                                 self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                                 bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
 
-                                flush_value_cache<BCValueType>(self, self.value_cache_, f_n_extra_bins_vec, bc_data_offset);
+                                flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
 
                                 memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
                                 memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
@@ -937,13 +956,13 @@ struct specific_nd_traits<ND>
             } while(iter.next());
 
             // Fill the remaining cached values.
-            if(self.value_cache_.get_size() > 0)
+            if(value_cache.get_size() > 0)
             {
                 self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
                 bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
 
-                flush_value_cache<BCValueType>(self, self.value_cache_, f_n_extra_bins_vec, bc_data_offset);
+                flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
             }
         }
     };

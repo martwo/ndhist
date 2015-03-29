@@ -50,7 +50,8 @@ class Axis
       : dt_(boost::numpy::dtype::get_builtin<void>())
       , label_(std::string(""))
       , name_(std::string(""))
-      , has_oor_bins_(false)
+      , has_underflow_bin_(false)
+      , has_overflow_bin_(false)
       , is_extendable_(false)
       , extension_max_fcap_(0)
       , extension_max_bcap_(0)
@@ -61,7 +62,8 @@ class Axis
       , boost::numpy::dtype const & dt
       , std::string const & label
       , std::string const & name
-      , bool has_oor_bins=true
+      , bool has_underflow_bin=true
+      , bool has_overflow_bin=true
       , bool is_extendable=false
       , intptr_t extension_max_fcap=0
       , intptr_t extension_max_bcap=0
@@ -69,53 +71,29 @@ class Axis
       : dt_(dt)
       , label_(label)
       , name_(name)
-      , has_oor_bins_(has_oor_bins)
+      , has_underflow_bin_(has_underflow_bin)
+      , has_overflow_bin_(has_overflow_bin)
       , is_extendable_(is_extendable)
       , extension_max_fcap_(extension_max_fcap)
       , extension_max_bcap_(extension_max_bcap)
     {
         size_t const nedges = nbins + 1;
+
+        if(nedges < 2)
+        {
+            std::stringstream ss;
+            ss << "The axis \""<< name_ <<"\" must consist of at least one "
+               << "bin, thus the number of edges must be at least two! "
+               << "Currently it is "<<nedges<<"!";
+            throw ValueError(ss.str());
+        }
+
         if(is_extendable_)
         {
-            if(nedges < 2)
-            {
-                std::stringstream ss;
-                ss << "The axis \""<< name_ <<"\" is supposed to be "
-                   << "extendable, so the minimum number of edges provided "
-                   << "must be 2! Currently it is "<<nedges<<"!";
-                throw ValueError(ss.str());
-            }
-
             // If the axis is extendable, there are no under- and overflow bins
             // available.
-            has_oor_bins_ = false;
-        }
-        else
-        {
-            if(has_oor_bins_)
-            {
-                if(nedges < 4)
-                {
-                    std::stringstream ss;
-                    ss << "The axis \""<< name_ <<"\" is supposed to be "
-                       << "non-extendable, so the minimum number of edges provided "
-                       << "must be 4, which includes the under- and overflow bins! "
-                       << "Currently it is "<<nedges<<"!";
-                    throw ValueError(ss.str());
-                }
-            }
-            else
-            {
-                if(nedges < 2)
-                {
-                    std::stringstream ss;
-                    ss << "The axis \""<< name_ <<"\" is supposed to be "
-                       << "non-extendable with no out-of-range bins. "
-                       << "So the minimum number of edges provided must be 2. "
-                       << "Currently it is "<<nedges<<"!";
-                    throw ValueError(ss.str());
-                }
-            }
+            has_underflow_bin_ = false;
+            has_overflow_bin_ = false;
         }
     }
 
@@ -131,7 +109,8 @@ class Axis
       : dt_(other.get_axis_base().dt_)
       , label_(other.get_axis_base().label_)
       , name_(other.get_axis_base().name_)
-      , has_oor_bins_(other.get_axis_base().has_oor_bins_)
+      , has_underflow_bin_(other.get_axis_base().has_underflow_bin_)
+      , has_overflow_bin_(other.get_axis_base().has_overflow_bin_)
       , is_extendable_(other.get_axis_base().is_extendable_)
       , extension_max_fcap_(other.get_axis_base().extension_max_fcap_)
       , extension_max_bcap_(other.get_axis_base().extension_max_bcap_)
@@ -143,6 +122,7 @@ class Axis
       , request_extension_fct_(other.get_axis_base().request_extension_fct_)
       , extend_fct_(other.get_axis_base().extend_fct_)
       , create_axis_slice_fct_(other.get_axis_base().create_axis_slice_fct_)
+      , deepcopy_fct_(other.get_axis_base().deepcopy_fct_)
     {
         std::cout << "Copy the Axis"<<std::endl<<std::flush;
     }
@@ -157,6 +137,12 @@ class Axis
      */
     boost::numpy::dtype const &
     get_dtype() const
+    {
+        return get_axis_base().dt_;
+    }
+
+    boost::numpy::dtype
+    py_get_dtype() const
     {
         return get_axis_base().dt_;
     }
@@ -187,9 +173,16 @@ class Axis
 
     inline
     bool
-    has_oor_bins() const
+    has_underflow_bin() const
     {
-        return get_axis_base().has_oor_bins_;
+        return get_axis_base().has_underflow_bin_;
+    }
+
+    inline
+    bool
+    has_overflow_bin() const
+    {
+        return get_axis_base().has_overflow_bin_;
     }
 
     inline
@@ -337,6 +330,13 @@ class Axis
         return get_axis_base().create_axis_slice_fct_(get_axis_base(), start, stop, step, nbins);
     }
 
+    inline
+    boost::shared_ptr<Axis>
+    deepcopy()
+    {
+        return get_axis_base().deepcopy_fct_(get_axis_base());
+    }
+
     template <class AxisType>
     static
     boost::numpy::ndarray
@@ -395,19 +395,20 @@ class Axis
     template <class AxisType>
     static
     boost::shared_ptr<Axis>
-    create_axis_slice(Axis const & axisbase, intptr_t const start, intptr_t const stop, intptr_t const & step, intptr_t const nbins)
+    create_axis_slice(Axis const & axisbase, intptr_t const start, intptr_t const stop, intptr_t const step, intptr_t const nbins)
     {
-
         std::cout << "create_axis_slice"<<std::endl;
         std::cout << "start = "<<start<<", stop = "<<stop << ", step = "<<step<<", nbins="<<nbins << std::endl;
         // Construct the edges array.
         typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
                 iter_t;
 
+
         boost::numpy::ndarray alledges = axisbase.get_binedges_ndarray();
         iter_t begin(alledges);
         iter_t end(begin);
-        std::advance(end, alledges.get_size()-1);
+        intptr_t const selfnbins = alledges.get_size()-1;
+        std::advance(end, selfnbins);
         boost::python::slice sl(start, stop, step);
         boost::python::slice::range<iter_t> r = sl.get_indices<iter_t>(begin, end);
         // Define the shape of the edges array, it is the number of bins
@@ -420,23 +421,47 @@ class Axis
             // If the step is negative, we need to use the upper edge, instead
             // of the lower edge.
             it.set_value( *(r.start + (step < 0)) );
+            std::cout << *it << ","<<std::flush;
             ++it;
             std::advance(r.start, r.step);
         }
         it.set_value( *(r.start + (step < 0)) );
+        std::cout << *it << ","<<std::flush;
         // Add the upper (step == +1) or lower edge (step == -1).
         ++it;
         std::advance(r.start, r.step);
         it.set_value( *r.start );
+        std::cout << *it <<std::endl<<std::flush;
+
+        // Determine, if the sliced axis will contain the underflow bin.
+        bool const self_has_underflow_bin = axisbase.has_underflow_bin();
+        bool has_underflow_bin = false;
+        if(   (self_has_underflow_bin && step ==  1 && start == 0)
+           || (self_has_underflow_bin && step == -1 && stop == -1)
+          )
+        {
+            has_underflow_bin = true;
+        }
+
+        // Determine, if the sliced axis will contain the overflow bin.
+        bool has_overflow_bin = false;
+        bool const self_has_overflow_bin = axisbase.has_overflow_bin();
+        if(   (self_has_overflow_bin && step ==  1 && stop == selfnbins)
+           || (self_has_overflow_bin && step == -1 && start == selfnbins)
+          )
+        {
+            has_overflow_bin = true;
+        }
 
         // Construct the axis object.
-        // Since it defines a data view, no out-of-range bins are supported,
-        // it cannot be extended, and it can't have extra capacity.
+        // Since it defines a data view, it cannot be extended, and it can't
+        // have extra capacity.
         boost::shared_ptr<Axis> axis(new AxisType(
             edges
           , axisbase.get_label()
           , axisbase.get_name()
-          , /*has_oor_bins=*/false
+          , has_underflow_bin
+          , has_overflow_bin
           , /*is_extendable=*/false
           , /*extension_max_fcap=*/0
           , /*extension_max_bcap=*/0
@@ -464,11 +489,17 @@ class Axis
      */
     std::string name_;
 
-    /** Flag if the axis has out-or-range bins. This is usually true for a
-     *  histogram, but is false, if the histogram is a slice (view) of an
+    /** Flag if the axis has an underflow bin. This is usually true for a
+     *  histogram, but can be false, if the histogram is a slice (view) of an
      *  original histogram.
      */
-    bool has_oor_bins_;
+    bool has_underflow_bin_;
+
+    /** Flag if the axis has an overflow bin. This is usually true for a
+     *  histogram, but can be false, if the histogram is a slice (view) of an
+     *  original histogram.
+     */
+    bool has_overflow_bin_;
 
     /** Flag if the axis is extendable (true) or not (false).
      */
@@ -554,6 +585,13 @@ class Axis
      */
     boost::function<boost::shared_ptr<Axis> (Axis const &, intptr_t const, intptr_t const, intptr_t const, intptr_t const)>
         create_axis_slice_fct_;
+
+    /**
+     * @brief This function is supposed to create a deep copy of the given
+     *     Axis (and it's derived class) object.
+     */
+    boost::function<boost::shared_ptr<Axis> (Axis const &)>
+        deepcopy_fct_;
 };
 
 /** The axis_pyinterface template provides a boost::python::def_visitor for
@@ -586,11 +624,21 @@ class axis_pyinterface
           , "The label of the axis. It can be used for visualization purposes, "
             "e.g. to label the axis on a plot."
         );
-        cls.add_property("has_oor_bins"
-          , &AxisType::has_oor_bins
-          , "Flag if the axis has out-of-range bins. This is usually true "
-            "for a non-extendable axis, but is false for axis of slice "
-            "histograms."
+        cls.add_property("dtype"
+          , &AxisType::py_get_dtype
+          , "The dtype object describing the data type of the axis values."
+        );
+        cls.add_property("has_underflow_bin"
+          , &AxisType::has_underflow_bin
+          , "Flag if the axis contains an underflow bin. This is usually true "
+            "for a non-extendable axis, but might be false for an axis of a "
+            "slice histogram."
+        );
+        cls.add_property("has_overflow_bin"
+          , &AxisType::has_overflow_bin
+          , "Flag if the axis contains an overflow bin. This is usually true "
+            "for a non-extendable axis, but might be false for an axis of a "
+            "slice histogram."
         );
         cls.add_property("is_extendable"
           , &AxisType::is_extendable
@@ -633,6 +681,8 @@ class axis_pyinterface
  *      boost::numpy::ndarray const & edges
  *    , std::string const & label
  *    , std::string const & name
+ *    , bool has_underflow_bin
+ *    , bool has_overflow_bin
  *    , bool is_extendable
  *    , intptr_t extension_max_fcap
  *    , intptr_t extension_max_bcap
@@ -646,7 +696,8 @@ class PyExtendableAxisWrapper
         boost::numpy::ndarray const & edges
       , std::string const & label=std::string("")
       , std::string const & name=std::string("")
-      , bool has_oor_bins=true
+      , bool has_underflow_bin=true
+      , bool has_overflow_bin=true
       , bool is_extendable=false
       , intptr_t extension_max_fcap=0
       , intptr_t extension_max_bcap=0
@@ -670,7 +721,7 @@ class PyExtendableAxisWrapper
                        << "error!";                                             \
                     throw TypeError(ss.str());                                  \
                 }                                                               \
-                wrapped_axis_ptr = boost::shared_ptr< typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type >(new typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type(edges, label, name, has_oor_bins, is_extendable, extension_max_fcap, extension_max_bcap));\
+                wrapped_axis_ptr = boost::shared_ptr< typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type >(new typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type(edges, label, name, has_underflow_bin, has_overflow_bin, is_extendable, extension_max_fcap, extension_max_bcap));\
                 axis_dtype_is_supported = true;                                 \
             }
         BOOST_PP_SEQ_FOR_EACH(NDHIST_DETAIL_PY_AXIS_DTYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES)
@@ -685,7 +736,9 @@ class PyExtendableAxisWrapper
      */
     PyExtendableAxisWrapper(PyExtendableAxisWrapper const & other)
       : Axis(other)
-    {}
+    {
+        std::cout << "PyExtendableAxisWrapper:: Copy constructor"<<std::endl<<std::flush;
+    }
 };
 
 /** The PyNonExtendableAxisWrapper template provides a wrapper for an axis
@@ -702,6 +755,8 @@ class PyExtendableAxisWrapper
  *      boost::numpy::ndarray const & edges
  *    , std::string const & label
  *    , std::string const & name
+ *    , bool has_underflow_bin
+ *    , bool has_overflow_bin
  */
 template <template <typename AxisValueType> class AxisTypeTemplate>
 class PyNonExtendableAxisWrapper
@@ -712,7 +767,8 @@ class PyNonExtendableAxisWrapper
         boost::numpy::ndarray const & edges
       , std::string const & label=std::string("")
       , std::string const & name=std::string("")
-      , bool has_oor_bins=true
+      , bool has_underflow_bin=true
+      , bool has_overflow_bin=true
     )
     {
         // Create the AxisTypeTemplate<AxisValueType> object on the heap
@@ -732,7 +788,7 @@ class PyNonExtendableAxisWrapper
                        << "one possible C++ data type! This is an internal error!";\
                     throw TypeError(ss.str());                                  \
                 }                                                               \
-                wrapped_axis_ptr = boost::shared_ptr< typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type >(new typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type(edges, label, name, has_oor_bins));\
+                wrapped_axis_ptr = boost::shared_ptr< typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type >(new typename AxisTypeTemplate<AXIS_VALUE_TYPE>::type(edges, label, name, has_underflow_bin, has_overflow_bin));\
                 axis_dtype_is_supported = true;                                 \
             }
         BOOST_PP_SEQ_FOR_EACH(NDHIST_DETAIL_PY_AXIS_DTYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES)
@@ -747,7 +803,9 @@ class PyNonExtendableAxisWrapper
      */
     PyNonExtendableAxisWrapper(PyNonExtendableAxisWrapper const & other)
       : Axis(other)
-    {}
+    {
+        std::cout << "PyNonExtendableAxisWrapper:: Copy constructor"<<std::endl<<std::flush;
+    }
 };
 
 }//namespace ndhist

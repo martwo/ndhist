@@ -1,6 +1,19 @@
+- Implemented the ndhist.copy() method. It creates a copy of the ndhist object
+  but does not copy the underlaying data when the ndhist object is a view.
+  This method will be replaced by the deepcopy() method in the future.
+
+- Added the Axis properties has_underflow_bin and has_overflow_bin and adjusted
+  the implementation of the derived axis classes and ndhist.
+  The reasoning behind these two properties is the proper behaviour of the
+  constant_bin_width_axis class, especially when creating slice histograms.
+  A slice histogram could hold only a single bin (i.e. the under- or overflow
+  bin). Since edge values of under- and overflow bins could be special values
+  (e.g. -inf or +inf), special care has to be taken when dealing with those
+  bins. The new properties (that replace the has_oor_bins property) define if
+  an axis contains an underflow and/or overflow bin.
+
 - Introduced interface via static function calls to the ValueCacheBase class,
-  so it can be hold by ndhist directly as member (without the need for a shared
-  pointer).
+  thus methods can be called when only holding a base class pointer.
 
 - Implemented the copy constructor for detail::ndarray_storage that copies also
   the bytearray.

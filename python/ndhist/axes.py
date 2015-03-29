@@ -61,7 +61,7 @@ def linear(start, stop, width=1, label='', name='', addoorbins=True, extend=Fals
             edges = edges_new
 
     print(edges)
-    axis = constant_bin_width_axis(edges, label, name, addoorbins, extend, extracap, extracap)
+    axis = constant_bin_width_axis(edges, label, name, addoorbins, addoorbins, extend, extracap, extracap)
     return axis
 
 def linear_bins(start, nbins, width=1, label='', name='', addoorbins=True, extend=False, extracap=0):

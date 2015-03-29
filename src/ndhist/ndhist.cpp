@@ -58,7 +58,7 @@ static
 void
 flush_value_cache(
     ndhist                      & self
-  , ValueCacheBase              & value_cache
+  , ValueCache<WeightValueType> & value_cache
   , std::vector<intptr_t> const & f_n_extra_bins_vec
   , uintptr_t const               bc_data_offset
 )
@@ -70,8 +70,7 @@ flush_value_cache(
     intptr_t idx = value_cache.get_size();
     while(idx--)
     {
-        void const * entry_ptr = value_cache.get_entry(idx);
-        typename ValueCache<WeightValueType>::cache_entry_type const & entry = *reinterpret_cast<typename detail::ValueCache<WeightValueType>::cache_entry_type const *>(entry_ptr);
+        typename ValueCache<WeightValueType>::cache_entry_type const & entry = value_cache.get_entry(idx);
 
         std::vector<intptr_t> const & arr_strides = self.bc_.get_data_strides_vector();
         bin_data_addr = self.bc_.get_data() + bc_data_offset;
@@ -308,21 +307,26 @@ get_field_axes_oor_ndarrays(
     // the data offset and strides correctly.
     for(uintptr_t i=0; i<nd; ++i)
     {
-        // Check if any axis does not provide oor bins at all.
-        if(! self.axes_[i]->has_oor_bins())
-        {
-            std::stringstream ss;
-            ss << "Axis "<<i<<" does not provide out-of-range bins at all! "
-               << "In case the ndhist object is a data view into an other "
-               << "ndhist object, this is expected and thus not an error!";
-            throw AssertionError(ss.str());
-        }
-
         if(self.axes_[i]->is_extendable())
         {
             complete_bc_arr_shape[i] += 2;
             complete_bc_arr_front_capacity[i] -= 1;
             complete_bc_arr_back_capacity[i] -= 1;
+        }
+        else
+        {
+            // Check if any axis does not provide under or overflow bins at all.
+            if(   (oortype == ::ndhist::axis::OOR_UNDERFLOW && !self.axes_[i]->has_underflow_bin())
+               || (oortype == ::ndhist::axis::OOR_OVERFLOW  && !self.axes_[i]->has_overflow_bin())
+              )
+            {
+                std::stringstream ss;
+                ss << "Axis "<<i<<" does not provide an "
+                << (oortype == ::ndhist::axis::OOR_UNDERFLOW ? "underflow" : "overflow") << " bin! "
+                << "In case the ndhist object is a data view into an other "
+                << "ndhist object, this is expected and thus not an error!";
+                throw AssertionError(ss.str());
+            }
         }
     }
 
@@ -678,18 +682,16 @@ ndhist(
     {
         boost::shared_ptr<Axis> const & axis = axes[i];
 
-        // Check that the has_oor_bins flag and the is_extendable flag is set
+        // Check that the is_extendable flag is set
         // to false for the axis.
-        if(! (   axis->has_oor_bins() == false
-              && axis->is_extendable() == false
+        if(! (   axis->is_extendable() == false
               && axis->get_extension_max_fcap() == 0
               && axis->get_extension_max_bcap() == 0
              ))
         {
             std::stringstream ss;
-            ss << "The axis "<<i<<" must have the has_oor_bins flag set to "
-               << "false, the is_extendable flag set to false, and the maximal "
-               << "front and back capacities set to 0!";
+            ss << "The axis "<<i<<" must have the is_extendable flag set to "
+               << "false, and the maximal front and back capacities set to 0!";
             throw AssertionError(ss.str());
         }
 
@@ -709,7 +711,7 @@ ndhist(
     bc_ = base.bc_.create_data_view(bytearray_data_offset, data_shape, data_strides);
 
     setup_function_pointers();
-    setup_value_cache(base.value_cache_.get_capacity());
+    setup_value_cache(base.value_cache_->get_capacity());
 }
 
 ndhist::
@@ -731,6 +733,36 @@ ndhist::
             ++bc_iter;
         }
     }
+}
+
+ndhist
+ndhist::
+copy() const
+{
+    ndhist thecopy(*this);
+
+    // Copy the bytearray, if this ndhist object is not a view.
+    if(! is_view())
+    {
+        std::cout << "ndhist::copy: deepcopying bytearray ..."<<std::flush;
+        thecopy.bc_.bytearray_ = bc_.bytearray_->deepcopy();
+        std::cout << "done."<<std::endl<<std::flush;
+    }
+
+    // Copy the value cache.
+    std::cout << "ndhist::copy: deepcopying value cache ..."<<std::flush;
+    thecopy.value_cache_ = value_cache_->deepcopy();
+    std::cout << "done."<<std::endl<<std::flush;
+
+    // Copy the Axes objects.
+    for(uintptr_t i=0; i<nd_; ++i)
+    {
+        std::cout << "ndhist::copy: deepcopying axis "<<i<<" ..."<<std::flush;
+        thecopy.axes_[i] = axes_[i]->deepcopy();
+        std::cout << "done."<<std::endl<<std::flush;
+    }
+
+    return thecopy;
 }
 
 void
@@ -791,7 +823,7 @@ setup_value_cache(intptr_t const value_cache_size)
     #define NDHIST_WEIGHT_VALUE_TYPE_SUPPORT(r, data, WEIGHT_VALUE_TYPE)    \
         if(bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<WEIGHT_VALUE_TYPE>()))\
         {                                                                   \
-            value_cache_ = detail::ValueCache<WEIGHT_VALUE_TYPE>(nd_, value_cache_size);\
+            value_cache_ = boost::shared_ptr< detail::ValueCache<WEIGHT_VALUE_TYPE> >(new detail::ValueCache<WEIGHT_VALUE_TYPE>(nd_, value_cache_size));\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -813,11 +845,18 @@ calc_core_bin_content_ndarray_settings(
         // Note, that extendable axes have only virtual under- and
         // overflow bins, that are included in the front and back
         // capacities.
-        if(!axes_[i]->is_extendable() && axes_[i]->has_oor_bins())
+        if(!axes_[i]->is_extendable())
         {
-            shape[i] -= 2;
-            front_capacity[i] += 1;
-            back_capacity[i] += 1;
+            if(axes_[i]->has_underflow_bin())
+            {
+                shape[i] -= 1;
+                front_capacity[i] += 1;
+            }
+            if(axes_[i]->has_overflow_bin())
+            {
+                shape[i] -= 1;
+                back_capacity[i] += 1;
+            }
         }
     }
 }
@@ -1213,8 +1252,9 @@ py_get_nbins() const
     std::vector<intptr_t> nbins(nd_);
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        intptr_t const axis_nbins = axes_[i]->get_n_bins();
-        nbins[i] = (axes_[i]->is_extendable() ? axis_nbins : (axes_[i]->has_oor_bins() ? axis_nbins-2 : axis_nbins));
+        nbins[i] = axes_[i]->get_n_bins();
+        if(axes_[i]->has_underflow_bin()) --(nbins[i]);
+        if(axes_[i]->has_overflow_bin()) --(nbins[i]);
     }
     return boost::python::make_tuple_from_container(nbins.begin(), nbins.end());
 }
@@ -1457,10 +1497,22 @@ get_binedges_ndarray(intptr_t axis) const
 
     // If the axis has oor bins, we need to cut them and return the cutted
     // result.
-    if(axes_[axis]->has_oor_bins())
+    if(axes_[axis]->has_underflow_bin() && axes_[axis]->has_overflow_bin())
     {
         bn::ndarray const allbinedges = axes_[axis]->get_binedges_ndarray();
         bp::slice sl(1, -1, 1);
+        return allbinedges[sl];
+    }
+    else if(axes_[axis]->has_underflow_bin())
+    {
+        bn::ndarray const allbinedges = axes_[axis]->get_binedges_ndarray();
+        bp::slice sl(1, axes_[axis]->get_n_bins(), 1);
+        return allbinedges[sl];
+    }
+    else if(axes_[axis]->has_overflow_bin())
+    {
+        bn::ndarray const allbinedges = axes_[axis]->get_binedges_ndarray();
+        bp::slice sl(0, -1, 1);
         return allbinedges[sl];
     }
 
@@ -1506,10 +1558,22 @@ get_bincenters_ndarray(intptr_t axis) const
 
     // If the axis has oor bins, we need to cut them and return the cutted
     // result.
-    if(axes_[axis]->has_oor_bins())
+    if(axes_[axis]->has_underflow_bin() && axes_[axis]->has_overflow_bin())
     {
         bn::ndarray const allbincenters = axes_[axis]->get_bincenters_ndarray();
         bp::slice sl(1, -1, 1);
+        return allbincenters[sl];
+    }
+    else if(axes_[axis]->has_underflow_bin())
+    {
+        bn::ndarray const allbincenters = axes_[axis]->get_bincenters_ndarray();
+        bp::slice sl(1, axes_[axis]->get_n_bins(), 1);
+        return allbincenters[sl];
+    }
+    else if(axes_[axis]->has_overflow_bin())
+    {
+        bn::ndarray const allbincenters = axes_[axis]->get_bincenters_ndarray();
+        bp::slice sl(0, -1, 1);
         return allbincenters[sl];
     }
 
@@ -1555,10 +1619,22 @@ get_binwidths_ndarray(intptr_t axis) const
 
     // If the axis has oor bins, we need to cut them and return the cutted
     // result.
-    if(axes_[axis]->has_oor_bins())
+    if(axes_[axis]->has_underflow_bin() && axes_[axis]->has_overflow_bin())
     {
         bn::ndarray const allbinwidths = axes_[axis]->get_binwidths_ndarray();
         bp::slice sl(1, -1, 1);
+        return allbinwidths[sl];
+    }
+    else if(axes_[axis]->has_underflow_bin())
+    {
+        bn::ndarray const allbinwidths = axes_[axis]->get_binwidths_ndarray();
+        bp::slice sl(1, axes_[axis]->get_n_bins(), 1);
+        return allbinwidths[sl];
+    }
+    else if(axes_[axis]->has_overflow_bin())
+    {
+        bn::ndarray const allbinwidths = axes_[axis]->get_binwidths_ndarray();
+        bp::slice sl(0, -1, 1);
         return allbinwidths[sl];
     }
 

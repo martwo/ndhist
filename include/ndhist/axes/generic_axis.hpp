@@ -91,20 +91,23 @@ class GenericAxis
     bp::object edges_arr_;
     bn::iterators::flat_iterator< axis_value_type_traits > edges_arr_iter_;
     bn::iterators::flat_iterator< axis_value_type_traits > edges_arr_iter_end_;
+    axis_value_type_traits avtt_;
 
   public:
     GenericAxis(
         bn::ndarray const & edges
       , std::string const & label
       , std::string const & name
-      , bool has_oor_bins
+      , bool has_underflow_bin
+      , bool has_overflow_bin
     )
       : Axis(
             edges.get_size()-1
           , edges.get_dtype()
           , label
           , name
-          , has_oor_bins
+          , has_underflow_bin
+          , has_overflow_bin
           , false // is_extendable
           , 0     // extension_max_fcap
           , 0     // extension_max_bcap
@@ -120,7 +123,8 @@ class GenericAxis
         bn::ndarray const & edges
       , std::string const & label
       , std::string const & name
-      , bool has_oor_bins
+      , bool has_underflow_bin
+      , bool has_overflow_bin
       , bool     /*is_extendable*/
       , intptr_t /*extension_max_fcap*/
       , intptr_t /*extension_max_bcap*/
@@ -130,7 +134,8 @@ class GenericAxis
           , edges.get_dtype()
           , label
           , name
-          , has_oor_bins
+          , has_underflow_bin
+          , has_overflow_bin
           , false // is_extendable
           , 0     // extension_max_fcap
           , 0     // extension_max_bcap
@@ -145,8 +150,8 @@ class GenericAxis
     GenericAxis(GenericAxis const & other)
       : Axis(other)
       , edges_arr_storage_((*static_cast<type const *>(&other.get_axis_base())).edges_arr_storage_)
-      , edges_arr_((*static_cast<bn::ndarray*>(&(*static_cast<type const *>(&other.get_axis_base())).edges_arr_)).deepcopy())
-      , edges_arr_iter_(bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> >(*static_cast<bn::ndarray*>(&edges_arr_), bn::detail::iter_operand::flags::READONLY::value))
+      , edges_arr_((*static_cast<bn::ndarray const *>(&(*static_cast<type const *>(&other.get_axis_base())).edges_arr_)).deepcopy())
+      , edges_arr_iter_(bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> >(*static_cast<bn::ndarray *>(&edges_arr_), bn::detail::iter_operand::flags::READONLY::value))
       , edges_arr_iter_end_(edges_arr_iter_.end())
     {}
 
@@ -162,6 +167,7 @@ class GenericAxis
         request_extension_fct_      = NULL;
         extend_fct_                 = NULL;
         create_axis_slice_fct_      = &create_axis_slice<type>;
+        deepcopy_fct_               = &type::deepcopy;
 
         intptr_t const nbins = edges.get_size() - 1;
         if(nbins < 1)
@@ -196,8 +202,7 @@ class GenericAxis
     {
         type & axis = *static_cast<type *>(const_cast<Axis *>( &axisbase ));
 
-        axis_value_type_traits avtt;
-        typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(axis.avtt_, value_ptr);
 
         // We know that edges is 1-dimensional by construction and the edges are
         // ordered ascedently. Also we know that the value type of the edges is
@@ -238,6 +243,14 @@ class GenericAxis
         type const & axis = *static_cast<type const *>(&axisbase);
         bn::ndarray const & edges_arr = *static_cast<bn::ndarray const *>(&axis.edges_arr_);
         return edges_arr.get_size();
+    }
+
+    static
+    boost::shared_ptr<Axis>
+    deepcopy(Axis const & axisbase)
+    {
+        type const & axis = *static_cast< type const *>(&axisbase);
+        return boost::shared_ptr<Axis>(new GenericAxis(axis));
     }
 };
 

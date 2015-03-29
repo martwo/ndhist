@@ -63,12 +63,17 @@ class ConstantBinWidthAxis
     /// The upper edge of the overflow bin.
     axis_value_type overflow_edge_;
 
+    /// The axis value type traits object, needed as temporary storage for
+    /// dereferencing value pointers.
+    axis_value_type_traits mutable avtt_;
+
   public:
     ConstantBinWidthAxis(
         bn::ndarray const & edges
       , std::string const & label
       , std::string const & name
-      , bool has_oor_bins
+      , bool has_underflow_bin
+      , bool has_overflow_bin
       , bool is_extendable
       , intptr_t extension_max_fcap
       , intptr_t extension_max_bcap
@@ -78,7 +83,8 @@ class ConstantBinWidthAxis
           , edges.get_dtype()
           , label
           , name
-          , has_oor_bins
+          , has_underflow_bin
+          , has_overflow_bin
           , is_extendable
           , extension_max_fcap
           , extension_max_bcap
@@ -93,6 +99,7 @@ class ConstantBinWidthAxis
         request_extension_fct_      = &request_extension;
         extend_fct_                 = &extend;
         create_axis_slice_fct_      = &create_axis_slice<type>;
+        deepcopy_fct_               = &type::deepcopy;
 
         std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
         n_bins_ = edges.shape(0) - 1;
@@ -109,7 +116,7 @@ class ConstantBinWidthAxis
         bn::iterators::flat_iterator< axis_value_type_traits > edges_iter(edges);
 
         // Set and skip the underflow edge.
-        if(has_oor_bins_)
+        if(has_underflow_bin_)
         {
             underflow_edge_ = *edges_iter;
             ++edges_iter;
@@ -117,11 +124,22 @@ class ConstantBinWidthAxis
 
         min_ = *edges_iter;
         ++edges_iter;
-        axis_value_type const value = *edges_iter;
-        bin_width_ = value - min_;
+        if(   edges_iter.is_end()
+           || (has_overflow_bin_ && edges_iter.get_iter_index() == n_bins_)
+          )
+        {
+            // Only one bin (ie. the underflow or overflow bin) was given. So
+            // we set the bin width to one.
+            bin_width_ = axis_value_type(1);
+        }
+        else
+        {
+            axis_value_type const value = *edges_iter;
+            bin_width_ = value - min_;
+        }
 
         // Set the overflow edge.
-        if(has_oor_bins_)
+        if(has_overflow_bin_)
         {
             edges_iter.advance(edges_iter.distance_to(edges_iter.end()) - 1);
             overflow_edge_ = *edges_iter;
@@ -138,7 +156,9 @@ class ConstantBinWidthAxis
       , min_((*static_cast<type const *>(&other.get_axis_base())).min_)
       , underflow_edge_((*static_cast<type const *>(&other.get_axis_base())).underflow_edge_)
       , overflow_edge_((*static_cast<type const *>(&other.get_axis_base())).overflow_edge_)
-    {}
+    {
+        std::cout << "ConstantBinWidthAxis:: Copy constructor." << std::endl<<std::flush;
+    }
 
     static
     intptr_t
@@ -159,7 +179,7 @@ class ConstantBinWidthAxis
         shape[0] = axis.n_bins_ + 1;
         bn::ndarray edges_arr = bn::empty(1, shape, bn::dtype::get_builtin<axis_value_type>());
         bn::iterators::flat_iterator< axis_value_type_traits > iter(edges_arr);
-        if(axis.has_oor_bins_)
+        if(axis.has_underflow_bin_)
         {
             // Set the underflow edge.
             iter.set_value(axis.underflow_edge_);
@@ -174,7 +194,7 @@ class ConstantBinWidthAxis
             ++idx;
             ++iter;
         }
-        if(axis.has_oor_bins_)
+        if(axis.has_overflow_bin_)
         {
             // Set the overflow edge.
             iter.advance(-1);
@@ -190,34 +210,11 @@ class ConstantBinWidthAxis
     {
         type const & axis = *static_cast<type const *>(&axisbase);
 
-        axis_value_type_traits avtt;
-        typename axis_value_type_traits::value_cref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        typename axis_value_type_traits::value_cref_type value = axis_value_type_traits::dereference(axis.avtt_, value_ptr);
         std::cout << "Got value = "<<value<<std::endl;
 
-        if(! axis.has_oor_bins_)
+        if(axis.has_underflow_bin_)
         {
-            // The axis has no under- and overflow bins.
-            //std::cout << "Got value: " << value << std::endl;
-            if(value < axis.min_)
-            {
-                //std::cout << "underflow: " << value << ", min = "<< data.min_ << std::endl;
-                oor_flag = axis::OOR_UNDERFLOW;
-                return -1;
-            }
-            intptr_t const idx = (value - axis.min_)/axis.bin_width_;
-            if(idx >= axis.n_bins_)
-            {
-                //std::cout << "overflow: " << value << ", idx = "<< idx << std::endl;
-                oor_flag = axis::OOR_OVERFLOW;
-                return -1;
-            }
-            //std::cout << "value " << value << " at " << idx << std::endl;
-            oor_flag = axis::OOR_NONE;
-            return idx;
-        }
-        else
-        {
-            // The axis has under- and overflow bins.
             if(value < axis.underflow_edge_)
             {
                 // The value falls even left to the underflow bin.
@@ -231,14 +228,29 @@ class ConstantBinWidthAxis
                 oor_flag = axis::OOR_NONE;
                 return 0;
             }
-            intptr_t const idx = (value - axis.min_)/axis.bin_width_;
+        }
+        else
+        {
+            if(value < axis.min_)
+            {
+                //std::cout << "underflow: " << value << ", min = "<< data.min_ << std::endl;
+                oor_flag = axis::OOR_UNDERFLOW;
+                return -1;
+            }
+        }
+
+        // The value is >= min_.
+        intptr_t const idx = (value - axis.min_)/axis.bin_width_;
+
+        if(axis.has_overflow_bin_)
+        {
             if(idx < axis.n_bins_-2)
             {
                 // The value falls into the axis range (excluding the overflow
                 // bin).
                 //std::cout << "Got value in normal bin"<< std::endl;
                 oor_flag = axis::OOR_NONE;
-                return idx+1;
+                return idx + axis.has_underflow_bin_;
             }
             if(value < axis.overflow_edge_)
             {
@@ -250,6 +262,18 @@ class ConstantBinWidthAxis
             // The value falls even right to the overflow bin.
             oor_flag = axis::OOR_OVERFLOW;
             return -1;
+        }
+        else
+        {
+            if(idx >= axis.n_bins_)
+            {
+                //std::cout << "overflow: " << value << ", idx = "<< idx << std::endl;
+                oor_flag = axis::OOR_OVERFLOW;
+                return -1;
+            }
+            //std::cout << "value " << value << " at " << idx << std::endl;
+            oor_flag = axis::OOR_NONE;
+            return idx + axis.has_underflow_bin_;
         }
     }
 
@@ -296,6 +320,14 @@ class ConstantBinWidthAxis
         {
             axis.n_bins_ += b_n_extra_bins;
         }
+    }
+
+    static
+    boost::shared_ptr<Axis>
+    deepcopy(Axis const & axisbase)
+    {
+        type const & axis = *static_cast<type const *>(&axisbase);
+        return boost::shared_ptr<Axis>(new ConstantBinWidthAxis(axis));
     }
 };
 

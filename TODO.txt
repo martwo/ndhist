@@ -1,6 +1,8 @@
+- Make copy into deepcopy.
+
 - Implement clear() method, that sets all bin content values to zero.
 
-- Implement the ndhist.copy() method that creates a deep copy of the ndhist
+- Implement the ndhist.deepcopy() method that creates a deep copy of the ndhist
   object.
 
 - Implement rebin_axis(axis, nbins_to_merge) that should change the current

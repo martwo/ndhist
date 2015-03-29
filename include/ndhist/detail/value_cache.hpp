@@ -33,10 +33,8 @@ struct ValueCacheBase
     intptr_t capacity_;
     intptr_t size_;
 
-    boost::function<bool (ValueCacheBase &, std::vector<intptr_t> const &, void *)>
-        push_back_fct_;
-    boost::function<void const * (ValueCacheBase const &, intptr_t)>
-        get_entry_fct_;
+    boost::function<boost::shared_ptr<ValueCacheBase> (ValueCacheBase const &)>
+        deepcopy_fct_;
 
     ValueCacheBase()
       : nd_(0)
@@ -71,16 +69,10 @@ struct ValueCacheBase
         size_ = 0;
     }
 
-    bool
-    push_back(std::vector<intptr_t> const & relative_indices, void * weight_ptr)
+    boost::shared_ptr<ValueCacheBase>
+    deepcopy() const
     {
-        return push_back_fct_(*this, relative_indices, weight_ptr);
-    }
-
-    void const *
-    get_entry(intptr_t idx)
-    {
-        return get_entry_fct_(*this, idx);
+        return deepcopy_fct_(*this);
     }
 };
 
@@ -117,41 +109,39 @@ struct ValueCache
         //std::cout << "ValueCache stack size = "<<stack_.size() <<std::endl;
 
         // Set function pointers.
-        push_back_fct_ = &type::push_back;
-        get_entry_fct_ = &type::get_entry;
+        deepcopy_fct_ = &type::deepcopy;
+    }
+
+    static
+    boost::shared_ptr<ValueCacheBase>
+    deepcopy(ValueCacheBase const & value_cache_base)
+    {
+        type const & value_cache = *static_cast<type const *>(&value_cache_base);
+        boost::shared_ptr<type> thecopy(new type(value_cache));
+        return thecopy;
     }
 
     /** Returns true, when the capacity is reached after adding the entry, and
      *  false otherwise.
      */
-    static
     bool
     push_back(
-        ValueCacheBase & value_cache_base
-      , std::vector<intptr_t> const & relative_indices
-      , void * weight_ptr
+        std::vector<intptr_t> const & relative_indices
+      , weight_value_type weight
     )
     {
-        type & value_cache = *static_cast<type *>(&value_cache_base);
-        weight_value_type weight = *reinterpret_cast<weight_value_type *>(weight_ptr);
+        std::cout << "ValueCache::push_back at "<< size_ << std::endl<<std::flush;
 
-        std::cout << "ValueCache::push_back at "<< value_cache.size_ << std::endl<<std::flush;
-
-        memcpy(&value_cache.stack_[value_cache.size_].relative_indices_[0], &relative_indices[0], relative_indices.size()*sizeof(intptr_t));
-        value_cache.stack_[value_cache.size_].weight_ = weight;
-        ++value_cache.size_;
-        return (value_cache.size_ == value_cache.capacity_);
+        memcpy(&stack_[size_].relative_indices_[0], &relative_indices[0], relative_indices.size()*sizeof(intptr_t));
+        stack_[size_].weight_ = weight;
+        ++size_;
+        return (size_ == capacity_);
     }
 
-    static
-    void const *
-    get_entry(
-        ValueCacheBase const & value_cache_base
-      , intptr_t idx
-    )
+    cache_entry_type const &
+    get_entry(intptr_t idx)
     {
-        type const & value_cache = *static_cast<type const *>(&value_cache_base);
-        return &value_cache.stack_[idx];
+        return stack_[idx];
     }
 };
 

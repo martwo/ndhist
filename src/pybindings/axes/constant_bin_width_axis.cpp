@@ -27,13 +27,15 @@ namespace axes {
 
 void register_constant_bin_width_axis()
 {
-    bp::class_<py::constant_bin_width_axis, bp::bases<Axis>, boost::shared_ptr<py::constant_bin_width_axis> >("constant_bin_width_axis"
+    bp::class_<py::constant_bin_width_axis, bp::bases<Axis>, boost::shared_ptr<py::constant_bin_width_axis> >(
+          "constant_bin_width_axis"
         , "The constant_bin_width_axis class provides an axis class for axes "
           "with constant bin widths."
         , bp::init<
             bn::ndarray const &
           , std::string const &
           , std::string const &
+          , bool
           , bool
           , bool
           , intptr_t
@@ -43,7 +45,8 @@ void register_constant_bin_width_axis()
           , bp::arg("edges")
           , bp::arg("label")=std::string("")
           , bp::arg("name")=std::string("")
-          , bp::arg("has_oor_bins")=true
+          , bp::arg("has_underflow_bin")=true
+          , bp::arg("has_overflow_bin")=true
           , bp::arg("is_extendable")=false
           , bp::arg("extension_max_fcap")=0
           , bp::arg("extension_max_bcap")=0

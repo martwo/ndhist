@@ -60,14 +60,15 @@ class bytearray
       : data_(calloc_data(ba.bytesize_, 1))
       , bytesize_(ba.bytesize_)
     {
-        std::cout << "Copying bytearray" << std::endl;
+        std::cout << "Copying bytearray ..." << std::flush;
         memcpy(data_, ba.data_, bytesize_);
+        std::cout << "done." << std::endl<<std::flush;
     }
 
     virtual
     ~bytearray()
     {
-        std::cout << "Destructing bytearray" << std::endl;
+        std::cout << "Destructing bytearray" << std::endl<<std::flush;
         if(data_)
         {
             free_data(data_);
@@ -94,6 +95,7 @@ class bytearray
     deepcopy()
     {
         // Use the copy constructor to make the actual copy.
+        std::cout << "Deepcopy bytearray" << std::endl<<std::flush;
         return boost::shared_ptr<bytearray>(new bytearray(*this));
     }
 
