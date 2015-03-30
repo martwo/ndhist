@@ -1,3 +1,5 @@
+- Figure out the correct return value of the rebin_axis method.
+
 - Implement clear() method, that sets all bin content values to zero.
 
 - Implement rebin_axis(axis, nbins_to_merge) that should change the current

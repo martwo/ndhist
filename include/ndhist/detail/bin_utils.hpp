@@ -60,7 +60,7 @@ struct bin_utils
     void
     increment_bin(char * bc_data_addr, WeightValueType const & weight)
     {
-        uintptr_t & noe    = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        uintptr_t       & noe  = *reinterpret_cast<uintptr_t*>(bc_data_addr);
         WeightValueType & sow  = *reinterpret_cast<WeightValueType*>(bc_data_addr + sizeof(uintptr_t));
         WeightValueType & sows = *reinterpret_cast<WeightValueType*>(bc_data_addr + sizeof(uintptr_t) + sizeof(WeightValueType));
 
@@ -86,6 +86,19 @@ struct bin_utils
         WeightValueType & src_value = *reinterpret_cast<WeightValueType*>(src_addr);
 
         dst_value = src_value;
+    }
+
+    static
+    void
+    zero_bin(char * bc_data_addr)
+    {
+        uintptr_t       & noe  = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        WeightValueType & sow  = *reinterpret_cast<WeightValueType*>(bc_data_addr + sizeof(uintptr_t));
+        WeightValueType & sows = *reinterpret_cast<WeightValueType*>(bc_data_addr + sizeof(uintptr_t) + sizeof(WeightValueType));
+
+        noe  = 0;
+        sow  = WeightValueType(0);
+        sows = WeightValueType(0);
     }
 };
 
@@ -142,7 +155,26 @@ struct bin_utils<bp::object>
         uintptr_t * dst_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(dst_addr);
         uintptr_t * src_obj_ptr_ptr = reinterpret_cast<uintptr_t *>(src_addr);
         bp::object src_obj(bp::detail::borrowed_reference(reinterpret_cast<PyObject*>(*src_obj_ptr_ptr)));
+        bp::xdecref<PyObject>(reinterpret_cast<PyObject*>(*dst_obj_ptr_ptr));
         *dst_obj_ptr_ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(src_obj.ptr()));
+    }
+
+    static
+    void
+    zero_bin(char * bc_data_addr)
+    {
+        uintptr_t & noe = *reinterpret_cast<uintptr_t*>(bc_data_addr);
+        noe = 0;
+
+        bp::object sow_obj = bp::object(0);
+        uintptr_t * ptr = reinterpret_cast<uintptr_t*>(bc_data_addr + sizeof(uintptr_t));
+        bp::xdecref<PyObject>(reinterpret_cast<PyObject*>(*ptr));
+        *ptr = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sow_obj.ptr()));
+
+        bp::object sows_obj = bp::object(0);
+        uintptr_t * ptr2 = reinterpret_cast<uintptr_t*>(bc_data_addr + 2*sizeof(uintptr_t));
+        bp::xdecref<PyObject>(reinterpret_cast<PyObject*>(*ptr2));
+        *ptr2 = reinterpret_cast<uintptr_t>(bp::incref<PyObject>(sows_obj.ptr()));
     }
 };
 

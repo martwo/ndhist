@@ -232,6 +232,12 @@ void register_ndhist()
               "specified through the *dims* argument.                           \n"
               "All other dimensions are collapsed (summed) accordingly into     \n"
               "the remaining specified dimensions.                              \n")
+        .def("rebin_axis", &ndhist::rebin_axis
+            , ( bp::arg("self")
+              , bp::arg("axis")=0
+              , bp::arg("nbins_to_merge")=2
+              )
+            , "Merges the specified number of bins.")
 
         // Slicing.
         .def("__getitem__", &ndhist::operator[]

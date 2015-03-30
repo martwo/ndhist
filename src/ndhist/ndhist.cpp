@@ -284,17 +284,98 @@ struct rebin_axis_fct_traits
     void
     apply(ndhist & self, intptr_t axis, intptr_t nbins_to_merge)
     {
-        intptr_t const axis_nbins = self.get_nbins()[axis];
-        intptr_t const nbins = axis_nbins / nbins_to_merge;
+        uintptr_t const nd = self.get_nd();
+        intptr_t const self_nbins = self.get_nbins()[axis];
+        intptr_t const rebinned_nbins = self_nbins / nbins_to_merge;
         // Calculate the number of bins that will fall into the overflow bin (in
         // case the axis contains an overflow bin).
-        intptr_t const nbins_into_overflow = axis_nbins % nbins_to_merge;
+        intptr_t const nbins_into_overflow = self_nbins % nbins_to_merge;
 
         // Move the overflow bin and merge it with the remaining bins.
         // If the axis does not provide an overflow bin, an overflow bin will
         // be created, where the edge value is taken from the right most bin
         // used to merge into the overflow bin.
+        typedef multi_axis_iter< bin_iter_value_type_traits<WeightValueType> >
+                multi_axis_iter_t;
 
+        multi_axis_iter_t rebinned_iter(self.bc_.construct_ndarray(self.bc_.get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+        multi_axis_iter_t self_iter(self.bc_.construct_ndarray(self.bc_.get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+
+        // Iterate over the new rebinned indices (excluding the underflow and
+        // overflow bin).
+        std::vector<intptr_t> rebinned_fixed_axes_indices(nd, axis::FLAGS_FLOATING_INDEX);
+        std::vector<intptr_t> rebinned_iter_axes_range_min(nd, 0);
+        std::vector<intptr_t> rebinned_iter_axes_range_max(nd);
+
+        std::vector<intptr_t> self_fixed_axes_indices(nd, axis::FLAGS_FLOATING_INDEX);
+        std::vector<intptr_t> self_iter_axes_range_min(nd, 0);
+        std::vector<intptr_t> self_iter_axes_range_max(nd);
+
+        for(uintptr_t i=0; i<nd; ++i)
+        {
+            intptr_t const nbins = self.bc_.get_shape_vector()[i];
+            rebinned_iter_axes_range_max[i] = nbins;
+            self_iter_axes_range_max[i] = nbins;
+        }
+
+        intptr_t const offset = self.axes_[axis]->has_underflow_bin() ? 1 : 0;
+        intptr_t const rebinned_end_idx = offset + rebinned_nbins;
+        intptr_t rebinned_idx = offset;
+        intptr_t idx = 0;
+        for(; rebinned_idx < rebinned_end_idx; ++rebinned_idx, ++idx)
+        {
+            // Fix the rebinned_idx of axis for the rebinned_iter.
+            rebinned_fixed_axes_indices[axis] = rebinned_idx;
+            rebinned_iter.init_iteration(rebinned_fixed_axes_indices, rebinned_iter_axes_range_min, rebinned_iter_axes_range_max);
+            while(! rebinned_iter.is_end())
+            {
+                // We need to reset the bin to zero if it's not the first bin,
+                // because the first bin is one of the bins to sum over.
+                if(rebinned_idx != offset)
+                {
+                    bin_utils<WeightValueType>::zero_bin(rebinned_iter.get_data());
+                }
+
+                // Get the (zeroed) rebinned bin.
+                typename multi_axis_iter_t::value_ref_type rebinned_bin = rebinned_iter.dereference();
+
+                // This bin contains the sum of the merged bins specified by
+                // the current other bin indicies.
+                for(uintptr_t i=0; i<nd; ++i)
+                {
+                    if(i != axis)
+                    {
+                        // The index for axis keeps always floating.
+                        self_fixed_axes_indices[i] = rebinned_iter.get_indices()[i];
+                    }
+                }
+                // Specify the index iteration range for the axis. Keep in mind
+                // that the first rebinned bin is not reset to zero, because
+                // it one of the bins to sum over.
+                self_iter_axes_range_min[axis] = offset + idx * nbins_to_merge + (rebinned_idx == offset);
+                self_iter_axes_range_max[axis] = offset + idx * nbins_to_merge + nbins_to_merge;
+
+                self_iter.init_iteration(self_fixed_axes_indices, self_iter_axes_range_min, self_iter_axes_range_max);
+                while(! self_iter.is_end())
+                {
+                    // Get the self bin.
+                    typename multi_axis_iter_t::value_ref_type self_bin = self_iter.dereference();
+
+                    // Add the self bin to the rebinned bin.
+                    *rebinned_bin.noe_  += *self_bin.noe_;
+                    *rebinned_bin.sow_  += *self_bin.sow_;
+                    *rebinned_bin.sows_ += *self_bin.sows_;
+
+                    self_iter.increment();
+                }
+
+                rebinned_iter.increment();
+            }
+        }
+
+        // FIXME: Handle the overflow bin.
+
+        // FIXME: Adjust the data view (i.e. shape, back capacity) for the axis.
     }
 };
 
@@ -1256,7 +1337,7 @@ project(bp::object const & dims) const
     return project_fct_(*this, axes);
 }
 
-ndhist &
+ndhist
 ndhist::
 rebin_axis(intptr_t axis, intptr_t nbins_to_merge)
 {

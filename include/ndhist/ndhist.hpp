@@ -507,7 +507,7 @@ class ndhist
     /**
      * @brief Merges the number of bins of the specified axis.
      */
-    ndhist &
+    ndhist
     rebin_axis(intptr_t axis=0, intptr_t nbins_to_merge=2);
 
     void
