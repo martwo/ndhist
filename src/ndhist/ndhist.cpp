@@ -737,17 +737,18 @@ ndhist::
 
 ndhist
 ndhist::
-copy() const
+deepcopy() const
 {
+    // Use the default copy constructor, that makes a shallow copy.
     ndhist thecopy(*this);
 
     // Copy the bytearray, if this ndhist object is not a view.
-    if(! is_view())
-    {
-        std::cout << "ndhist::copy: deepcopying bytearray ..."<<std::flush;
-        thecopy.bc_.bytearray_ = bc_.bytearray_->deepcopy();
-        std::cout << "done."<<std::endl<<std::flush;
-    }
+    std::cout << "ndhist::copy: deepcopying bytearray ..."<<std::flush;
+    thecopy.bc_.bytearray_ = bc_.bytearray_->deepcopy();
+    std::cout << "done."<<std::endl<<std::flush;
+
+    // Reset the base object. A deep copy is not a view anymore.
+    thecopy.base_ = boost::shared_ptr<ndhist>();
 
     // Copy the value cache.
     std::cout << "ndhist::copy: deepcopying value cache ..."<<std::flush;
@@ -892,8 +893,8 @@ ndhist::
 operator[](bp::object const & arg) const
 {
     // According to the indexing documentation of numpy, basic indexing occures
-    // when obj is a slice object, an integer, or a tuple of slice
-    // objects or integers. Basic indexing is also initiated, when obj is a
+    // when arg is a slice object, an integer, or a tuple of slice
+    // objects or integers. Basic indexing is also initiated, when arg is a
     // list of slice objects. Note, a list of integers does NOT initiate basic
     // indexing!
     //

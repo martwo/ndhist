@@ -198,9 +198,10 @@ void register_ndhist()
               "ndvalue function argument. Otherwise a structured array needs "
               "to be used as ndvalue argument.")
 
-        .def("copy", &ndhist::copy
+        .def("deepcopy", &ndhist::deepcopy
             , (bp::arg("self"))
-            , "Copies this ndhist object.")
+            , "Copies this ndhist object. It copies also the underlaying data, "
+              "even if this ndhist object is a view.")
 
         .def("get_binedges", &ndhist::get_binedges_ndarray
             , (bp::arg("self"), bp::arg("axis")=0)

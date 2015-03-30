@@ -94,12 +94,11 @@ class ndhist
     ~ndhist();
 
     /**
-     * @brief Copies this ndhist object. If this ndhist object is a view, the
-     *     resulting ndhist object is also a view and the internal bytearray is
-     *     not copied.
+     * @brief Copies this ndhist object. It copies also the underlaying data,
+     *     even if this ndhist object is a view.
      */
     ndhist
-    copy() const;
+    deepcopy() const;
 
     // Operator overloads.
     /**

@@ -1,6 +1,10 @@
-- Implemented the ndhist.copy() method. It creates a copy of the ndhist object
-  but does not copy the underlaying data when the ndhist object is a view.
-  This method will be replaced by the deepcopy() method in the future.
+- Implemented unit tests for basic slicing.
+
+- Implemented unit tests for ndhist's deepcopy method.
+
+- Implemented the ndhist.deepcopy() method. It creates a copy of the ndhist
+  object. It also copies the underlaying data, i.e. a ndhist view becomes an
+  ordinary ndhist object.
 
 - Added the Axis properties has_underflow_bin and has_overflow_bin and adjusted
   the implementation of the derived axis classes and ndhist.
