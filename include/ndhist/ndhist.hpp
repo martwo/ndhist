@@ -186,8 +186,15 @@ class ndhist
     py_get_shape() const;
 
     /**
+     * @brief Creates a std::vector<intptr_t> object holding the number of bins
+     *     for each axis (excluding possible under- and overflow bins).
+     */
+    std::vector<intptr_t>
+    get_nbins() const;
+
+    /**
      * @brief Creates a boost::python::tuple object holding the number of bins
-     *        for each axis.
+     *     for each axis (excluding possible under- and overflow bins).
      */
     bp::tuple
     py_get_nbins() const;
@@ -497,6 +504,12 @@ class ndhist
         return (base_ != NULL);
     }
 
+    /**
+     * @brief Merges the number of bins of the specified axis.
+     */
+    ndhist &
+    rebin_axis(intptr_t axis=0, intptr_t nbins_to_merge=2);
+
     void
     extend_axes(
         std::vector<intptr_t> const & f_n_extra_bins_vec
@@ -617,6 +630,7 @@ class ndhist
     boost::function<std::vector<bn::ndarray> (ndhist const &, axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
+    boost::function<void (ndhist &, intptr_t, intptr_t)> rebin_axis_fct_;
 
     /** The title string of the histogram, useful for plotting purposes.
      */

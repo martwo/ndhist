@@ -277,6 +277,27 @@ struct project_fct_traits
     }
 };
 
+template <typename WeightValueType>
+struct rebin_axis_fct_traits
+{
+    static
+    void
+    apply(ndhist & self, intptr_t axis, intptr_t nbins_to_merge)
+    {
+        intptr_t const axis_nbins = self.get_nbins()[axis];
+        intptr_t const nbins = axis_nbins / nbins_to_merge;
+        // Calculate the number of bins that will fall into the overflow bin (in
+        // case the axis contains an overflow bin).
+        intptr_t const nbins_into_overflow = axis_nbins % nbins_to_merge;
+
+        // Move the overflow bin and merge it with the remaining bins.
+        // If the axis does not provide an overflow bin, an overflow bin will
+        // be created, where the edge value is taken from the right most bin
+        // used to merge into the overflow bin.
+
+    }
+};
+
 /**
  * @brief Creates a ND-sized vector of ndarray objects which are views into the
  *     complete (i.e. including under- and overflow bins) bin content array.
@@ -810,6 +831,7 @@ setup_function_pointers()
             imul_fct_ = &detail::imul_fct_traits<WEIGHT_VALUE_TYPE>::apply; \
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;\
             project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
+            rebin_axis_fct_ = &detail::rebin_axis_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -1234,6 +1256,45 @@ project(bp::object const & dims) const
     return project_fct_(*this, axes);
 }
 
+ndhist &
+ndhist::
+rebin_axis(intptr_t axis, intptr_t nbins_to_merge)
+{
+    if(   (axis < 0 && intptr_t(axis + nd_) < 0)
+       || (axis >= 0 && axis >= nd_)
+      )
+    {
+        std::stringstream ss;
+        ss << "The axis value '"<<axis<<"' is invalid. It must be within the "
+           << "interval ["<< -nd_ <<", "<< nd_-1 <<"]!";
+        throw ValueError(ss.str());
+    }
+    if(axis < 0)
+    {
+        axis += nd_;
+    }
+
+    if(   nbins_to_merge == 0
+       || nbins_to_merge == 1
+      )
+    {
+        // We have nothing to do.
+        return *this;
+    }
+    intptr_t const axis_nbins = get_nbins()[axis];
+    if(nbins_to_merge > axis_nbins)
+    {
+        std::stringstream ss;
+        ss << "The number of bins to merge for axis "<<axis<<" must be within "
+           << "the interval [0, "<<axis_nbins<<"]!";
+        throw ValueError(ss.str());
+    }
+
+    rebin_axis_fct_(*this, axis, nbins_to_merge);
+
+    return *this;
+}
+
 bp::tuple
 ndhist::
 py_get_shape() const
@@ -1246,9 +1307,9 @@ py_get_shape() const
     return boost::python::make_tuple_from_container(shape.begin(), shape.end());
 }
 
-bp::tuple
+std::vector<intptr_t>
 ndhist::
-py_get_nbins() const
+get_nbins() const
 {
     std::vector<intptr_t> nbins(nd_);
     for(uintptr_t i=0; i<nd_; ++i)
@@ -1257,6 +1318,14 @@ py_get_nbins() const
         if(axes_[i]->has_underflow_bin()) --(nbins[i]);
         if(axes_[i]->has_overflow_bin()) --(nbins[i]);
     }
+    return nbins;
+}
+
+bp::tuple
+ndhist::
+py_get_nbins() const
+{
+    std::vector<intptr_t> nbins = get_nbins();
     return boost::python::make_tuple_from_container(nbins.begin(), nbins.end());
 }
 

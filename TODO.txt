@@ -1,13 +1,8 @@
-- Make copy into deepcopy.
-
 - Implement clear() method, that sets all bin content values to zero.
-
-- Implement the ndhist.deepcopy() method that creates a deep copy of the ndhist
-  object.
 
 - Implement rebin_axis(axis, nbins_to_merge) that should change the current
   ndhist object. In case a copy is needed beforehand, the user should call
-  ndhist.copy().rebin_axis(). So rebin_axis must return a reference to its
+  ndhist.deepcopy().rebin_axis(). So rebin_axis must return a reference to its
   ndhist object.
   The reason for letting rebin_axis operate on the ndhist object itself is the
   fact, that this operation can be done very efficiently without the need of
@@ -24,7 +19,7 @@
   * overflow behavior,
   * auto extendable axis
 
-- Write unit tests for basic ndhist slicing.
+- Write unit tests for basic ndhist slicing with nd>=2.
 
 - Implement the most up-to-date fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_trais)
