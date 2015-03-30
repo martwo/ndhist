@@ -104,10 +104,6 @@ struct multi_axis_iter
             }
         }
 
-        if(last_iter_axis_ == -1)
-        {
-            throw AssertionError("No iteration axes specified for multi-axes iteration!");
-        }
         p_ = last_iter_axis_;
 
         iter_.jump_to_iter_index(calc_detail_iter_index());
@@ -176,6 +172,12 @@ struct multi_axis_iter
     bool is_end() const
     {
         return is_end_point_;
+    }
+
+    char *
+    get_data()
+    {
+        return iter_.get_detail_iter().get_data(0);
     }
 
     bool is_end_point_;
