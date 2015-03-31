@@ -1506,7 +1506,7 @@ project(bp::object const & dims) const
 
 boost::shared_ptr<ndhist>
 ndhist::
-rebin_axis(intptr_t axis, intptr_t nbins_to_merge)
+rebin_axis(intptr_t axis, intptr_t nbins_to_merge, bool copy)
 {
     boost::shared_ptr<ndhist> self = this->shared_from_this();
 
@@ -1519,9 +1519,10 @@ rebin_axis(intptr_t axis, intptr_t nbins_to_merge)
     }
 
     // Make a deepcopy if this ndhist object is a data view into an other
-    // ndhist object. Otherwise the rebin operation would invalidate the
+    // ndhist object, or the user explicitly requested a copy.
+    // Otherwise the rebin operation would invalidate the
     // original ndhist object.
-    if(is_view())
+    if(is_view() || copy)
     {
         self = this->deepcopy();
     }

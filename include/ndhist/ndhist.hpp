@@ -507,12 +507,26 @@ class ndhist
 
     /**
      * @brief Merges the specified number of bins of the specified axis.
-     *     If this ndhist object is a data view into an other ndhist object,
+     *
+     *     If the number of bins to merge is not a true divisor of the number of
+     *     bins (without possible under- and overflow bins), the remaining bins
+     *     will be put into the overflow bin. If the axis did not have an
+     *     overflow bin, a new overflow bin will be created. But if the axis is
+     *     extendable, the remaining bins will be discarded, because an
+     *     extendable axis cannot hold an overflow bin.
+     *
+     *     If this ndhist object is a data view into an other ndhist object, or
+     *     the optional argument *copy* is set to ``true``,
      *     a deep copy of this ndhist object is created first. Otherwise the
      *     rebin operation is performed directly on this ndhist object.
+     *     It returns the changed (this or the copy) ndhist object.
      */
     boost::shared_ptr<ndhist>
-    rebin_axis(intptr_t axis=0, intptr_t nbins_to_merge=2);
+    rebin_axis(
+        intptr_t axis
+      , intptr_t nbins_to_merge=2
+      , bool copy=true
+    );
 
     void
     extend_axes(

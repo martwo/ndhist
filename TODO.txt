@@ -1,9 +1,12 @@
-- Introduce the copy=True kwarg to the rebin_axis method, that first creates a
-  deepcopy of the ndhist object if set to True.
+- Implement the rebin method of the ndhist class, that can take bp::tuple
+  (or vector) objects for the axis and nbins_to_merge arguments.
 
 - Implement clear() method, that sets all bin content values to zero.
 
 - Implement advanced slicing a la numpy.
+
+- Write unit tests for the rebin_axis method when using extendable axes and
+  also for nd >= 2.
 
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,

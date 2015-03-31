@@ -232,12 +232,33 @@ void register_ndhist()
               "specified through the *dims* argument.                           \n"
               "All other dimensions are collapsed (summed) accordingly into     \n"
               "the remaining specified dimensions.                              \n")
+
         .def("rebin_axis", &ndhist::rebin_axis
             , ( bp::arg("self")
-              , bp::arg("axis")=0
+              , bp::arg("axis")
               , bp::arg("nbins_to_merge")=2
+              , bp::arg("copy")=true
               )
-            , "Merges the specified number of bins.")
+            , "Merges the specified number of bins of the specified axis.\n"
+              "\n"
+              "If the number of bins to merge is not a true divisor of the "
+              "number of bins (without possible under- and overflow bins), the "
+              "remaining bins will be put into the overflow bin. If the axis "
+              "did not have an overflow bin, a new overflow bin will be "
+              "created. But if the axis is extendable, the remaining bins "
+              "will be discarded, because an extendable axis cannot hold an "
+              "overflow bin by definition.\n"
+              "\n"
+              "If this ndhist object is a data view into an other ndhist "
+              "object, or the optional argument *copy* is set to ``True``, "
+              "a deep copy of this ndhist object is created first. Otherwise "
+              "the rebin operation is performed directly on this ndhist "
+              "object itself.\n"
+              "\n"
+              "The default for nbins_to_merge is 2.\n"
+              "The default for copy is ``True``.\n"
+              "\n"
+              "It returns the changed (this or the copy) ndhist object.")
 
         // Slicing.
         .def("__getitem__", &ndhist::operator[]
