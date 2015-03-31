@@ -98,6 +98,48 @@ construct_ndarray(
     return bn::from_data(storage.get_data() + data_offset, dt, shape, strides, data_owner, set_owndata_flag);
 }
 
+void
+ndarray_storage::
+change_view(
+    std::vector<intptr_t> const & delta_shape
+  , std::vector<intptr_t> const & delta_front_capacity
+  , std::vector<intptr_t> const & delta_back_capacity
+)
+{
+    size_t const nd = get_nd();
+
+    if(   delta_shape.size()          != nd
+       || delta_front_capacity.size() != nd
+       || delta_back_capacity.size()  != nd
+      )
+    {
+        std::stringstream ss;
+        ss << "The lengths of the argument vectors must be " << nd << ". "
+           << "Currently, delta_shape, delta_front_capacity, and "
+           << "delta_back_capacity are " << delta_shape.size() << ", "
+           << delta_front_capacity.size() << ", and "
+           << delta_back_capacity.size() << ", respectively.";
+        throw ValueError(ss.str());
+    }
+
+    for(size_t i=0; i<nd; ++i)
+    {
+        if((delta_shape[i] + delta_front_capacity[i] + delta_back_capacity[i]) != 0)
+        {
+            std::stringstream ss;
+            ss << "The differences of the shape, front and back capacity for "
+               << "each dimension must add up to zero!";
+            throw ValueError(ss.str());
+        }
+        shape_[i]          += delta_shape[i];
+        front_capacity_[i] += delta_front_capacity[i];
+        back_capacity_[i]  += delta_back_capacity[i];
+    }
+
+    // Recalculate data strides.
+    calc_data_strides(data_strides_, dt_, shape_, front_capacity_, back_capacity_);
+}
+
 // This is the method.
 bn::ndarray
 ndarray_storage::

@@ -1,3 +1,16 @@
+- Implemented the ndhist rebin_axis(axis, nbins_to_merge) method that changes
+  the current ndhist object, if the current ndhist object is not a view. If it
+  is a view, a deep copy is created first.
+  The rebin_axis method returns a reference to the changed ndhist object.
+
+  The reason for letting rebin_axis operate on the ndhist object itself is the
+  fact, that this operation can be done very efficiently without the need of
+  a copy of all the data. In principle rebin_axis could take a kwarg named
+  copy=True, that would call the deepcopy() method first if needed. This would
+  mimic the behavior of dashi, that always creates a copy when rebinning.
+  In principle, rebin_axis could also take a tuple for axis and nbins_to_merge
+  and could rebin several axes at once.
+
 - Implemented unit tests for basic slicing.
 
 - Implemented unit tests for ndhist's deepcopy method.

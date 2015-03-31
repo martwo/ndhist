@@ -284,17 +284,40 @@ struct rebin_axis_fct_traits
     void
     apply(ndhist & self, intptr_t axis, intptr_t nbins_to_merge)
     {
-        uintptr_t const nd = self.get_nd();
-        intptr_t const self_nbins = self.get_nbins()[axis];
-        intptr_t const rebinned_nbins = self_nbins / nbins_to_merge;
-        // Calculate the number of bins that will fall into the overflow bin (in
-        // case the axis contains an overflow bin).
-        intptr_t const nbins_into_overflow = self_nbins % nbins_to_merge;
+        if(   nbins_to_merge == 0
+           || nbins_to_merge == 1
+          )
+        {
+            // We have nothing to do.
+            return;
+        }
 
-        // Move the overflow bin and merge it with the remaining bins.
-        // If the axis does not provide an overflow bin, an overflow bin will
-        // be created, where the edge value is taken from the right most bin
-        // used to merge into the overflow bin.
+        uintptr_t const nd = self.get_nd();
+
+        if(   (axis < 0 && intptr_t(axis + nd) < 0)
+           || (axis >= 0 && axis >= nd)
+          )
+        {
+            std::stringstream ss;
+            ss << "The axis value '"<<axis<<"' is invalid. It must be within "
+               << "the interval ["<< -nd <<", "<< nd-1 <<"]!";
+            throw ValueError(ss.str());
+        }
+        if(axis < 0)
+        {
+            axis += nd;
+        }
+
+        intptr_t const self_nbins = self.get_nbins()[axis];
+
+        if(nbins_to_merge > self_nbins)
+        {
+            std::stringstream ss;
+            ss << "The number of bins to merge for axis "<<axis<<" must be "
+               << "within the interval [0, "<<self_nbins<<"]!";
+            throw ValueError(ss.str());
+        }
+
         typedef multi_axis_iter< bin_iter_value_type_traits<WeightValueType> >
                 multi_axis_iter_t;
 
@@ -318,6 +341,8 @@ struct rebin_axis_fct_traits
             self_iter_axes_range_max[i] = nbins;
         }
 
+        bool const is_extendable_axis = self.axes_[axis]->is_extendable();
+        intptr_t const rebinned_nbins = self_nbins / nbins_to_merge;
         intptr_t const offset = self.axes_[axis]->has_underflow_bin() ? 1 : 0;
         intptr_t const rebinned_end_idx = offset + rebinned_nbins;
         intptr_t rebinned_idx = offset;
@@ -366,6 +391,10 @@ struct rebin_axis_fct_traits
                     *rebinned_bin.sow_  += *self_bin.sow_;
                     *rebinned_bin.sows_ += *self_bin.sows_;
 
+                    if(is_extendable_axis) {
+                        bin_utils<WeightValueType>::zero_bin(self_iter.get_data());
+                    }
+
                     self_iter.increment();
                 }
 
@@ -373,9 +402,133 @@ struct rebin_axis_fct_traits
             }
         }
 
-        // FIXME: Handle the overflow bin.
+        // Move the overflow bin and merge it with the remaining bins.
+        // This can only be done, when the axis is not extendable, because
+        // extendable axes don't have an overflow bin.
+        // If the axis does not provide an overflow bin, an overflow bin will
+        // be created, where the edge value is taken from the right most bin
+        // used to merge into the overflow bin.
 
-        // FIXME: Adjust the data view (i.e. shape, back capacity) for the axis.
+        // Calculate the number of bins that will fall into the overflow bin (in
+        // case the axis contains an overflow bin).
+        bool rebinned_axis_has_overflow_bin = false;
+        intptr_t const nbins_into_overflow = self_nbins % nbins_to_merge;
+        if(   !is_extendable_axis
+           && (self.axes_[axis]->has_overflow_bin() || nbins_into_overflow > 0)
+          )
+        {
+            rebinned_axis_has_overflow_bin = true;
+            rebinned_idx = rebinned_end_idx;
+
+            // Define the sum over indices.
+            self_iter_axes_range_min[axis] = self.axes_[axis]->get_n_bins() - 1 - nbins_into_overflow;
+            self_iter_axes_range_max[axis] = self.axes_[axis]->get_n_bins();
+
+            rebinned_fixed_axes_indices[axis] = rebinned_idx;
+            rebinned_iter.init_iteration(rebinned_fixed_axes_indices, rebinned_iter_axes_range_min, rebinned_iter_axes_range_max);
+            while(! rebinned_iter.is_end())
+            {
+                // Zero the current rebinned bin.
+                bin_utils<WeightValueType>::zero_bin(rebinned_iter.get_data());
+
+                // Get the zeroed rebinned bin.
+                typename multi_axis_iter_t::value_ref_type rebinned_bin = rebinned_iter.dereference();
+
+                // This bin contains the sum of the merged bins specified by
+                // the current other bin indicies.
+                for(uintptr_t i=0; i<nd; ++i)
+                {
+                    if(i != axis)
+                    {
+                        // The index for axis keeps always floating.
+                        self_fixed_axes_indices[i] = rebinned_iter.get_indices()[i];
+                    }
+                }
+
+                self_iter.init_iteration(self_fixed_axes_indices, self_iter_axes_range_min, self_iter_axes_range_max);
+                while(! self_iter.is_end())
+                {
+                    // Get the self bin.
+                    typename multi_axis_iter_t::value_ref_type self_bin = self_iter.dereference();
+
+                    // Add the self bin to the rebinned bin.
+                    *rebinned_bin.noe_  += *self_bin.noe_;
+                    *rebinned_bin.sow_  += *self_bin.sow_;
+                    *rebinned_bin.sows_ += *self_bin.sows_;
+
+                    if(is_extendable_axis) {
+                        bin_utils<WeightValueType>::zero_bin(self_iter.get_data());
+                    }
+
+                    self_iter.increment();
+                }
+
+                rebinned_iter.increment();
+            }
+        }
+        if(is_extendable_axis && nbins_into_overflow > 0)
+        {
+            // FIXME: The nbins_into_overflow bins will be discarded due to the
+            // nature of the extendable axis. But we need to zero those bins,
+            // so they won't have a pre-set value when the axis gets extended
+            // afterwards.
+        }
+
+        // Adjust the data view (i.e. shape and back capacity) for the axis.
+        bool const rebinned_axis_has_underflow_bin = self.axes_[axis]->has_underflow_bin();
+        intptr_t const rebinned_axis_shape = rebinned_axis_has_underflow_bin + rebinned_nbins + rebinned_axis_has_overflow_bin;
+        std::vector<intptr_t> delta_shape(nd, 0);
+        std::vector<intptr_t> delta_front_capacity(nd, 0);
+        std::vector<intptr_t> delta_back_capacity(nd, 0);
+        delta_shape[axis] = rebinned_axis_shape - self.bc_.get_shape_vector()[axis];
+        delta_back_capacity[axis] = -delta_shape[axis];
+        self.bc_.change_view(delta_shape, delta_front_capacity, delta_back_capacity);
+
+        // Adjust the bin edges of the axis.
+        bn::ndarray const oldedges = self.axes_[axis]->get_binedges_ndarray();
+        std::vector<intptr_t> const shape(1, rebinned_axis_shape+1);
+        bn::ndarray newedges = bn::empty(shape, self.axes_[axis]->get_dtype());
+        typedef bn::iterators::flat_iterator< bn::iterators::single_value<WeightValueType> >
+                edges_iter_t;
+        edges_iter_t oldedges_iter(oldedges);
+        edges_iter_t newedges_iter(newedges);
+        if(rebinned_axis_has_underflow_bin)
+        {
+            // The first edge is the underflow bin lower edge.
+            newedges_iter.set_value(*oldedges_iter);
+            ++oldedges_iter;
+            ++newedges_iter;
+        }
+        for(intptr_t i=0; i<rebinned_nbins; ++i)
+        {
+            // Set the lower edge of the current visible bin.
+            newedges_iter.set_value(*oldedges_iter);
+            oldedges_iter.advance(nbins_to_merge);
+            ++newedges_iter;
+        }
+        if(rebinned_axis_has_overflow_bin)
+        {
+            // Set the lower edge of the overflow bin.
+            newedges_iter.set_value(*oldedges_iter);
+            oldedges_iter.advance(self_iter_axes_range_max[axis] - self_iter_axes_range_min[axis]);
+            ++newedges_iter;
+        }
+        // Set the upper edge of the last bin.
+        newedges_iter.set_value(*oldedges_iter);
+
+        // Create a new axis object for the changed axis using the new edge
+        // array.
+        Axis const & oldaxis = *self.axes_[axis];
+        self.axes_[axis] = oldaxis.create(
+            newedges
+          , oldaxis.get_label()
+          , oldaxis.get_name()
+          , rebinned_axis_has_underflow_bin
+          , rebinned_axis_has_overflow_bin
+          , oldaxis.is_extendable()
+          , oldaxis.get_extension_max_fcap()
+          , oldaxis.get_extension_max_bcap()
+        );
     }
 };
 
@@ -837,31 +990,31 @@ ndhist::
     }
 }
 
-ndhist
+boost::shared_ptr<ndhist>
 ndhist::
 deepcopy() const
 {
     // Use the default copy constructor, that makes a shallow copy.
-    ndhist thecopy(*this);
+    boost::shared_ptr<ndhist> thecopy = boost::shared_ptr<ndhist>(new ndhist(*this));
 
     // Copy the bytearray, if this ndhist object is not a view.
     std::cout << "ndhist::copy: deepcopying bytearray ..."<<std::flush;
-    thecopy.bc_.bytearray_ = bc_.bytearray_->deepcopy();
+    thecopy->bc_.bytearray_ = bc_.bytearray_->deepcopy();
     std::cout << "done."<<std::endl<<std::flush;
 
     // Reset the base object. A deep copy is not a view anymore.
-    thecopy.base_ = boost::shared_ptr<ndhist>();
+    thecopy->base_ = boost::shared_ptr<ndhist>();
 
     // Copy the value cache.
     std::cout << "ndhist::copy: deepcopying value cache ..."<<std::flush;
-    thecopy.value_cache_ = value_cache_->deepcopy();
+    thecopy->value_cache_ = value_cache_->deepcopy();
     std::cout << "done."<<std::endl<<std::flush;
 
     // Copy the Axes objects.
     for(uintptr_t i=0; i<nd_; ++i)
     {
         std::cout << "ndhist::copy: deepcopying axis "<<i<<" ..."<<std::flush;
-        thecopy.axes_[i] = axes_[i]->deepcopy();
+        thecopy->axes_[i] = axes_[i]->deepcopy();
         std::cout << "done."<<std::endl<<std::flush;
     }
 
@@ -1337,43 +1490,31 @@ project(bp::object const & dims) const
     return project_fct_(*this, axes);
 }
 
-ndhist
+boost::shared_ptr<ndhist>
 ndhist::
 rebin_axis(intptr_t axis, intptr_t nbins_to_merge)
 {
-    if(   (axis < 0 && intptr_t(axis + nd_) < 0)
-       || (axis >= 0 && axis >= nd_)
-      )
-    {
-        std::stringstream ss;
-        ss << "The axis value '"<<axis<<"' is invalid. It must be within the "
-           << "interval ["<< -nd_ <<", "<< nd_-1 <<"]!";
-        throw ValueError(ss.str());
-    }
-    if(axis < 0)
-    {
-        axis += nd_;
-    }
+    boost::shared_ptr<ndhist> self = this->shared_from_this();
 
     if(   nbins_to_merge == 0
        || nbins_to_merge == 1
       )
     {
         // We have nothing to do.
-        return *this;
+        return self;
     }
-    intptr_t const axis_nbins = get_nbins()[axis];
-    if(nbins_to_merge > axis_nbins)
+
+    // Make a deepcopy if this ndhist object is a data view into an other
+    // ndhist object. Otherwise the rebin operation would invalidate the
+    // original ndhist object.
+    if(is_view())
     {
-        std::stringstream ss;
-        ss << "The number of bins to merge for axis "<<axis<<" must be within "
-           << "the interval [0, "<<axis_nbins<<"]!";
-        throw ValueError(ss.str());
+        self = this->deepcopy();
     }
 
-    rebin_axis_fct_(*this, axis, nbins_to_merge);
+    rebin_axis_fct_(*self, axis, nbins_to_merge);
 
-    return *this;
+    return self;
 }
 
 bp::tuple

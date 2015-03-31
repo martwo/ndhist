@@ -135,20 +135,32 @@ class ndarray_storage
       , bytearray_(base.bytearray_)
     {}
 
+//     /**
+//      * @brief Copy constructor.
+//      * @note This creates a shallow copy, i.e. the underlaying bytearray is not
+//      *     copied!
+//      */
+//     ndarray_storage(ndarray_storage const & other)
+//       : shape_(other.shape_)
+//       , front_capacity_(other.front_capacity_)
+//       , back_capacity_(other.back_capacity_)
+//       , dt_(other.dt_)
+//       , data_strides_(other.data_strides_)
+//       , bytearray_data_offset_(other.bytearray_data_offset_)
+//       , bytearray_(other.bytearray_)
+//     {}
+
     /**
-     * @brief Copy constructor.
-     * @note This creates a shallow copy, i.e. the underlaying bytearray is not
-     *     copied!
+     * @brief Changes the view on the bytearray. The vector arguments should
+     *     provide the difference w.r.t. the old data view.
      */
-    ndarray_storage(ndarray_storage const & other)
-      : shape_(other.shape_)
-      , front_capacity_(other.front_capacity_)
-      , back_capacity_(other.back_capacity_)
-      , dt_(other.dt_)
-      , data_strides_(other.data_strides_)
-      , bytearray_data_offset_(other.bytearray_data_offset_)
-      , bytearray_(other.bytearray_)
-    {}
+    void
+    change_view(
+        std::vector<intptr_t> const & delta_shape
+      , std::vector<intptr_t> const & delta_front_capacity
+      , std::vector<intptr_t> const & delta_back_capacity
+    );
+
 
     /**
      * @brief Creates a deep copy of this ndarray_storage object, i.e. the

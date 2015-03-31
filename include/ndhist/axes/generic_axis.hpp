@@ -83,6 +83,9 @@ class GenericAxis
     typedef bn::iterators::single_value<axis_value_type>
             axis_value_type_traits;
 
+    typedef Axis
+            base;
+
     typedef GenericAxis<AxisValueType>
             type;
 
@@ -159,14 +162,15 @@ class GenericAxis
     void init(bn::ndarray const & edges)
     {
         // Set up the axis's function pointers.
-        get_bin_index_fct_          = &get_bin_index;
-        get_binedges_ndarray_fct_   = &get_binedges_ndarray;
-        get_bincenters_ndarray_fct_ = &get_bincenters_ndarray<type>;
-        get_binwidths_ndarray_fct_  = &get_binwidths_ndarray<type>;
-        get_n_bins_fct_             = &get_n_bins;
+        create_fct_                 = &type::create;
+        get_bin_index_fct_          = &type::get_bin_index;
+        get_binedges_ndarray_fct_   = &type::get_binedges_ndarray;
+        get_bincenters_ndarray_fct_ = &base::get_bincenters_ndarray<type>;
+        get_binwidths_ndarray_fct_  = &base::get_binwidths_ndarray<type>;
+        get_n_bins_fct_             = &type::get_n_bins;
         request_extension_fct_      = NULL;
         extend_fct_                 = NULL;
-        create_axis_slice_fct_      = &create_axis_slice<type>;
+        create_axis_slice_fct_      = &base::create_axis_slice<type>;
         deepcopy_fct_               = &type::deepcopy;
 
         intptr_t const nbins = edges.get_size() - 1;
@@ -194,6 +198,31 @@ class GenericAxis
         // Initialize a flat iterator over the axis edges.
         edges_arr_iter_ = bn::iterators::flat_iterator< bn::iterators::single_value<axis_value_type> >(arr, bn::detail::iter_operand::flags::READONLY::value);
         edges_arr_iter_end_ = edges_arr_iter_.end();
+    }
+
+    static
+    boost::shared_ptr<Axis>
+    create(
+        boost::numpy::ndarray const & edges
+      , std::string const & label
+      , std::string const & name
+      , bool has_underflow_bin
+      , bool has_overflow_bin
+      , bool is_extendable
+      , intptr_t extension_max_fcap
+      , intptr_t extension_max_bcap
+    )
+    {
+        return boost::shared_ptr<Axis>(new GenericAxis(
+            edges
+          , label
+          , name
+          , has_underflow_bin
+          , has_overflow_bin
+          , is_extendable
+          , extension_max_fcap
+          , extension_max_bcap
+        ));
     }
 
     static

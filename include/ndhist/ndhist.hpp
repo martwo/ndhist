@@ -94,10 +94,11 @@ class ndhist
     ~ndhist();
 
     /**
-     * @brief Copies this ndhist object. It copies also the underlaying data,
-     *     even if this ndhist object is a view.
+     * @brief Copies this ndhist object. The created copy will live on the heap.
+     *     It copies also the underlaying data, even if this ndhist object is a
+     *     view.
      */
-    ndhist
+    boost::shared_ptr<ndhist>
     deepcopy() const;
 
     // Operator overloads.
@@ -505,9 +506,12 @@ class ndhist
     }
 
     /**
-     * @brief Merges the number of bins of the specified axis.
+     * @brief Merges the specified number of bins of the specified axis.
+     *     If this ndhist object is a data view into an other ndhist object,
+     *     a deep copy of this ndhist object is created first. Otherwise the
+     *     rebin operation is performed directly on this ndhist object.
      */
-    ndhist
+    boost::shared_ptr<ndhist>
     rebin_axis(intptr_t axis=0, intptr_t nbins_to_merge=2);
 
     void

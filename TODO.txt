@@ -1,18 +1,11 @@
-- Figure out the correct return value of the rebin_axis method.
+- Introduce the copy=True kwarg to the rebin_axis method, that first creates a
+  deepcopy of the ndhist object if set to True.
+
+- The rebin_axis method needs to zero the bins that are "truncated" if the axis
+  is extendable, otherwise bins will have pre-set values when the axis is
+  extended afterwards.
 
 - Implement clear() method, that sets all bin content values to zero.
-
-- Implement rebin_axis(axis, nbins_to_merge) that should change the current
-  ndhist object. In case a copy is needed beforehand, the user should call
-  ndhist.deepcopy().rebin_axis(). So rebin_axis must return a reference to its
-  ndhist object.
-  The reason for letting rebin_axis operate on the ndhist object itself is the
-  fact, that this operation can be done very efficiently without the need of
-  a copy of all the data. In principle rebin_axis could take a kwarg named
-  copy=True, that would call the copy() method first if needed. This would mimic
-  the behavior of dashi, that always creates a copy when rebinning.
-  In principle, rebin_axis could also take a tuple for axis and nbins_to_merge
-  and could rebin several axes at once.
 
 - Implement advanced slicing a la numpy.
 
@@ -24,7 +17,7 @@
 - Write unit tests for basic ndhist slicing with nd>=2.
 
 - Implement the most up-to-date fill procedure also for a structured ndarray
-  given as ndvalues object. (generic_nd_trais)
+  given as ndvalues object. (generic_nd_traits)
 
 - Overwork the ndhist.extend_bin_content_array() function. There should be a
   faster way of initializing the extra bins.

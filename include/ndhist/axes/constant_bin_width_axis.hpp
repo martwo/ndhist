@@ -42,6 +42,9 @@ class ConstantBinWidthAxis
     typedef bn::iterators::single_value<axis_value_type>
             axis_value_type_traits;
 
+    typedef Axis
+            base;
+
     typedef ConstantBinWidthAxis<axis_value_type>
             type;
 
@@ -91,14 +94,15 @@ class ConstantBinWidthAxis
         )
     {
         // Set up the axis's function pointers.
-        get_bin_index_fct_          = &get_bin_index;
-        get_binedges_ndarray_fct_   = &get_binedges_ndarray;
-        get_bincenters_ndarray_fct_ = &get_bincenters_ndarray<type>;
-        get_binwidths_ndarray_fct_  = &get_binwidths_ndarray<type>;
-        get_n_bins_fct_             = &get_n_bins;
-        request_extension_fct_      = &request_extension;
-        extend_fct_                 = &extend;
-        create_axis_slice_fct_      = &create_axis_slice<type>;
+        create_fct_                 = &type::create;
+        get_bin_index_fct_          = &type::get_bin_index;
+        get_binedges_ndarray_fct_   = &type::get_binedges_ndarray;
+        get_bincenters_ndarray_fct_ = &base::get_bincenters_ndarray<type>;
+        get_binwidths_ndarray_fct_  = &base::get_binwidths_ndarray<type>;
+        get_n_bins_fct_             = &type::get_n_bins;
+        request_extension_fct_      = &type::request_extension;
+        extend_fct_                 = &type::extend;
+        create_axis_slice_fct_      = &base::create_axis_slice<type>;
         deepcopy_fct_               = &type::deepcopy;
 
         std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
@@ -158,6 +162,31 @@ class ConstantBinWidthAxis
       , overflow_edge_((*static_cast<type const *>(&other.get_axis_base())).overflow_edge_)
     {
         std::cout << "ConstantBinWidthAxis:: Copy constructor." << std::endl<<std::flush;
+    }
+
+    static
+    boost::shared_ptr<Axis>
+    create(
+        boost::numpy::ndarray const & edges
+      , std::string const & label
+      , std::string const & name
+      , bool has_underflow_bin
+      , bool has_overflow_bin
+      , bool is_extendable
+      , intptr_t extension_max_fcap
+      , intptr_t extension_max_bcap
+    )
+    {
+        return boost::shared_ptr<Axis>(new ConstantBinWidthAxis(
+            edges
+          , label
+          , name
+          , has_underflow_bin
+          , has_overflow_bin
+          , is_extendable
+          , extension_max_fcap
+          , extension_max_bcap
+        ));
     }
 
     static

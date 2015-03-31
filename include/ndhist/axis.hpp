@@ -114,6 +114,7 @@ class Axis
       , is_extendable_(other.get_axis_base().is_extendable_)
       , extension_max_fcap_(other.get_axis_base().extension_max_fcap_)
       , extension_max_bcap_(other.get_axis_base().extension_max_bcap_)
+      , create_fct_(other.get_axis_base().create_fct_)
       , get_bin_index_fct_(other.get_axis_base().get_bin_index_fct_)
       , get_binedges_ndarray_fct_(other.get_axis_base().get_binedges_ndarray_fct_)
       , get_bincenters_ndarray_fct_(other.get_axis_base().get_bincenters_ndarray_fct_)
@@ -286,6 +287,31 @@ class Axis
     set_name(std::string const & name)
     {
         get_axis_base().name_ = name;
+    }
+
+    inline
+    boost::shared_ptr<Axis>
+    create(
+        boost::numpy::ndarray const & edges
+      , std::string const & label
+      , std::string const & name
+      , bool has_underflow_bin
+      , bool has_overflow_bin
+      , bool is_extendable
+      , intptr_t extension_max_fcap
+      , intptr_t extension_max_bcap
+    ) const
+    {
+        return get_axis_base().create_fct_(
+            edges
+          , label
+          , name
+          , has_underflow_bin
+          , has_overflow_bin
+          , is_extendable
+          , extension_max_fcap
+          , extension_max_bcap
+        );
     }
 
     inline
@@ -514,6 +540,21 @@ class Axis
      *  in case the axis is extendable.
      */
     intptr_t extension_max_bcap_;
+
+    /** This function is supposed to create a new Axis object of the most
+     *  derived class using the standard Axis constructor.
+     */
+    boost::function< boost::shared_ptr<Axis> (
+            boost::numpy::ndarray const & // edges
+          , std::string const &           // label
+          , std::string const &           // name
+          , bool                          // has_underflow_bin
+          , bool                          // has_overflow_bin
+          , bool                          // is_extendable
+          , intptr_t                      // extension_max_fcap
+          , intptr_t                      // extension_max_bcap
+        )
+    > create_fct_;
 
     /** This function is supposed to get the axis's bin index for the given data
      *  value (which is stored in memory at the given address).
