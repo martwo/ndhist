@@ -1,10 +1,6 @@
 - Introduce the copy=True kwarg to the rebin_axis method, that first creates a
   deepcopy of the ndhist object if set to True.
 
-- The rebin_axis method needs to zero the bins that are "truncated" if the axis
-  is extendable, otherwise bins will have pre-set values when the axis is
-  extended afterwards.
-
 - Implement clear() method, that sets all bin content values to zero.
 
 - Implement advanced slicing a la numpy.

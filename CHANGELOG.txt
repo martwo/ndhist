@@ -1,3 +1,8 @@
+- Zero bins, that would be discarded by ndhist's rebin_axis method when the axis
+  is extendable and the nbins_to_merge is not a true divisor of the number of
+  bins of the axis. Otherwise such bins would have a pre-set value when the axis
+  gets extended after the rebin operation.
+
 - Implemented the ndhist rebin_axis(axis, nbins_to_merge) method that changes
   the current ndhist object, if the current ndhist object is not a view. If it
   is a view, a deep copy is created first.

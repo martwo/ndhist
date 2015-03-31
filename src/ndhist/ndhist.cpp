@@ -468,10 +468,24 @@ struct rebin_axis_fct_traits
         }
         if(is_extendable_axis && nbins_into_overflow > 0)
         {
-            // FIXME: The nbins_into_overflow bins will be discarded due to the
+            // The nbins_into_overflow bins will be discarded due to the
             // nature of the extendable axis. But we need to zero those bins,
             // so they won't have a pre-set value when the axis gets extended
             // afterwards.
+
+            // Iterate over the nbins_into_overflow bins and zero them.
+            for(uintptr_t i=0; i<nd; ++i)
+            {
+                 self_fixed_axes_indices[i] = axis::FLAGS_FLOATING_INDEX;
+            }
+            self_iter_axes_range_min[axis] = self.axes_[axis]->get_n_bins() - 1 - nbins_into_overflow;
+            self_iter_axes_range_max[axis] = self.axes_[axis]->get_n_bins();
+            self_iter.init_iteration(self_fixed_axes_indices, self_iter_axes_range_min, self_iter_axes_range_max);
+            while(! self_iter.is_end())
+            {
+                bin_utils<WeightValueType>::zero_bin(self_iter.get_data());
+                self_iter.increment();
+            }
         }
 
         // Adjust the data view (i.e. shape and back capacity) for the axis.
