@@ -411,17 +411,18 @@ struct merge_axis_bins_fct_traits
 
         // Calculate the number of bins that will fall into the overflow bin (in
         // case the axis contains an overflow bin).
+        bool const self_axis_has_overflow_bin = self.axes_[axis]->has_overflow_bin();
         bool rebinned_axis_has_overflow_bin = false;
         intptr_t const nbins_into_overflow = self_nbins % nbins_to_merge;
         if(   !is_extendable_axis
-           && (self.axes_[axis]->has_overflow_bin() || nbins_into_overflow > 0)
+           && (self_axis_has_overflow_bin || nbins_into_overflow > 0)
           )
         {
             rebinned_axis_has_overflow_bin = true;
             rebinned_idx = rebinned_end_idx;
 
             // Define the sum over indices.
-            self_iter_axes_range_min[axis] = self.axes_[axis]->get_n_bins() - 1 - nbins_into_overflow;
+            self_iter_axes_range_min[axis] = self.axes_[axis]->get_n_bins() - self_axis_has_overflow_bin - nbins_into_overflow;
             self_iter_axes_range_max[axis] = self.axes_[axis]->get_n_bins();
 
             rebinned_fixed_axes_indices[axis] = rebinned_idx;
