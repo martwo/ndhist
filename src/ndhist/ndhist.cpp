@@ -278,7 +278,7 @@ struct project_fct_traits
 };
 
 template <typename WeightValueType>
-struct rebin_axis_fct_traits
+struct merge_axis_bins_fct_traits
 {
     static
     void
@@ -1079,7 +1079,7 @@ setup_function_pointers()
             imul_fct_ = &detail::imul_fct_traits<WEIGHT_VALUE_TYPE>::apply; \
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;\
             project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
-            rebin_axis_fct_ = &detail::rebin_axis_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
+            merge_axis_bins_fct_ = &detail::merge_axis_bins_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -1506,7 +1506,7 @@ project(bp::object const & dims) const
 
 boost::shared_ptr<ndhist>
 ndhist::
-rebin_axis(
+merge_axis_bins(
     intptr_t const axis
   , intptr_t const nbins_to_merge
   , bool const copy
@@ -1531,14 +1531,14 @@ rebin_axis(
         self = this->deepcopy();
     }
 
-    rebin_axis_fct_(*self, axis, nbins_to_merge);
+    merge_axis_bins_fct_(*self, axis, nbins_to_merge);
 
     return self;
 }
 
 boost::shared_ptr<ndhist>
 ndhist::
-rebin(
+merge_bins(
     std::vector<intptr_t> const & axes
   , std::vector<intptr_t> const & nbins_to_merge
   , bool const copy
@@ -1582,7 +1582,7 @@ rebin(
 
     for(size_t i=0; i<axes.size(); ++i)
     {
-        rebin_axis_fct_(*self, axes[i], nbins_to_merge[i]);
+        merge_axis_bins_fct_(*self, axes[i], nbins_to_merge[i]);
     }
 
     return self;
@@ -1590,7 +1590,7 @@ rebin(
 
 boost::shared_ptr<ndhist>
 ndhist::
-rebin(
+merge_bins(
     bp::tuple const & axes
   , bp::tuple const & nbins_to_merge
   , bool const copy
@@ -1607,7 +1607,7 @@ rebin(
         nbins_to_merge_vec[i] = bp::extract<intptr_t>(nbins_to_merge[i]);
     }
 
-    return rebin(axes_vec, nbins_to_merge_vec, copy);
+    return merge_bins(axes_vec, nbins_to_merge_vec, copy);
 }
 
 bp::tuple

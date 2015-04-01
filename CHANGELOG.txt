@@ -1,3 +1,9 @@
+- Renamed the rebin and rebin_axis method into merge_bins and merge_axis_bins,
+  because that's what it is actually doing.
+  It might be possible to implement an actual rebin method in the future, when
+  the ndhist object would have a data source assigned for refilling the
+  histogram.
+
 - Implemented unit test for ndhist's rebin_axis method for 2D histograms.
 
 - Implemented the rebin method of the ndhist class, that can take bp::tuple

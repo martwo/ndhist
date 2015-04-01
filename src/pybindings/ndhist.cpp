@@ -233,7 +233,7 @@ void register_ndhist()
               "All other dimensions are collapsed (summed) accordingly into     \n"
               "the remaining specified dimensions.                              \n")
 
-        .def("rebin_axis", &ndhist::rebin_axis
+        .def("merge_axis_bins", &ndhist::merge_axis_bins
             , ( bp::arg("self")
               , bp::arg("axis")
               , bp::arg("nbins_to_merge")=2
@@ -260,15 +260,15 @@ void register_ndhist()
               "\n"
               "It returns the changed (this or the copy) ndhist object.")
 
-        .def("rebin"
-          , (boost::shared_ptr<ndhist> (ndhist::*)(bp::tuple const &, bp::tuple const &, bool const))&ndhist::rebin
+        .def("merge_bins"
+          , (boost::shared_ptr<ndhist> (ndhist::*)(bp::tuple const &, bp::tuple const &, bool const))&ndhist::merge_bins
           , ( bp::arg("self")
             , bp::arg("axes")
             , bp::arg("nbins_to_merge")
             , bp::arg("copy")=true
             )
-          , "Same as the ``rebin_axis`` method but allows to rebin several "
-            "axes at once.")
+          , "Same as the ``merge_axis_bins`` method but allows to merge bins "
+            "of several axes at once.")
 
         // Slicing.
         .def("__getitem__", &ndhist::operator[]

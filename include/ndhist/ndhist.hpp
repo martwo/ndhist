@@ -522,7 +522,7 @@ class ndhist
      *     It returns the changed (this or the copy) ndhist object.
      */
     boost::shared_ptr<ndhist>
-    rebin_axis(
+    merge_axis_bins(
         intptr_t const axis
       , intptr_t const nbins_to_merge=2
       , bool const copy=true
@@ -533,14 +533,14 @@ class ndhist
      *     axes to rebin.
      */
     boost::shared_ptr<ndhist>
-    rebin(
+    merge_bins(
         std::vector<intptr_t> const & axes
       , std::vector<intptr_t> const & nbins_to_merge
       , bool const copy=true
     );
 
     boost::shared_ptr<ndhist>
-    rebin(
+    merge_bins(
         bp::tuple const & axes
       , bp::tuple const & nbins_to_merge
       , bool const copy=true
@@ -666,7 +666,7 @@ class ndhist
     boost::function<std::vector<bn::ndarray> (ndhist const &, axis::out_of_range_t const, size_t const)> get_weight_type_field_axes_oor_ndarrays_fct_;
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
-    boost::function<void (ndhist &, intptr_t, intptr_t)> rebin_axis_fct_;
+    boost::function<void (ndhist &, intptr_t, intptr_t)> merge_axis_bins_fct_;
 
     /** The title string of the histogram, useful for plotting purposes.
      */

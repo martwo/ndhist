@@ -4,9 +4,9 @@ import numpy as np
 import ndhist
 
 class Test(unittest.TestCase):
-    def test_ndhist_rebin_axis_method_1D(self):
-        """Tests if the rebin_axis method of the ndhist class works properly for
-        1D histograms.
+    def test_ndhist_merge_axis_bins_method_1D(self):
+        """Tests if the merge_axis_bins method of the ndhist class works
+        properly for 1D histograms.
 
         """
         axis_0 = ndhist.axes.linear(0,10)
@@ -20,16 +20,16 @@ class Test(unittest.TestCase):
         self.assertTrue(np.all(h.overflow[0] == 3))
         self.assertTrue(np.all(h.axes[0].binedges == np.array([-np.inf,0,1,2,3,4,5,6,7,8,9,10,+np.inf])))
 
-        h2 = h.rebin_axis(0, 3)
+        h2 = h.merge_axis_bins(0, 3)
         self.assertFalse(h2.is_view)
         self.assertTrue(h2.shape == (5,))
         self.assertTrue(h2.nbins == (3,))
         self.assertTrue(np.all(h2.bincontent == 3))
         self.assertTrue(h2.overflow[0] == 4)
 
-    def test_ndhist_rebin_axis_method_2D(self):
-        """Tests if the rebin_axis method of the ndhist class works properly for
-        2D histograms.
+    def test_ndhist_merge_axis_bins_method_2D(self):
+        """Tests if the merge_axis_bins method of the ndhist class works
+        properly for 2D histograms.
 
         """
         axis_0 = ndhist.axes.linear(0,10)
@@ -88,7 +88,7 @@ class Test(unittest.TestCase):
              [ 1.]]
         )))
 
-        h2 = h.rebin_axis(0, 3, copy=True)
+        h2 = h.merge_axis_bins(0, 3, copy=True)
         self.assertFalse(h2.is_view)
         self.assertTrue(h2.shape == (5,7))
         self.assertTrue(h2.nbins == (3,5))
