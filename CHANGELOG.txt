@@ -1,3 +1,9 @@
+- Implemented unit test for ndhist's rebin_axis method for 2D histograms.
+
+- Implemented the rebin method of the ndhist class, that can take bp::tuple
+  (or std::vector<intptr_t>) objects for the axis and nbins_to_merge arguments
+  in order to operate on several axes.
+
 - Introduced the copy=True kwarg to ndhist's rebin_axis method. If set to
   ``True``, a deepcopy of the ndhist object is created first and the rebin
   operation is performed on that copy. The default is ``True`` in order to have

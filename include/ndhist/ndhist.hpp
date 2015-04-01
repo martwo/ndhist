@@ -523,9 +523,27 @@ class ndhist
      */
     boost::shared_ptr<ndhist>
     rebin_axis(
-        intptr_t axis
-      , intptr_t nbins_to_merge=2
-      , bool copy=true
+        intptr_t const axis
+      , intptr_t const nbins_to_merge=2
+      , bool const copy=true
+    );
+
+    /**
+     * @brief Same as the rebin_axis method, but allows to specify multiple
+     *     axes to rebin.
+     */
+    boost::shared_ptr<ndhist>
+    rebin(
+        std::vector<intptr_t> const & axes
+      , std::vector<intptr_t> const & nbins_to_merge
+      , bool const copy=true
+    );
+
+    boost::shared_ptr<ndhist>
+    rebin(
+        bp::tuple const & axes
+      , bp::tuple const & nbins_to_merge
+      , bool const copy=true
     );
 
     void

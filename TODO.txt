@@ -1,12 +1,13 @@
-- Implement the rebin method of the ndhist class, that can take bp::tuple
-  (or vector) objects for the axis and nbins_to_merge arguments.
+- Rename the rebin and rebin_axis method into merge_bins and merge_axis_bins,
+  because that's what it is doing. There might be an actual rebin method
+  possible, when the ndhist object has a data source assigned for refilling the
+  histogram.
 
 - Implement clear() method, that sets all bin content values to zero.
 
 - Implement advanced slicing a la numpy.
 
-- Write unit tests for the rebin_axis method when using extendable axes and
-  also for nd >= 2.
+- Write unit tests for the rebin_axis method when using extendable axes.
 
 - Write unit tests for the different possibilities of filling values, i.e.
   * underflow behavior,

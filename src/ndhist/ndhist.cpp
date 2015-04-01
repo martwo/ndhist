@@ -1506,7 +1506,11 @@ project(bp::object const & dims) const
 
 boost::shared_ptr<ndhist>
 ndhist::
-rebin_axis(intptr_t axis, intptr_t nbins_to_merge, bool copy)
+rebin_axis(
+    intptr_t const axis
+  , intptr_t const nbins_to_merge
+  , bool const copy
+)
 {
     boost::shared_ptr<ndhist> self = this->shared_from_this();
 
@@ -1530,6 +1534,80 @@ rebin_axis(intptr_t axis, intptr_t nbins_to_merge, bool copy)
     rebin_axis_fct_(*self, axis, nbins_to_merge);
 
     return self;
+}
+
+boost::shared_ptr<ndhist>
+ndhist::
+rebin(
+    std::vector<intptr_t> const & axes
+  , std::vector<intptr_t> const & nbins_to_merge
+  , bool const copy
+)
+{
+    boost::shared_ptr<ndhist> self = this->shared_from_this();
+
+    if(axes.size() != nbins_to_merge.size())
+    {
+        std::stringstream ss;
+        ss << "The lengths of the axes and nbins_to_merge tuples must be equal!";
+        throw ValueError(ss.str());
+    }
+    bool work_to_do = false;
+    for(size_t i=0; i<axes.size(); ++i)
+    {
+        if(nbins_to_merge[i] < 0)
+        {
+            std::stringstream ss;
+            ss << "All nbins_to_merge values must be positive integer numbers!";
+            throw ValueError(ss.str());
+        }
+        if(nbins_to_merge[i] >= 2)
+        {
+            work_to_do = true;
+        }
+    }
+    if(! work_to_do)
+    {
+        return self;
+    }
+
+    // Make a deepcopy if this ndhist object is a data view into an other
+    // ndhist object, or the user explicitly requested a copy.
+    // Otherwise the rebin operation would invalidate the
+    // original ndhist object.
+    if(is_view() || copy)
+    {
+        self = this->deepcopy();
+    }
+
+    for(size_t i=0; i<axes.size(); ++i)
+    {
+        rebin_axis_fct_(*self, axes[i], nbins_to_merge[i]);
+    }
+
+    return self;
+}
+
+boost::shared_ptr<ndhist>
+ndhist::
+rebin(
+    bp::tuple const & axes
+  , bp::tuple const & nbins_to_merge
+  , bool const copy
+)
+{
+    std::vector<intptr_t> axes_vec(bp::len(axes));
+    for(size_t i=0; i<axes_vec.size(); ++i)
+    {
+        axes_vec[i] = bp::extract<intptr_t>(axes[i]);
+    }
+    std::vector<intptr_t> nbins_to_merge_vec(bp::len(nbins_to_merge));
+    for(size_t i=0; i<nbins_to_merge_vec.size(); ++i)
+    {
+        nbins_to_merge_vec[i] = bp::extract<intptr_t>(nbins_to_merge[i]);
+    }
+
+    return rebin(axes_vec, nbins_to_merge_vec, copy);
 }
 
 bp::tuple
