@@ -84,6 +84,12 @@ class bytearray
     size_t const bytesize_;
 
     /**
+     * @brief Memsets all elements of the byte array to zero.
+     */
+    void
+    clear();
+
+    /**
      * @brief Returns the pointer to the beginning of the byte array.
      */
     char * get() const { return data_; }

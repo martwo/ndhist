@@ -44,5 +44,12 @@ free_data(char * data)
     free(data);
 }
 
+void
+bytearray::
+clear()
+{
+    memset(data_, 0, bytesize_);
+}
+
 }// namespace detail
 }// namespace ndhist

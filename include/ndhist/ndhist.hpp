@@ -160,6 +160,12 @@ class ndhist
     is_compatible(ndhist const & other) const;
 
     /**
+     * @brief Sets all bins of this ndhist object to zero.
+     */
+    void
+    clear();
+
+    /**
      * @brief Creates a new empty ndhist object that has the same binning as
      *        this histogram.
      */
@@ -667,6 +673,7 @@ class ndhist
     boost::function<void (ndhist &, bp::object const &, bp::object const &)> fill_fct_;
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
     boost::function<void (ndhist &, intptr_t, intptr_t)> merge_axis_bins_fct_;
+    boost::function<void (ndhist &)> clear_fct_;
 
     /** The title string of the histogram, useful for plotting purposes.
      */

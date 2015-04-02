@@ -198,6 +198,12 @@ void register_ndhist()
               "ndvalue function argument. Otherwise a structured array needs "
               "to be used as ndvalue argument.")
 
+        .def("clear", &ndhist::clear
+            , (bp::arg("self"))
+            , "Sets all bins of this ndhist object to zero. If this ndhist "
+              "object is a view, only the bins of the view are set to zero. "
+              "This allows to set only a selection of bins to zero.")
+
         .def("deepcopy", &ndhist::deepcopy
             , (bp::arg("self"))
             , "Copies this ndhist object. It copies also the underlaying data, "

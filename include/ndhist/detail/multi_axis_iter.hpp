@@ -112,6 +112,16 @@ struct multi_axis_iter
         is_end_point_ = false;
     }
 
+    void
+    init_full_iteration()
+    {
+        int const nd = arr_shape_.size();
+        std::vector<intptr_t> fixed_axes_indices(nd, axis::FLAGS_FLOATING_INDEX);
+        std::vector<intptr_t> iter_axes_range_min(nd, 0);
+
+        init_iteration(fixed_axes_indices, iter_axes_range_min, arr_shape_);
+    }
+
     intptr_t
     calc_detail_iter_index()
     {

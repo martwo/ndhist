@@ -1,3 +1,7 @@
+- Implemented ndhist's clear() method, that sets all bin content values to zero.
+  If the ndhist object is a view, only the bins visible by the view are set to
+  zero. This allows selective clearing.
+
 - Renamed the rebin and rebin_axis method into merge_bins and merge_axis_bins,
   because that's what it is actually doing.
   It might be possible to implement an actual rebin method in the future, when

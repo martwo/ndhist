@@ -547,6 +547,63 @@ struct merge_axis_bins_fct_traits
     }
 };
 
+template <typename WeightValueType>
+struct clear_fct_traits
+{
+    static
+    void
+    apply(ndhist & self)
+    {
+        if(! self.is_view())
+        {
+            // This ndhist object is not a view and the bin content array holds
+            // POD values, so we can just memset the entire bin content array.
+            self.bc_.clear();
+            return;
+        }
+
+        // This ndhist object is a view on only a part of the bin content
+        // array, so we need to iterate over the view's bins and set them to
+        // zero.
+        typedef multi_axis_iter< bin_iter_value_type_traits<WeightValueType> >
+                multi_axis_iter_t;
+
+        multi_axis_iter_t self_iter(self.bc_.construct_ndarray(self.bc_.get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+        self_iter.init_full_iteration();
+        while(! self_iter.is_end())
+        {
+            bin_utils<WeightValueType>::zero_bin(self_iter.get_data());
+
+            self_iter.increment();
+        }
+    }
+};
+
+template <>
+struct clear_fct_traits<bp::object>
+{
+    static
+    void
+    apply(ndhist & self)
+    {
+        // This ndhist object holds Python objects as bin content values, in
+        // order to set the values to zero and keeping the reference count of
+        // the Python objects valid, we need to iterate over each bin and set
+        // it to zero individually.
+        typedef multi_axis_iter< bin_iter_value_type_traits<bp::object> >
+                multi_axis_iter_t;
+
+        multi_axis_iter_t self_iter(self.bc_.construct_ndarray(self.bc_.get_dtype(), /*field_idx=*/0, /*data_owner=*/NULL, /*set_owndata_flag=*/false));
+        self_iter.init_full_iteration();
+        while(! self_iter.is_end())
+        {
+            bin_utils<bp::object>::zero_bin(self_iter.get_data());
+
+            self_iter.increment();
+        }
+    }
+};
+
 /**
  * @brief Creates a ND-sized vector of ndarray objects which are views into the
  *     complete (i.e. including under- and overflow bins) bin content array.
@@ -1081,6 +1138,7 @@ setup_function_pointers()
             get_weight_type_field_axes_oor_ndarrays_fct_ = &detail::get_field_axes_oor_ndarrays<WEIGHT_VALUE_TYPE>;\
             project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
             merge_axis_bins_fct_ = &detail::merge_axis_bins_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
+            clear_fct_ = &detail::clear_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -1449,6 +1507,13 @@ is_compatible(ndhist const & other) const
     }
 
     return true;
+}
+
+void
+ndhist::
+clear()
+{
+    clear_fct_(*this);
 }
 
 ndhist

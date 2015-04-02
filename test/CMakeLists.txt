@@ -36,6 +36,7 @@ endfunction(add_python_test)
 
 add_python_test(nbins_test                         nbins_test.py)
 add_python_test(ndhist_basic_slicing_test          ndhist_basic_slicing_test.py)
+add_python_test(ndhist_clear_method_test           ndhist_clear_method_test.py)
 add_python_test(ndhist_deepcopy_method_test        ndhist_deepcopy_method_test.py)
 add_python_test(ndhist_merge_axis_bins_method_test ndhist_merge_axis_bins_method_test.py)
 add_python_test(oor_bin_copies_test                oor_bin_copies_test.py)
