@@ -289,6 +289,7 @@ void register_ndhist()
             .def(bp::self *= WEIGHT_VALUE_TYPE ())                              \
             .def(bp::self /= WEIGHT_VALUE_TYPE ())                              \
             .def(bp::self * WEIGHT_VALUE_TYPE ())                               \
+            .def(WEIGHT_VALUE_TYPE () * bp::self)                               \
             .def(bp::self / WEIGHT_VALUE_TYPE ())
         BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES_WITHOUT_OBJECT)
         #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT

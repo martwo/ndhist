@@ -747,6 +747,16 @@ operator*(T const & rhs) const
 
 template <typename T>
 ndhist
+operator*(T const & lhs, ndhist const & rhs)
+{
+    ndhist newhist = rhs.empty_like();
+    newhist += rhs;
+    newhist *= lhs;
+    return newhist;
+}
+
+template <typename T>
+ndhist
 ndhist::
 operator/(T const & rhs) const
 {

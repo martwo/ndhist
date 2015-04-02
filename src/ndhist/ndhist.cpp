@@ -1523,7 +1523,7 @@ empty_like() const
     bp::list axis_list;
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        axis_list.append(*axes_[i]);
+        axis_list.append(axes_[i]->deepcopy());
     }
     bp::tuple axes(axis_list);
     return ndhist(axes, bc_weight_dt_, bc_class_);
