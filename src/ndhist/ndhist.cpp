@@ -709,11 +709,11 @@ get_field_axes_oor_ndarrays(
 struct generic_nd_traits
 {
     template <typename BCValueType>
-    struct fill_traits
+    struct fill_fct_traits
     {
         static
         void
-        fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
+        apply(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
         {
             // The ndvalues_obj object is supposed to be a structured ndarray.
             // But in case of 1-dimensional histogram we accept also a
@@ -1116,7 +1116,7 @@ setup_function_pointers()
                        << "error!";                                         \
                     throw TypeError(ss.str());                              \
                 }                                                           \
-                /*fill_fct_ = &detail::generic_nd_traits::fill_traits<WEIGHT_VALUE_TYPE>::fill;*/\
+                /*fill_fct_ = &detail::generic_nd_traits::fill_fct_traits<WEIGHT_VALUE_TYPE>::apply;*/\
                 bc_dtype_supported = true;                                  \
             }
         BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
@@ -1492,8 +1492,8 @@ is_compatible(ndhist const & other) const
     }
     for(uintptr_t i=0; i<nd_; ++i)
     {
-        bn::ndarray const this_axis_edges_arr = this->axes_[i]->get_binedges_ndarray();
-        bn::ndarray const other_axis_edges_arr = other.axes_[i]->get_binedges_ndarray();
+        bn::ndarray const this_axis_edges_arr = this->get_axes()[i]->get_binedges_ndarray();
+        bn::ndarray const other_axis_edges_arr = other.get_axes()[i]->get_binedges_ndarray();
 
         if(this_axis_edges_arr.shape(0) != other_axis_edges_arr.shape(0))
         {

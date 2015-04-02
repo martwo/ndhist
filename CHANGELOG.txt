@@ -1,3 +1,10 @@
+- Adjusted the fill method so the user can pass a scalar to the ndvalues
+  argument if the ndhist object is a 1-dimensional histogram. A series of values
+  to fill into a 1-dimensional histogram can be passed as a single list of
+  these values, a 1-dimensional ndarray of these values or a tuple with one
+  element holding either a scalar of the values to fill or a list or ndarray of
+  values to fill.
+
 - Implemented ndhist's clear() method, that sets all bin content values to zero.
   If the ndhist object is a view, only the bins visible by the view are set to
   zero. This allows selective clearing.

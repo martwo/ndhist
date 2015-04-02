@@ -467,6 +467,13 @@ class ndhist
     }
 
     inline
+    std::vector< boost::shared_ptr<Axis> > const &
+    get_axes() const
+    {
+        return axes_;
+    }
+
+    inline
     detail::ndarray_storage &
     get_bc_storage()
     {
@@ -762,23 +769,42 @@ template <>
 struct specific_nd_traits<ND>
 {
     template<typename BCValueType>
-    struct fill_traits
+    struct fill_fct_traits
     {
         static
         void
-        fill(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
+        apply(ndhist & self, bp::object const & ndvalues_obj, bp::object const & weight_obj)
         {
+            uintptr_t const self_nd = self.get_nd();
+            if(self_nd == 0)
+            {
+                std::stringstream ss;
+                ss << "This ndhist object is a 0-dimensional histogram, i.e. "
+                   << "it consists of only a single bin. The fill method is "
+                   << "not defined in that case!";
+                throw ValueError(ss.str());
+            }
+
+            bool const ndvalues_is_tuple = PyTuple_Check(ndvalues_obj.ptr());
             //std::cout << "specific_nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
-            if(! PyTuple_Check(ndvalues_obj.ptr()))
+            if(self_nd > 1 && !ndvalues_is_tuple)
             {
                 // The input ndvalues object is not a tuple, so we assume it's a
                 // structured array, which will be handled by the
                 // generic_nd_traits.
-                //FIXME generic_nd_traits::fill_traits<BCValueType>::fill(self, ndvalues_obj, weight_obj);
+                //FIXME generic_nd_traits::fill_fct_traits<BCValueType>::apply(self, ndvalues_obj, weight_obj);
                 return;
             }
-
-            bp::tuple ndvalues_tuple(ndvalues_obj);
+            bp::tuple ndvalues_tuple;
+            if(self_nd == 1 && !ndvalues_is_tuple)
+            {
+                ndvalues_tuple = bp::make_tuple(ndvalues_obj);
+            }
+            else
+            {
+                // The ndvalues_obj must be a tuple object.
+                ndvalues_tuple = bp::tuple(ndvalues_obj);
+            }
 
             if(bp::len(ndvalues_tuple) != ND)
             {
@@ -1041,7 +1067,7 @@ struct specific_nd_traits<ND>
                << "possible C++ data type! This is an internal error!";        \
             throw TypeError(ss.str());                                         \
         }                                                                      \
-        fill_fct_ = &detail::specific_nd_traits<ND>::fill_traits<WEIGHT_VALUE_TYPE>::fill;\
+        fill_fct_ = &detail::specific_nd_traits<ND>::fill_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         bc_dtype_supported = true;                                             \
     }
 
