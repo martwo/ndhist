@@ -1,5 +1,14 @@
+- Implement binerror ndhist property.
+
+- Implement lower_binedges Axis property.
+
+- Implement upper_binedges Axis property.
 
 - Implement advanced slicing a la numpy.
+
+    Since we support only continues axis histograms, integer indexing must only
+    be allowed for a contiguous axis range, i.e. all given indices of an axis
+    must be convertible into a slice object of step 1.
 
 - Write unit tests for the merge_axis_bins method when using extendable axes.
 
