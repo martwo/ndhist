@@ -68,7 +68,7 @@ class Test(unittest.TestCase):
         overflow bin.
 
         """
-        axis_0 = ndhist.axes.linear(0,10, addoorbins=False)
+        axis_0 = ndhist.axes.linear(0,10, add_underflow_bin=False, add_overflow_bin=False)
 
         h = ndhist.ndhist((axis_0,))
         self.assertFalse(h.axes[0].has_underflow_bin)
