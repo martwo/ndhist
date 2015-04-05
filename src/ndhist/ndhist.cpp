@@ -604,6 +604,77 @@ struct clear_fct_traits<bp::object>
     }
 };
 
+template <typename WeightValueType>
+struct get_binerrors_ndarray_fct_traits
+{
+    static
+    bn::ndarray
+    apply(ndhist const & self)
+    {
+        // The core part of the bin content array excludes the under- and
+        // overflow bins. So we need to create an appropriate view into the bin
+        // content array.
+        std::vector<intptr_t> shape;
+        std::vector<intptr_t> front_capacity;
+        std::vector<intptr_t> back_capacity;
+        self.calc_core_bin_content_ndarray_settings(shape, front_capacity, back_capacity);
+
+        intptr_t const sub_item_byte_offset = self.bc_.get_dtype().get_fields_byte_offsets()[2];
+
+        bn::ndarray sows = detail::ndarray_storage::construct_ndarray(self.bc_, self.bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+        bn::ndarray err = bn::empty_like(sows);
+
+        typedef bn::iterators::multi_flat_iterator<2>::impl<
+                    bn::iterators::single_value<WeightValueType>
+                  , bn::iterators::single_value<WeightValueType>
+                >
+                multi_iter_t;
+        multi_iter_t it(
+            sows
+          , err
+          , boost::numpy::detail::iter_operand::flags::READONLY::value
+          , boost::numpy::detail::iter_operand::flags::WRITEONLY::value
+        );
+        while(! it.is_end())
+        {
+            typename multi_iter_t::multi_references_type multi_value = *it;
+            typename multi_iter_t::value_ref_type_0 sows_value = multi_value.value_0;
+            it.set_value_1(std::sqrt(sows_value));
+            ++it;
+        }
+
+        return err;
+    }
+};
+
+template <>
+struct get_binerrors_ndarray_fct_traits<bool>
+{
+    static
+    bn::ndarray
+    apply(ndhist const & self)
+    {
+        std::stringstream ss;
+        ss << "The weight type of this ndhist object is bool. "
+           << "The square root function is not defined for such a type!";
+        throw TypeError(ss.str());
+    }
+};
+
+template <>
+struct get_binerrors_ndarray_fct_traits<bp::object>
+{
+    static
+    bn::ndarray
+    apply(ndhist const & self)
+    {
+        std::stringstream ss;
+        ss << "The weight type of this ndhist object is a Python object. "
+           << "The square root function is not defined for such a type!";
+        throw TypeError(ss.str());
+    }
+};
+
 /**
  * @brief Creates a ND-sized vector of ndarray objects which are views into the
  *     complete (i.e. including under- and overflow bins) bin content array.
@@ -1139,6 +1210,7 @@ setup_function_pointers()
             project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
             merge_axis_bins_fct_ = &detail::merge_axis_bins_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
             clear_fct_ = &detail::clear_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
+            get_binerrors_ndarray_fct_ = &detail::get_binerrors_ndarray_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -1781,6 +1853,13 @@ py_get_sows_ndarray() const
         return arr.scalarize();
     }
     return arr;
+}
+
+bp::object
+ndhist::
+py_get_binerrors_ndarray() const
+{
+    return get_binerrors_ndarray_fct_(*this);
 }
 
 bp::tuple

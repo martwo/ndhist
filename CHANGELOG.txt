@@ -1,3 +1,6 @@
+- Implemented the binerror ndhist property, that is just the square root value
+  of the sum of weights squared values.
+
 - Implemented the lower_binedges Axis property.
 
 - Implemented the upper_binedges Axis property.

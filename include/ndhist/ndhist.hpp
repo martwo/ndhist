@@ -238,13 +238,22 @@ class ndhist
     /**
      * @brief Constructs the sum of weights squared ndarray for releasing
      *     it to Python.
-     *     The lifetime of this new object and this ndhist object will be
+     * @internal The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
      * @note In case this ndhist is a zero-dimensional histogram this method
      *     returns a scalar.
      */
     bp::object
     py_get_sows_ndarray() const;
+
+    /**
+     * @brief Constructs a ndarray holding the square root of the bin's sum of
+     *     weights squared values, i.e. the bin error values.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
+     */
+    bp::object
+    py_get_binerrors_ndarray() const;
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -601,6 +610,24 @@ class ndhist
         return *static_cast<detail::ValueCache<WeightValueType> *>(value_cache_.get());
     }
 
+    bool
+    weight_type_is_object() const
+    {
+        return bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>());
+    }
+
+    /**
+     * @brief Calculates the shape, front and back capacities needed for a view
+     *     into the bin content array that represents only the core bin content
+     *     array, i.e. excluding the under- and overflow bins.
+     */
+    void
+    calc_core_bin_content_ndarray_settings(
+        std::vector<intptr_t> & shape
+      , std::vector<intptr_t> & front_capacity
+      , std::vector<intptr_t> & back_capacity
+    ) const;
+
   private:
     ndhist()
       : nd_(0)
@@ -624,18 +651,6 @@ class ndhist
      */
     void
     setup_value_cache(intptr_t const value_cache_size);
-
-    /**
-     * @brief Calculates the shape, front and back capacities needed for a view
-     *     into the bin content array that represents only the core bin content
-     *     array, i.e. excluding the under- and overflow bins.
-     */
-    void
-    calc_core_bin_content_ndarray_settings(
-        std::vector<intptr_t> & shape
-      , std::vector<intptr_t> & front_capacity
-      , std::vector<intptr_t> & back_capacity
-    ) const;
 
   public:
     /** The number of dimenions of this histogram.
@@ -681,6 +696,7 @@ class ndhist
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
     boost::function<void (ndhist &, intptr_t, intptr_t)> merge_axis_bins_fct_;
     boost::function<void (ndhist &)> clear_fct_;
+    boost::function<bn::ndarray (ndhist const &)> get_binerrors_ndarray_fct_;
 
     /** The title string of the histogram, useful for plotting purposes.
      */

@@ -97,6 +97,11 @@ void register_ndhist()
             , bn::ndarray_accessor_return())
             , "The ndarray holding the sum of weights for each bin.")
 
+        .add_property("binerrors"
+            , &ndhist::py_get_binerrors_ndarray
+            , "The ndarray holding the square root of the bin's sum of weights "
+              "squared, i.e. the bin error values.")
+
         //----------------------------------------------------------------------
         // Underflow and overflow properties.
         .add_property("underflow_entries"
