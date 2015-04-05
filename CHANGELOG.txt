@@ -1,3 +1,9 @@
+- Implemented the lower_binedges Axis property.
+
+- Implemented the upper_binedges Axis property.
+
+- Added unit test for the constant_bin_width_axis Axis class.
+
 - Adjusted the fill method so the user can pass a scalar to the ndvalues
   argument if the ndhist object is a 1-dimensional histogram. A series of values
   to fill into a 1-dimensional histogram can be passed as a single list of

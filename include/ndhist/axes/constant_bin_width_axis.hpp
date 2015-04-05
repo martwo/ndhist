@@ -94,16 +94,18 @@ class ConstantBinWidthAxis
         )
     {
         // Set up the axis's function pointers.
-        create_fct_                 = &type::create;
-        get_bin_index_fct_          = &type::get_bin_index;
-        get_binedges_ndarray_fct_   = &type::get_binedges_ndarray;
-        get_bincenters_ndarray_fct_ = &base::get_bincenters_ndarray<type>;
-        get_binwidths_ndarray_fct_  = &base::get_binwidths_ndarray<type>;
-        get_n_bins_fct_             = &type::get_n_bins;
-        request_extension_fct_      = &type::request_extension;
-        extend_fct_                 = &type::extend;
-        create_axis_slice_fct_      = &base::create_axis_slice<type>;
-        deepcopy_fct_               = &type::deepcopy;
+        create_fct_                     = &type::create;
+        get_bin_index_fct_              = &type::get_bin_index;
+        get_binedges_ndarray_fct_       = &type::get_binedges_ndarray;
+        get_lower_binedges_ndarray_fct_ = &base::get_lower_binedges_ndarray<type>;
+        get_upper_binedges_ndarray_fct_ = &base::get_upper_binedges_ndarray<type>;
+        get_bincenters_ndarray_fct_     = &base::get_bincenters_ndarray<type>;
+        get_binwidths_ndarray_fct_      = &base::get_binwidths_ndarray<type>;
+        get_n_bins_fct_                 = &type::get_n_bins;
+        request_extension_fct_          = &type::request_extension;
+        extend_fct_                     = &type::extend;
+        create_axis_slice_fct_          = &base::create_axis_slice<type>;
+        deepcopy_fct_                   = &type::deepcopy;
 
         std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
         n_bins_ = edges.shape(0) - 1;

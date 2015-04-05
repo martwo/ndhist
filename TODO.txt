@@ -1,9 +1,5 @@
 - Implement binerror ndhist property.
 
-- Implement lower_binedges Axis property.
-
-- Implement upper_binedges Axis property.
-
 - Implement advanced slicing a la numpy.
 
     Since we support only continues axis histograms, integer indexing must only

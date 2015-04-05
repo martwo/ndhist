@@ -34,6 +34,7 @@ function(add_python_test _NAME _PYSCRIPT)
 
 endfunction(add_python_test)
 
+add_python_test(constant_bin_width_axis_test       constant_bin_width_axis_test.py)
 add_python_test(nbins_test                         nbins_test.py)
 add_python_test(ndhist_basic_slicing_test          ndhist_basic_slicing_test.py)
 add_python_test(ndhist_clear_method_test           ndhist_clear_method_test.py)

@@ -117,6 +117,8 @@ class Axis
       , create_fct_(other.get_axis_base().create_fct_)
       , get_bin_index_fct_(other.get_axis_base().get_bin_index_fct_)
       , get_binedges_ndarray_fct_(other.get_axis_base().get_binedges_ndarray_fct_)
+      , get_lower_binedges_ndarray_fct_(other.get_axis_base().get_lower_binedges_ndarray_fct_)
+      , get_upper_binedges_ndarray_fct_(other.get_axis_base().get_upper_binedges_ndarray_fct_)
       , get_bincenters_ndarray_fct_(other.get_axis_base().get_bincenters_ndarray_fct_)
       , get_binwidths_ndarray_fct_(other.get_axis_base().get_binwidths_ndarray_fct_)
       , get_n_bins_fct_(other.get_axis_base().get_n_bins_fct_)
@@ -243,7 +245,7 @@ class Axis
     }
 
     std::string
-    py_get_label()
+    py_get_label() const
     {
         return get_label();
     }
@@ -277,7 +279,7 @@ class Axis
     }
 
     std::string
-    py_get_name()
+    py_get_name() const
     {
         return get_name();
     }
@@ -323,6 +325,20 @@ class Axis
 
     inline
     boost::numpy::ndarray
+    get_lower_binedges_ndarray() const
+    {
+        return get_axis_base().get_lower_binedges_ndarray_fct_(get_axis_base());
+    }
+
+    inline
+    boost::numpy::ndarray
+    get_upper_binedges_ndarray() const
+    {
+        return get_axis_base().get_upper_binedges_ndarray_fct_(get_axis_base());
+    }
+
+    inline
+    boost::numpy::ndarray
     get_bincenters_ndarray() const
     {
         return get_axis_base().get_bincenters_ndarray_fct_(get_axis_base());
@@ -361,6 +377,51 @@ class Axis
     deepcopy()
     {
         return get_axis_base().deepcopy_fct_(get_axis_base());
+    }
+
+    template <class AxisType>
+    static
+    boost::numpy::ndarray
+    get_lower_binedges_ndarray(Axis const & axisbase)
+    {
+        boost::numpy::ndarray const binedges = axisbase.get_binedges_ndarray();
+        intptr_t shape[1];
+        shape[0] = binedges.shape(0) - 1;
+        boost::numpy::ndarray lower_binedges = boost::numpy::empty(1, shape, boost::numpy::dtype::get_builtin<typename AxisType::axis_value_type>());
+        typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
+                iter_t;
+        iter_t binedges_it(binedges);
+        iter_t lower_binedges_it(lower_binedges);
+        for(intptr_t i=0; i<shape[0]; ++i)
+        {
+            lower_binedges_it.set_value(*binedges_it);
+            ++binedges_it;
+            ++lower_binedges_it;
+        }
+        return lower_binedges;
+    }
+
+    template <class AxisType>
+    static
+    boost::numpy::ndarray
+    get_upper_binedges_ndarray(Axis const & axisbase)
+    {
+        boost::numpy::ndarray const binedges = axisbase.get_binedges_ndarray();
+        intptr_t shape[1];
+        shape[0] = binedges.shape(0) - 1;
+        boost::numpy::ndarray upper_binedges = boost::numpy::empty(1, shape, boost::numpy::dtype::get_builtin<typename AxisType::axis_value_type>());
+        typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
+                iter_t;
+        iter_t binedges_it(binedges);
+        ++binedges_it;
+        iter_t upper_binedges_it(upper_binedges);
+        for(intptr_t i=0; i<shape[0]; ++i)
+        {
+            upper_binedges_it.set_value(*binedges_it);
+            ++binedges_it;
+            ++upper_binedges_it;
+        }
+        return upper_binedges;
     }
 
     template <class AxisType>
@@ -573,6 +634,20 @@ class Axis
     boost::function<boost::numpy::ndarray (Axis const &)>
         get_binedges_ndarray_fct_;
 
+    /** This function is supposed to return a ndarray holding the lower bin
+     *  edge values. The length of this array must be equal to the value that
+     *  is returned by the get_n_bins_fct_ function.
+     */
+    boost::function<boost::numpy::ndarray (Axis const &)>
+        get_lower_binedges_ndarray_fct_;
+
+    /** This function is supposed to return a ndarray holding the upper bin
+     *  edge values. The length of this array must be equal to the value that
+     *  is returned by the get_n_bins_fct_ function.
+     */
+    boost::function<boost::numpy::ndarray (Axis const &)>
+        get_upper_binedges_ndarray_fct_;
+
     /** This function is supposed to return (a copy of) the bincenters array
      *  (including the possible under- and overflow bins) as a
      *  boost::numpy::ndarray object.
@@ -653,54 +728,65 @@ class axis_pyinterface
     void visit(ClassT & cls) const
     {
         cls.add_property("name"
-          , &AxisType::py_get_name
-          , &AxisType::set_name
+          , (std::string (Axis::*)() const) &Axis::py_get_name
+          , (void (Axis::*)(std::string const &)) &Axis::set_name
           , "The name of the axis. It is the name of the column in the "
             "structured ndarray, when filling values via a structured "
             "ndarray."
         );
         cls.add_property("label"
-          , &AxisType::py_get_label
-          , &AxisType::set_label
+          , (std::string (Axis::*)() const) &Axis::py_get_label
+          , (void (Axis::*)(std::string const &)) &Axis::set_label
           , "The label of the axis. It can be used for visualization purposes, "
             "e.g. to label the axis on a plot."
         );
         cls.add_property("dtype"
-          , &AxisType::py_get_dtype
+          , (boost::numpy::dtype (Axis::*)() const) &Axis::py_get_dtype
           , "The dtype object describing the data type of the axis values."
         );
         cls.add_property("has_underflow_bin"
-          , &AxisType::has_underflow_bin
+          , (bool (Axis::*)() const) &Axis::has_underflow_bin
           , "Flag if the axis contains an underflow bin. This is usually true "
             "for a non-extendable axis, but might be false for an axis of a "
             "slice histogram."
         );
         cls.add_property("has_overflow_bin"
-          , &AxisType::has_overflow_bin
+          , (bool (Axis::*)() const) &Axis::has_overflow_bin
           , "Flag if the axis contains an overflow bin. This is usually true "
             "for a non-extendable axis, but might be false for an axis of a "
             "slice histogram."
         );
         cls.add_property("is_extendable"
-          , &AxisType::is_extendable
+          , (bool (Axis::*)() const) &Axis::is_extendable
           , "Flag if the axis is extendable (True) or not (False)."
         );
         cls.add_property("nbins"
-          , &AxisType::get_n_bins
-          , "The number of bins this axis has."
+          , (intptr_t (Axis::*)() const) &Axis::get_n_bins
+          , "The number of bins this axis has (including possible under- and "
+            "overflow bins)."
         );
         cls.add_property("binedges"
-          , &AxisType::get_binedges_ndarray
+          , (boost::numpy::ndarray (Axis::*)() const) &Axis::get_binedges_ndarray
           , "The ndarray holding the bin edges values of the axis "
             "(including possible under- and overflow bins)."
         );
+        cls.add_property("lower_binedges"
+          , (boost::numpy::ndarray (Axis::*)() const) &Axis::get_lower_binedges_ndarray
+          , "The ndarray holding the lower bin edges values of the axis "
+            "(including possible under- and overflow bins)."
+        );
+        cls.add_property("upper_binedges"
+          , (boost::numpy::ndarray (Axis::*)() const) &Axis::get_upper_binedges_ndarray
+          , "The ndarray holding the upper bin edges values of the axis "
+            "(including possible under- and overflow bins)."
+        );
         cls.add_property("bincenters"
-          , (boost::numpy::ndarray (AxisType::*)() const) &AxisType::get_bincenters_ndarray
+          , (boost::numpy::ndarray (Axis::*)() const) &Axis::get_bincenters_ndarray
           , "The ndarray holding the bin center values of the axis "
             "(including possible under- and overflow bins)."
         );
         cls.add_property("binwidths"
-          , (boost::numpy::ndarray (AxisType::*)() const) &AxisType::get_binwidths_ndarray
+          , (boost::numpy::ndarray (Axis::*)() const) &Axis::get_binwidths_ndarray
           , "The ndarray holding the bin width values of the axis "
             "(including possible under- and overflow bins)."
         );
