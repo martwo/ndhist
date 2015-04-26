@@ -242,7 +242,7 @@ class ConstantBinWidthAxis
         type const & axis = *static_cast<type const *>(&axisbase);
 
         typename axis_value_type_traits::value_cref_type value = axis_value_type_traits::dereference(axis.avtt_, value_ptr);
-        std::cout << "Got value = "<<value<<std::endl;
+        //std::cout << "Got value = "<<value<<std::endl;
 
         if(axis.has_underflow_bin_)
         {

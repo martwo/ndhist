@@ -939,7 +939,7 @@ struct specific_nd_traits<ND>
                         Axis & axis = *self.axes_[i];
                         char * const ndvalue_ptr = iter.data_ptr_array_ptr_[i];
                         intptr_t const bin_idx = axis.get_bin_index(ndvalue_ptr, oor_flag);
-                        std::cout << "bin_idx = "<<bin_idx<<std::endl;
+                        //std::cout << "bin_idx = "<<bin_idx<<std::endl;
                         if(oor_flag == ::ndhist::axis::OOR_NONE)
                         {
                             // The current value fits into the current axis
