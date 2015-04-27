@@ -810,17 +810,23 @@ struct specific_nd_traits<ND>
                    << "not defined in that case!";
                 throw ValueError(ss.str());
             }
-
-            bool const ndvalues_is_tuple = PyTuple_Check(ndvalues_obj.ptr());
-            //std::cout << "specific_nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
-            if(self_nd > 1 && !ndvalues_is_tuple)
+            // Check if ndvalues_obj is a structured ndarray object. If so
+            // call the generic_nd_traits fill method.
+            bool ndvalues_is_structed_ndarray = false;
+            if(bn::is_ndarray(ndvalues_obj))
             {
-                // The input ndvalues object is not a tuple, so we assume it's a
-                // structured array, which will be handled by the
-                // generic_nd_traits.
-                //FIXME generic_nd_traits::fill_fct_traits<BCValueType>::apply(self, ndvalues_obj, weight_obj);
+                bn::ndarray const ndvalue_arr = *static_cast<bn::ndarray const *>(&ndvalues_obj);
+                ndvalues_is_structed_ndarray = ndvalue_arr.get_dtype().has_fields();
+            }
+            if(ndvalues_is_structed_ndarray)
+            {
+                // The input ndvalues object is a structured ndarray, which will
+                // be handled by the generic_nd_traits.
+                generic_nd_traits::fill_fct_traits<BCValueType>::apply(self, ndvalues_obj, weight_obj);
                 return;
             }
+            //std::cout << "specific_nd_traits<"<< BOOST_PP_STRINGIZE(ND) <<">::fill_traits<BCValueType>::fill" << std::endl;
+            bool const ndvalues_is_tuple = PyTuple_Check(ndvalues_obj.ptr());
             bp::tuple ndvalues_tuple;
             if(self_nd == 1 && !ndvalues_is_tuple)
             {
@@ -897,181 +903,10 @@ struct specific_nd_traits<ND>
             );
             iter.init_full_iteration();
 
-            // Get a handle on the value cache.
-            detail::ValueCache<BCValueType> & value_cache = self.get_value_cache<BCValueType>();
-
-            // Do the iteration.
-            std::vector<intptr_t> indices(ND, 0);
-            std::vector<intptr_t> relative_indices(ND, 0);
-            std::vector<intptr_t> f_n_extra_bins_vec(ND, 0);
-            std::vector<intptr_t> b_n_extra_bins_vec(ND, 0);
-            std::vector<intptr_t> const & bc_fcap = self.bc_.get_front_capacity_vector();
-            std::vector<intptr_t> const & bc_bcap = self.bc_.get_back_capacity_vector();
-            bool is_oor;
-            bool extend_axes;
-            bool reallocation_upon_extension = false;
-            bool value_cached;
-            ::ndhist::axis::out_of_range_t oor_flag;
-            intptr_t bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
-            char * bc_data_addr;
-            do {
-                intptr_t size = iter.get_inner_loop_size();
-                while(size--)
-                {
-                    // Get the weight scalar from the iterator.
-                    typename bin_utils<BCValueType>::weight_ref_type weight = bin_utils<BCValueType>::get_weight_type_value_from_iter(iter, ND);
-
-                    // Fill the scalar ndvalue into the bin content array.
-                    // Get the coordinate of the current ndvalue.
-                    is_oor = false;
-                    extend_axes = false;
-                    value_cached = false;
-
-                    std::vector<intptr_t> const & bc_data_strides = self.bc_.get_data_strides_vector();
-                    bc_data_addr = self.bc_.get_data() + bc_data_offset;
-                    for(size_t i=0; i<ND; ++i)
-                    {
-                        // Don't waste time for values, which can't be filled
-                        // anyways.
-                        if(is_oor) break;
-
-                        //std::cout << "tuple fill: Get bin idx of axis " << i << " of " << ND << std::endl;
-                        Axis & axis = *self.axes_[i];
-                        char * const ndvalue_ptr = iter.data_ptr_array_ptr_[i];
-                        intptr_t const bin_idx = axis.get_bin_index(ndvalue_ptr, oor_flag);
-                        //std::cout << "bin_idx = "<<bin_idx<<std::endl;
-                        if(oor_flag == ::ndhist::axis::OOR_NONE)
-                        {
-                            // The current value fits into the current axis
-                            // range.
-                            //std::cout << "normal fill i=" << i << "indices.size()="<<indices.size();
-                            //std::cout << "relative_indices.size() "<< relative_indices.size()<<std::endl;
-                            bc_data_addr += bin_idx*bc_data_strides[i];
-
-                            indices[i] = bin_idx;
-                            relative_indices[i] = bin_idx;
-                        }
-                        else
-                        {
-                            // The current value does not fit into the current
-                            // axis range. But the axis might be extendable.
-                            if(axis.is_extendable())
-                            {
-                                //std::cout << "axis is extentable" << std::endl;
-                                intptr_t const n_extra_bins = axis.request_extension(ndvalue_ptr, oor_flag);
-                                if(oor_flag == ::ndhist::axis::OOR_UNDERFLOW)
-                                {
-                                    indices[i] = 0;
-                                    relative_indices[i] = n_extra_bins;
-
-                                    f_n_extra_bins_vec[i] = std::max(-n_extra_bins, f_n_extra_bins_vec[i]);
-                                    reallocation_upon_extension |= (f_n_extra_bins_vec[i] > bc_fcap[i]);
-                                }
-                                else // oor_flag == ::ndhist::axis::OOR_OVERFLOW
-                                {
-                                    intptr_t const index = axis.get_n_bins() + n_extra_bins - 1;
-
-                                    indices[i] = index;
-                                    relative_indices[i] = index;
-
-                                    b_n_extra_bins_vec[i] = std::max(n_extra_bins, b_n_extra_bins_vec[i]);
-                                    reallocation_upon_extension |= (b_n_extra_bins_vec[i] > bc_bcap[i]);
-                                }
-
-                                extend_axes = true;
-                            }
-                            else
-                            {
-                                //std::cout << "axis is NOT extendable" << std::endl;
-                                // The current value is out-of-range on the
-                                // current axis, which is not extendable.
-                                // So mark this ndvalue as oor.
-                                is_oor = true;
-                            }
-                        }
-                    }
-
-                    if(is_oor)
-                    {
-                        // There is at least one axis, where the value is
-                        // out-of-range, so there is no way to fill this
-                        // ndvalue. So just skip it.
-                        continue;
-                    }
-
-                    // If the value can be filled but an axis needs to get
-                    // extended in order to do so, we want to cache the value if
-                    // the extension would trigger a reallocation of memory.
-                    if(extend_axes)
-                    {
-                        //std::cout << "extend_axes is true, size="<< oorfrstack.get_size() << std::endl<<std::flush;
-                        // Check if an actual reallocation is required,
-                        // if not, just extend the axes and fill it. Otherwise,
-                        // fill the value into the value cache.
-                        if(reallocation_upon_extension)
-                        {
-                            //std::cout << "reallocation required upon extension " << std::endl<<std::flush;
-                            // Push the value into the value cache stack.
-                            // If it returns ``true`` the cache is full and we
-                            // need to extent the axes and fill the cached
-                            // values in.
-                            value_cached = true;
-                            if(value_cache.push_back(relative_indices, weight))
-                            {
-                                //std::cout << "The stack is full. Flush it." << std::endl<<std::flush;
-                                self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                                self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                                bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
-
-                                flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
-
-                                memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
-                                memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
-                                reallocation_upon_extension = false;
-                            }
-                        }
-                        else
-                        {
-                            // No reallocation of memory is required for the
-                            // extension, so we just extend the axes.
-                            //std::cout << "no reallocation required upon extension " << std::endl<<std::flush;
-                            self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                            bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
-                            memset(&f_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
-                            memset(&b_n_extra_bins_vec.front(), 0, ND*sizeof(intptr_t));
-
-                            // Since the strides have changed, we need to
-                            // recompute the bc_data_addr.
-                            std::vector<intptr_t> const & bc_data_strides = self.bc_.get_data_strides_vector();
-                            bc_data_addr = self.bc_.get_data() + bc_data_offset;
-                            for(size_t i=0; i<ND; ++i)
-                            {
-                                bc_data_addr += indices[i]*bc_data_strides[i];
-                            }
-                        }
-                    }
-
-                    if(! value_cached)
-                    {
-                        //std::cout << "increment the bin "<< std::endl<<std::flush;
-                        detail::bin_utils<BCValueType>::increment_bin(bc_data_addr, weight);
-                    }
-
-                    // Jump to the next fill iteration.
-                    iter.add_inner_loop_strides_to_data_ptrs();
-                }
-            } while(iter.next());
-
-            // Fill the remaining cached values.
-            if(value_cache.get_size() > 0)
-            {
-                self.extend_axes(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                self.extend_bin_content_array(f_n_extra_bins_vec, b_n_extra_bins_vec);
-                bc_data_offset = self.bc_.get_bytearray_data_offset() + self.bc_.calc_first_shape_element_data_offset();
-
-                flush_value_cache<BCValueType>(self, value_cache, f_n_extra_bins_vec, bc_data_offset);
-            }
+            // Define a dummy vector for the get_ndvalue_ptr function interface.
+            // It is not used by the implementation.
+            std::vector<intptr_t> const ndvalue_byte_offsets;
+            fill_impl<BCValueType, /*UseSpecificNDTraits=*/true>::apply(self, iter, ndvalue_byte_offsets);
         }
     };
 };
