@@ -18,7 +18,7 @@ class Test(unittest.TestCase):
         self.assertTrue(np.all(h.bincontent == np.array(
             [0., 2., 7., 0., 0., 0., 0., 0., 0., 0.]
         )))
-        self.assertTrue(np.all(h.binerrors == np.array(
+        self.assertTrue(np.all(h.binerror == np.array(
             [0., 2., 5., 0., 0., 0., 0., 0., 0., 0.]
         )))
 
