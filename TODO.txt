@@ -14,9 +14,6 @@
 
 - Write unit tests for basic ndhist slicing with nd>=2.
 
-- Implement the most up-to-date fill procedure also for a structured ndarray
-  given as ndvalues object. (generic_nd_traits)
-
 - Overwork the ndhist.extend_bin_content_array() function. There should be a
   faster way of initializing the extra bins.
 

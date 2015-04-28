@@ -1,3 +1,7 @@
+- Implement the fill procedure also for a structured ndarray
+  given as ndvalues object. (generic_nd_traits) The fill code is generalized and
+  is used by both methods to avoid code repetition.
+
 - Implemented the binerror ndhist property, that is just the square root value
   of the sum of weights squared values.
 

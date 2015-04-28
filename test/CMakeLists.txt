@@ -43,4 +43,5 @@ add_python_test(ndhist_deepcopy_method_test        ndhist_deepcopy_method_test.p
 add_python_test(ndhist_merge_axis_bins_method_test ndhist_merge_axis_bins_method_test.py)
 add_python_test(oor_bin_copies_test                oor_bin_copies_test.py)
 add_python_test(project_method_test                project_method_test.py)
+add_python_test(ndhist__structndarray_fill_test    ndhist/structndarray_fill_test.py)
 add_python_test(tuple_fill_test                    tuple_fill_test.py)
