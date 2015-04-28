@@ -1153,6 +1153,20 @@ ndhist(
     {
         boost::shared_ptr<Axis> axis = bp::extract< boost::shared_ptr<Axis> >(axes[i]);
 
+        // Check if this axis object is already used in this ndhist object. If
+        // so we need to create a deepcopy of it before assigning it to this
+        // ndhist object.
+        for(size_t k=0; k<axes_.size(); ++k)
+        {
+            if(axes_[k].get() == axis.get())
+            {
+                axis = axis->deepcopy();
+                // Reset the name, so an unique name will be used.
+                axis->set_name("");
+                break;
+            }
+        }
+
         // Set an axis name if it is not specified.
         std::string & axis_name = axis->get_name();
         if(axis_name == "")
@@ -1160,6 +1174,19 @@ ndhist(
             std::stringstream ss_axis_name;
             ss_axis_name << "a" << i;
             axis_name = ss_axis_name.str();
+        }
+
+        // Check if the axis name is unique.
+        for(size_t k=0; k<axes_.size(); ++k)
+        {
+            if(axes_[k]->get_name() == axis_name)
+            {
+                std::stringstream ss;
+                ss << "The name '" << axis_name <<"' of axis " << i << " "
+                   << "is already used by axis " << k << "! Axis names must "
+                   << "be unique!";
+                throw NameError(ss.str());
+            }
         }
 
         // Add the axis field to the ndvalues dtype object.

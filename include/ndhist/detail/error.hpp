@@ -7,6 +7,7 @@ namespace detail {
 struct AssertionErrorType {};
 struct IndexErrorType     {};
 struct MemoryErrorType    {};
+struct NameErrorType      {};
 struct RuntimeErrorType   {};
 struct TypeErrorType      {};
 struct ValueErrorType     {};

@@ -1,3 +1,9 @@
+- When creating a ndhist object, make sure, that the given axis objects are
+  unique objects. If not, make them unique.
+
+- Implemented the ``ndzip`` utility function for creating structured ndarrays
+  for filling of high dimensional histograms in a convienient way.
+
 - Implement the fill procedure also for a structured ndarray
   given as ndvalues object. (generic_nd_traits) The fill code is generalized and
   is used by both methods to avoid code repetition.

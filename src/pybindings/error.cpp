@@ -33,6 +33,7 @@ void translate(ExcType const & e);
 NDHIST_ERROR_TRANSLATE(AssertionError)
 NDHIST_ERROR_TRANSLATE(IndexError)
 NDHIST_ERROR_TRANSLATE(MemoryError)
+NDHIST_ERROR_TRANSLATE(NameError)
 NDHIST_ERROR_TRANSLATE(RuntimeError)
 NDHIST_ERROR_TRANSLATE(TypeError)
 NDHIST_ERROR_TRANSLATE(ValueError)
@@ -44,6 +45,7 @@ void register_error_types()
     bp::register_exception_translator<AssertionError>(&translate<AssertionError>);
     bp::register_exception_translator<IndexError>    (&translate<IndexError>);
     bp::register_exception_translator<MemoryError>   (&translate<MemoryError>);
+    bp::register_exception_translator<NameError>     (&translate<NameError>);
     bp::register_exception_translator<RuntimeError>  (&translate<RuntimeError>);
     bp::register_exception_translator<TypeError>     (&translate<TypeError>);
     bp::register_exception_translator<ValueError>    (&translate<ValueError>);
