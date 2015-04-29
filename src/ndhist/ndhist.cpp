@@ -605,7 +605,7 @@ struct clear_fct_traits<bp::object>
 };
 
 template <typename WeightValueType>
-struct get_binerrors_ndarray_fct_traits
+struct get_binerror_ndarray_fct_traits
 {
     static
     bn::ndarray
@@ -648,7 +648,7 @@ struct get_binerrors_ndarray_fct_traits
 };
 
 template <>
-struct get_binerrors_ndarray_fct_traits<bool>
+struct get_binerror_ndarray_fct_traits<bool>
 {
     static
     bn::ndarray
@@ -662,7 +662,7 @@ struct get_binerrors_ndarray_fct_traits<bool>
 };
 
 template <>
-struct get_binerrors_ndarray_fct_traits<bp::object>
+struct get_binerror_ndarray_fct_traits<bp::object>
 {
     static
     bn::ndarray
@@ -1415,7 +1415,7 @@ setup_function_pointers()
             project_fct_ = &detail::project_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
             merge_axis_bins_fct_ = &detail::merge_axis_bins_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
             clear_fct_ = &detail::clear_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
-            get_binerrors_ndarray_fct_ = &detail::get_binerrors_ndarray_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
+            get_binerror_ndarray_fct_ = &detail::get_binerror_ndarray_fct_traits<WEIGHT_VALUE_TYPE>::apply;\
         }
     BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES)
     #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
@@ -2018,6 +2018,28 @@ py_get_noe_ndarray() const
 
 bp::object
 ndhist::
+py_get_full_noe_ndarray() const
+{
+    intptr_t const sub_item_byte_offset = 0;
+    bn::ndarray arr = detail::ndarray_storage::construct_ndarray(
+        bc_
+      , bc_noe_dt_
+      , bc_.get_shape_vector()
+      , bc_.get_front_capacity_vector()
+      , bc_.get_back_capacity_vector()
+      , sub_item_byte_offset
+      , /*owner=*/NULL
+      , /*set_owndata_flag=*/false
+    );
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
+}
+
+bp::object
+ndhist::
 py_get_sow_ndarray() const
 {
     // The core part of the bin content array excludes the under- and
@@ -2031,6 +2053,28 @@ py_get_sow_ndarray() const
     intptr_t const sub_item_byte_offset = bc_.get_dtype().get_fields_byte_offsets()[1];
 
     bn::ndarray arr = detail::ndarray_storage::construct_ndarray(bc_, bc_weight_dt_, shape, front_capacity, back_capacity, sub_item_byte_offset, /*owner=*/NULL, /*set_owndata_flag=*/false);
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
+}
+
+bp::object
+ndhist::
+py_get_full_sow_ndarray() const
+{
+    intptr_t const sub_item_byte_offset = bc_.get_dtype().get_fields_byte_offsets()[1];
+    bn::ndarray arr = detail::ndarray_storage::construct_ndarray(
+        bc_
+      , bc_weight_dt_
+      , bc_.get_shape_vector()
+      , bc_.get_front_capacity_vector()
+      , bc_.get_back_capacity_vector()
+      , sub_item_byte_offset
+      , /*owner=*/NULL
+      , /*set_owndata_flag=*/false
+    );
     if(nd_ == 0)
     {
         return arr.scalarize();
@@ -2062,9 +2106,36 @@ py_get_sows_ndarray() const
 
 bp::object
 ndhist::
-py_get_binerrors_ndarray() const
+py_get_full_sows_ndarray() const
 {
-    return get_binerrors_ndarray_fct_(*this);
+    intptr_t const sub_item_byte_offset = bc_.get_dtype().get_fields_byte_offsets()[2];
+    bn::ndarray arr = detail::ndarray_storage::construct_ndarray(
+        bc_
+      , bc_weight_dt_
+      , bc_.get_shape_vector()
+      , bc_.get_front_capacity_vector()
+      , bc_.get_back_capacity_vector()
+      , sub_item_byte_offset
+      , /*owner=*/NULL
+      , /*set_owndata_flag=*/false
+    );
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
+}
+
+bp::object
+ndhist::
+py_get_binerror_ndarray() const
+{
+    bn::ndarray arr = get_binerror_ndarray_fct_(*this);
+    if(nd_ == 0)
+    {
+        return arr.scalarize();
+    }
+    return arr;
 }
 
 bp::tuple

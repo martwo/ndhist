@@ -216,7 +216,8 @@ class ndhist
     /**
      * @brief Constructs the number of entries ndarray for releasing it to
      *     Python.
-     *     The lifetime of this new object and this ndhist object will be
+     *     The returned ndarray excludes possible under- and overflow bins.
+     * @internal The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
      * @note In case this ndhist is a zero-dimensional histogram this method
      *     returns a scalar.
@@ -225,9 +226,23 @@ class ndhist
     py_get_noe_ndarray() const;
 
     /**
+     * @brief Constructs the number of entries ndarray for releasing it to
+     *     Python.
+     *     In contrast to the py_get_noe_ndarray method, the returned
+     *     ndarray contains the possible under- and overflow bins.
+     * @internal The lifetime of this new object and this ndhist object will be
+     *     managed through the BoostNumpy ndarray_accessor_return() policy.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
+     */
+    bp::object
+    py_get_full_noe_ndarray() const;
+
+    /**
      * @brief Constructs the sum of weights ndarray for releasing it to
      *     Python.
-     *     The lifetime of this new object and this ndhist object will be
+     *     The returned ndarray excludes possible under- and overflow bins.
+     * @internal The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
      * @note In case this ndhist is a zero-dimensional histogram this method
      *     returns a scalar.
@@ -236,8 +251,22 @@ class ndhist
     py_get_sow_ndarray() const;
 
     /**
+     * @brief Constructs the sum of weights ndarray for releasing it to
+     *     Python.
+     *     In contrast to the py_get_sow_ndarray method, the returned
+     *     ndarray contains the possible under- and overflow bins.
+     * @internal The lifetime of this new object and this ndhist object will be
+     *     managed through the BoostNumpy ndarray_accessor_return() policy.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
+     */
+    bp::object
+    py_get_full_sow_ndarray() const;
+
+    /**
      * @brief Constructs the sum of weights squared ndarray for releasing
      *     it to Python.
+     *     The returned ndarray excludes possible under- and overflow bins.
      * @internal The lifetime of this new object and this ndhist object will be
      *     managed through the BoostNumpy ndarray_accessor_return() policy.
      * @note In case this ndhist is a zero-dimensional histogram this method
@@ -247,13 +276,26 @@ class ndhist
     py_get_sows_ndarray() const;
 
     /**
+     * @brief Constructs the sum of weights squared ndarray for releasing
+     *     it to Python.
+     *     In contrast to the py_get_sows_ndarray method, the returned
+     *     ndarray contains the possible under- and overflow bins.
+     * @internal The lifetime of this new object and this ndhist object will be
+     *     managed through the BoostNumpy ndarray_accessor_return() policy.
+     * @note In case this ndhist is a zero-dimensional histogram this method
+     *     returns a scalar.
+     */
+    bp::object
+    py_get_full_sows_ndarray() const;
+
+    /**
      * @brief Constructs a ndarray holding the square root of the bin's sum of
      *     weights squared values, i.e. the bin error values.
      * @note In case this ndhist is a zero-dimensional histogram this method
      *     returns a scalar.
      */
     bp::object
-    py_get_binerrors_ndarray() const;
+    py_get_binerror_ndarray() const;
 
     /**
      * @brief Returns the ndarray holding the bin edges of the given axis.
@@ -696,7 +738,7 @@ class ndhist
     boost::function<ndhist (ndhist const &, std::set<intptr_t> const &)> project_fct_;
     boost::function<void (ndhist &, intptr_t, intptr_t)> merge_axis_bins_fct_;
     boost::function<void (ndhist &)> clear_fct_;
-    boost::function<bn::ndarray (ndhist const &)> get_binerrors_ndarray_fct_;
+    boost::function<bn::ndarray (ndhist const &)> get_binerror_ndarray_fct_;
 
     /** The title string of the histogram, useful for plotting purposes.
      */

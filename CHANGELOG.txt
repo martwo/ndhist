@@ -1,3 +1,8 @@
+- Added the ndhist properties ``full_binentries``, ``full_bincontent``, and
+  ``full_squaredweights``, that return ndarrays including possible under- and
+  overflow bins. These properties are useful for later storage of the entire
+  histogram to a file.
+
 - When creating a ndhist object, make sure, that the given axis objects are
   unique objects. If not, make them unique.
 

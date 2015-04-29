@@ -86,19 +86,40 @@ void register_ndhist()
         .add_property("binentries", bp::make_function(
               &ndhist::py_get_noe_ndarray
             , bn::ndarray_accessor_return())
-            , "The ndarray holding the bin entries (counts) for each bin.")
+            , "The ndarray holding the bin entries (counts) for each bin. "
+              "It excludes possible under- and overflow bins.")
+        .add_property("full_binentries", bp::make_function(
+              &ndhist::py_get_full_noe_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the bin entries (counts) for each bin. "
+              "In contrast to the ``binentries`` property, it includes "
+              "possible under- and overflow bins.")
         .add_property("bincontent", bp::make_function(
               &ndhist::py_get_sow_ndarray
             , bn::ndarray_accessor_return())
             , "The ndarray holding the bin contents (sum of weights) for "
-              "each bin.")
+              "each bin. "
+              "It excludes possible under- and overflow bins.")
+        .add_property("full_bincontent", bp::make_function(
+              &ndhist::py_get_full_sow_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the bin contents (sum of weights) for "
+              "each bin. "
+              "In contrast to the ``bincontent`` property, it includes "
+              "possible under- and overflow bins.")
         .add_property("squaredweights", bp::make_function(
               &ndhist::py_get_sows_ndarray
             , bn::ndarray_accessor_return())
-            , "The ndarray holding the sum of weights for each bin.")
-
+            , "The ndarray holding the sum of the weights squared for each bin. "
+              "It excludes possible under- and overflow bins.")
+        .add_property("full_squaredweights", bp::make_function(
+              &ndhist::py_get_full_sows_ndarray
+            , bn::ndarray_accessor_return())
+            , "The ndarray holding the sum of the weights squared for each bin. "
+              "In contrast to the ``squaredweights`` property, it includes "
+              "possible under- and overflow bins.")
         .add_property("binerror"
-            , &ndhist::py_get_binerrors_ndarray
+            , &ndhist::py_get_binerror_ndarray
             , "The ndarray holding the square root of the bin's sum of weights "
               "squared, i.e. the bin error values.")
 

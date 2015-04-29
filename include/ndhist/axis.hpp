@@ -760,6 +760,16 @@ class axis_pyinterface
           , (bool (Axis::*)() const) &Axis::is_extendable
           , "Flag if the axis is extendable (True) or not (False)."
         );
+        cls.add_property("extension_max_fcap"
+          , (intptr_t (Axis::*)() const) &Axis::get_extension_max_fcap
+          , "The maximal number of extra reserved front bins if the axis is "
+            "extendable."
+        );
+        cls.add_property("extension_max_bcap"
+          , (intptr_t (Axis::*)() const) &Axis::get_extension_max_bcap
+          , "The maximal number of extra reserved back bins if the axis is "
+            "extendable."
+        );
         cls.add_property("nbins"
           , (intptr_t (Axis::*)() const) &Axis::get_n_bins
           , "The number of bins this axis has (including possible under- and "
