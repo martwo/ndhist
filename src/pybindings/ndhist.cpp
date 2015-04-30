@@ -328,7 +328,6 @@ void register_ndhist()
         BOOST_PP_SEQ_FOR_EACH(NDHIST_WEIGHT_VALUE_TYPE_SUPPORT, ~, NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES_WITHOUT_OBJECT)
         #undef NDHIST_WEIGHT_VALUE_TYPE_SUPPORT
     ;
-    //bp::implicitly_convertible< boost::shared_ptr<ndhist>, boost::shared_ptr<ndhist const> >();
 }
 
 }// namespace ndhist

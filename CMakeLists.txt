@@ -114,6 +114,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/ndhist/detail/ndarray_storage.cpp
         src/ndhist/ndhist.cpp
         src/ndhist/ndtable.cpp
+        src/ndhist/storage.cpp
     )
 
     include_directories(

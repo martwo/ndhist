@@ -1,3 +1,10 @@
+- Added histsave and histload C++ functions to save/load ndhist C++ objects to
+  HDF files. It calls the Python function histsave and histload implemented in
+  the storage.py python module of the ndhist package.
+
+- Added the ``storage`` Python module to save/load a ndhist object to a HDF
+  file from Python.
+
 - Added the ndhist properties ``full_binentries``, ``full_bincontent``, and
   ``full_squaredweights``, that return ndarrays including possible under- and
   overflow bins. These properties are useful for later storage of the entire
