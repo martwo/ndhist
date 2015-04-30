@@ -218,8 +218,13 @@ void register_ndhist()
               "ndarray.view method in order to get a view on a MxN array to "
               "fill it into a N-dimensional histogram with M entries.")
 
-        .add_property("weight_dtype", &ndhist::get_weight_dtype
+        .add_property("weight_dtype"
+            , &ndhist::get_weight_dtype
             , "The dtype object describing the data type of the weight values.")
+        .add_property("has_object_weight_dtype"
+            , &ndhist::weight_type_is_object
+            , "The flag if the weight data type is a Python object and not a "
+              "POD type.")
 
         .add_property("MAX_TUPLE_FILL_NDIM", &ndhist::get_max_tuple_fill_nd
             , "The maximal dimensionality of the histogram, which "
