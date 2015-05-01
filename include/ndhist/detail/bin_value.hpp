@@ -12,6 +12,8 @@
 #ifndef NDHIST_DETAIL_BIN_VALUE_HPP_INCLUDED
 #define NDHIST_DETAIL_BIN_VALUE_HPP_INCLUDED
 
+#include <boost/python.hpp>
+
 namespace ndhist {
 namespace detail {
 
@@ -26,17 +28,17 @@ struct bin_value
 };
 
 template <>
-struct bin_value<bp::object>
+struct bin_value<boost::python::object>
 {
-    uintptr_t  * noe_;
+    uintptr_t             * noe_;
 
-    uintptr_t  * sow_obj_ptr_;
-    bp::object   sow_obj_;
-    bp::object * sow_;
+    uintptr_t             * sow_obj_ptr_;
+    boost::python::object   sow_obj_;
+    boost::python::object * sow_;
 
-    uintptr_t  * sows_obj_ptr_;
-    bp::object   sows_obj_;
-    bp::object * sows_;
+    uintptr_t             * sows_obj_ptr_;
+    boost::python::object   sows_obj_;
+    boost::python::object * sows_;
 };
 
 }//namespace detail
