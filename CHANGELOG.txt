@@ -1,3 +1,7 @@
+- Added the ``stats`` python module holding utility functions for calculating
+  statistics quantities from a ndhist object. For now only the ``mean`` function
+  exists.
+
 - Added histsave and histload C++ functions to save/load ndhist C++ objects to
   HDF files. It calls the Python function histsave and histload implemented in
   the storage.py python module of the ndhist package.

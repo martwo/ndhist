@@ -19,6 +19,7 @@ void register_error_types();
 void register_axis();
 void register_ndhist();
 void register_ndtable();
+void register_stats_module();
 
 namespace axes {
 
@@ -39,4 +40,5 @@ BOOST_PYTHON_MODULE(core)
     ndhist::axes::register_generic_axis();
     ndhist::register_ndhist();
     ndhist::register_ndtable();
+    ndhist::register_stats_module();
 }
