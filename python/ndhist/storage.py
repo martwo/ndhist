@@ -201,6 +201,12 @@ def histsave(h, f, where, name, overwrite=False):
         raise TypeError(
             'Only ndhist objects with POD weight types can be stored to a file!')
 
+    for (idx, axis) in enumerate(h.axes):
+        if(axis.has_object_value_dtype):
+            raise TypeError(
+                'Only ndhist objects with POD axis value types can be stored '+
+                'to a file. Axis "'+idx+'" does not have a POD value type!')
+
     try:
         if(is_hdf_file(f)):
             return _histsave_handler_hdf(h, f, where, name, overwrite)

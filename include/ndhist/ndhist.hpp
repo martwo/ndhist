@@ -653,7 +653,7 @@ class ndhist
     }
 
     bool
-    weight_type_is_object() const
+    has_object_weight_dtype() const
     {
         return bn::dtype::equivalent(bc_weight_dt_, bn::dtype::get_builtin<bp::object>());
     }

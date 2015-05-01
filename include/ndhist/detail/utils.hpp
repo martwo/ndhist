@@ -12,6 +12,12 @@
 #ifndef NDHIST_DETAIL_UTILS_HPP_INCLUDED
 #define NDHIST_DETAIL_UTILS_HPP_INCLUDED 1
 
+#include <sstream>
+
+#include <boost/python.hpp>
+
+#include <ndhist/error.hpp>
+
 namespace ndhist {
 namespace detail {
 
@@ -76,6 +82,36 @@ is_object_of_type(
 }
 
 }// namespace py
+
+/**
+ * @brief Adjust the axis index to the correct axis index. The axis index
+ *     can be negative, which means, the index is counted from the back.
+ *     The returned axis index lies in the interval [0, nd). On error, an
+ *     IndexError is thrown.
+ */
+inline
+intptr_t
+adjust_axis_index(intptr_t const nd, intptr_t axis)
+{
+    if(axis < 0) {
+        axis += nd;
+    }
+    if(axis < 0)
+    {
+        std::stringstream ss;
+        ss << "The axis value \""<< axis <<"\" specifies an axis < 0!";
+        throw IndexError(ss.str());
+    }
+    else if(axis >= nd)
+    {
+        std::stringstream ss;
+        ss << "The axis value \""<< axis <<"\" must be smaller than the "
+           << "dimensionality of the histogram, i.e. smaller than "
+           << nd <<"!";
+        throw IndexError(ss.str());
+    }
+    return axis;
+}
 
 }// namespace detail
 }// namespace ndhist

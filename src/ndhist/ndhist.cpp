@@ -45,6 +45,7 @@
 #include <ndhist/detail/multi_axis_iter.hpp>
 #include <ndhist/detail/py_arg_inspector.hpp>
 #include <ndhist/detail/py_seq_inspector.hpp>
+#include <ndhist/detail/utils.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -1816,25 +1817,7 @@ project(bp::object const & dims) const
     bn::iterators::flat_iterator< bn::iterators::single_value<intptr_t> > axes_arr_iter(axes_arr);
     while(! axes_arr_iter.is_end())
     {
-        intptr_t axis = *axes_arr_iter;
-        if(axis < 0) {
-            axis += nd;
-        }
-        if(axis < 0)
-        {
-            std::stringstream ss;
-            ss << "The axis value \""<< *axes_arr_iter <<"\" specifies an "
-               << "axis < 0!";
-            throw IndexError(ss.str());
-        }
-        else if(axis >= nd)
-        {
-            std::stringstream ss;
-            ss << "The axis value \""<< axis <<"\" must be smaller than the "
-               << "dimensionality of the histogram, i.e. smaller than "
-               << nd <<"!";
-            throw IndexError(ss.str());
-        }
+        intptr_t axis = detail::adjust_axis_index(nd, *axes_arr_iter);
         if(! axes.insert(axis).second)
         {
             std::stringstream ss;

@@ -18,6 +18,7 @@
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
+
 #include <boost/python.hpp>
 #include <boost/python/def_visitor.hpp>
 #include <boost/python/slice.hpp>
@@ -193,6 +194,13 @@ class Axis
     is_extendable() const
     {
         return get_axis_base().is_extendable_;
+    }
+
+    inline
+    bool
+    has_object_value_dtype() const
+    {
+        return boost::numpy::dtype::equivalent(get_axis_base().dt_, boost::numpy::dtype::get_builtin<boost::python::object>());
     }
 
     inline
@@ -508,17 +516,17 @@ class Axis
             // If the step is negative, we need to use the upper edge, instead
             // of the lower edge.
             it.set_value( *(r.start + (step < 0)) );
-            std::cout << *it << ","<<std::flush;
+            //std::cout << *it << ","<<std::flush;
             ++it;
             std::advance(r.start, r.step);
         }
         it.set_value( *(r.start + (step < 0)) );
-        std::cout << *it << ","<<std::flush;
+        //std::cout << *it << ","<<std::flush;
         // Add the upper (step == +1) or lower edge (step == -1).
         ++it;
         std::advance(r.start, r.step);
         it.set_value( *r.start );
-        std::cout << *it <<std::endl<<std::flush;
+        //std::cout << *it <<std::endl<<std::flush;
 
         // Determine, if the sliced axis will contain the underflow bin.
         bool const self_has_underflow_bin = axisbase.has_underflow_bin();
@@ -743,6 +751,11 @@ class axis_pyinterface
         cls.add_property("dtype"
           , (boost::numpy::dtype (Axis::*)() const) &Axis::py_get_dtype
           , "The dtype object describing the data type of the axis values."
+        );
+        cls.add_property("has_object_value_dtype"
+          , (bool (Axis::*)() const) &Axis::has_object_value_dtype
+          , "Flag if the value data type of the axis is an object, i.e. not a "
+            "POD type."
         );
         cls.add_property("has_underflow_bin"
           , (bool (Axis::*)() const) &Axis::has_underflow_bin

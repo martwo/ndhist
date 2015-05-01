@@ -222,7 +222,7 @@ void register_ndhist()
             , &ndhist::get_weight_dtype
             , "The dtype object describing the data type of the weight values.")
         .add_property("has_object_weight_dtype"
-            , &ndhist::weight_type_is_object
+            , &ndhist::has_object_weight_dtype
             , "The flag if the weight data type is a Python object and not a "
               "POD type.")
 

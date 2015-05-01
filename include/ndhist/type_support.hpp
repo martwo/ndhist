@@ -20,7 +20,7 @@
 #define NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES \
     (float)\
     (double)\
-/*    (boost::python::object)*/
+    (boost::python::object)
 #endif
 
 /** Define the list of supported weight value types (including
@@ -42,6 +42,12 @@
     (double)\
     (boost::python::object)
 #endif
+
+/** Define the list of supported axis value types (excluding
+ *  boost::python::object).
+ */
+#define NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES_WITHOUT_OBJECT \
+    BOOST_PP_SEQ_POP_BACK(NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES)
 
 /** Define the list of supported weight value types (excluding
  *  boost::python::object).
