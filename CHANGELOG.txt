@@ -1,3 +1,6 @@
+- Generalized the mean statistics function into the moment statistics function.
+  The mean is defined as just the first moment.
+
 - Added the ``stats`` python module holding utility functions for calculating
   statistics quantities from a ndhist object. For now only the ``mean`` function
   exists.

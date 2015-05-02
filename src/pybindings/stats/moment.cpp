@@ -11,7 +11,7 @@
  */
 #include <boost/python.hpp>
 
-#include <ndhist/stats/mean.hpp>
+#include <ndhist/stats/moment.hpp>
 
 namespace bp = boost::python;
 
@@ -19,19 +19,21 @@ namespace ndhist {
 
 namespace stats {
 
-void register_mean()
+void register_moment()
 {
-    bp::def("mean"
-      , &py::mean
+    bp::def("moment"
+      , &py::moment
       , ( bp::arg("hist")
+        , bp::arg("n")=1
         , bp::arg("axis")=bp::object()
         )
-      , "Calculates the mean value along the given axis of the given ndhist  \n"
-        "object.                                                             \n"
-        "Since the mean is equal to the first moment, this function just     \n"
-        "calls the ``ndhist.stats.moment`` function to calculate the first   \n"
-        "moment.                                                             \n"
-        "If ``None`` is given as axis argument (the default), the mean value \n"
+      , "Calculates the n'th moment value along the given axis of the given  \n"
+        "ndhist object weighted by the sum of weights in each bin.           \n"
+        "It generates a projection along the given axis and then calculates  \n"
+        "the n'th moment axis value.                                         \n"
+        "In statistics the n'th moment is defined as the expectation of x^n, \n"
+        "i.e. ``E[x^n]``, where x is the bin center axis value in this case. \n"
+        "If ``None`` is given as axis argument (the default), the n'th moment\n"
         "for all individual axes of the ndhist object is calculated and      \n"
         "returned as a tuple. But if the dimensionality of the histogram is  \n"
         "1, a scalar value is returned.                                      \n"

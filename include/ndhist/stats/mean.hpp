@@ -21,16 +21,16 @@ namespace stats {
 namespace py {
 
 /**
- * @brief Calculates the mean value along the given axis.
- *     It generates a projection along the given axis and then calculates the
- *     mean axis value.
- *     In statistics the mean is also known as the expectation value ``E[x]``.
+ * @brief Calculates the mean value along the given axis of the given ndhist
+ *     object.
+ *     Since the mean is equal to the first moment, this function just calls the
+ *     moment function to calculate the first moment.
  *     If None is given as axis, the mean value for all axes of the ndhist
  *     object will be calculated and returned as a tuple. But if the
  *     dimensionality of the ndhist object is 1, a scalar value is returned.
  *
- * @note This function is only defined for ndhist objects with POD axis values
- *     AND POD weight values.
+ * @note This function is only defined for ndhist objects with POD type axis
+ *     values AND POD type weight values.
  */
 boost::python::object
 mean(
