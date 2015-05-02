@@ -116,6 +116,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/ndhist/ndtable.cpp
         src/ndhist/storage.cpp
         src/ndhist/stats/mean.cpp
+        src/ndhist/stats/median.cpp
         src/ndhist/stats/moment.cpp
     )
 
@@ -174,6 +175,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/pybindings/axes/constant_bin_width_axis.cpp
         src/pybindings/axes/generic_axis.cpp
         src/pybindings/stats/mean.cpp
+        src/pybindings/stats/median.cpp
         src/pybindings/stats/moment.cpp
         src/pybindings/stats/module.cpp
         src/pybindings/error.cpp

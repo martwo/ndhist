@@ -19,6 +19,7 @@ namespace ndhist {
 namespace stats {
 
 void register_mean();
+void register_median();
 void register_moment();
 
 }// namespace stats
@@ -30,6 +31,7 @@ void register_stats_module()
         bp::scope stats_module_scope(stats_module);
 
         stats::register_mean();
+        stats::register_median();
         stats::register_moment();
     }
 }

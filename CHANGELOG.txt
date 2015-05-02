@@ -1,3 +1,5 @@
+- Implemented the median statistics function.
+
 - Generalized the mean statistics function into the moment statistics function.
   The mean is defined as just the first moment.
 
