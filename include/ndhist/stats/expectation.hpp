@@ -9,8 +9,8 @@
  * (See LICENSE file).
  *
  */
-#ifndef NDHIST_STATS_MOMENT_HPP_INCLUDED
-#define NDHIST_STATS_MOMENT_HPP_INCLUDED 1
+#ifndef NDHIST_STATS_EXPECTATION_HPP_INCLUDED
+#define NDHIST_STATS_EXPECTATION_HPP_INCLUDED 1
 
 #include <cmath>
 
@@ -28,16 +28,16 @@ namespace stats {
 namespace detail {
 
 /**
- * Calculates the n'th moment value along the given axis of the given ndhist
- * object weighted by the sum of weights in each bin.
+ * Calculates the n'th order expectation value along the given axis of the given
+ * ndhist object weighted by the sum of weights in each bin.
  * It generates a projection along the given axis and then calculates the n'th
- * moment value.
- * In statistics the n'th moment is defined as the expectation of x^n, i.e.
- * ``E[x^n]``, where x is the bin center axis value.
+ * order expectation value.
+ * In statistics the n'th order expectation is defined as the expectation of
+ * x^n, i.e. ``E[x^n]``, where x is the bin center axis value in this case.
  */
 template <typename AxisValueType, typename WeightValueType>
 double
-calc_axis_moment_impl(
+calc_axis_expectation_impl(
     ndhist const & h
   , intptr_t const n
   , intptr_t const axis
@@ -69,8 +69,8 @@ calc_axis_moment_impl(
     // Skip the underflow bin.
     if(theaxis.has_underflow_bin()) ++iter;
 
-    double moment = 0;
-    WeightValueType sow_sum = 0;
+    double expectation = 0;
+    double sow_sum = 0;
     while(nbins > 0)
     {
         typename multi_iter_t::multi_references_type multi_value = *iter;
@@ -78,16 +78,16 @@ calc_axis_moment_impl(
         typename multi_iter_t::value_ref_type_1 bin                  = multi_value.value_1;
 
         sow_sum += *bin.sow_;
-        moment += *bin.sow_ * (n == 1 ? axis_bincenter_value
-                            : (n == 2 ? axis_bincenter_value*axis_bincenter_value
-                            : (n == 3 ? axis_bincenter_value*axis_bincenter_value*axis_bincenter_value
-                            : std::pow(axis_bincenter_value, n))));
+        expectation += *bin.sow_ * (n == 1 ? axis_bincenter_value
+                                 : (n == 2 ? axis_bincenter_value*axis_bincenter_value
+                                 : (n == 3 ? axis_bincenter_value*axis_bincenter_value*axis_bincenter_value
+                                 : std::pow(axis_bincenter_value, n))));
 
         ++iter;
         --nbins;
     }
-    moment /= sow_sum;
-    return moment;
+    expectation /= sow_sum;
+    return expectation;
 }
 
 }// namespace detail
@@ -95,21 +95,22 @@ calc_axis_moment_impl(
 namespace py {
 
 /**
- * @brief Calculates the n'th moment value along the given axis of the given
- *     ndhist object weighted by the sum of weights in each bin.
+ * @brief Calculates the n'th order expectation value along the given axis of
+ *     the given ndhist object weighted by the sum of weights in each bin.
  *     It generates a projection along the given axis and then calculates the
- *     n'th moment value.
- *     In statistics the n'th moment is defined as the expectation of x^n, i.e.
- *     ``E[x^n]``, where x is the bin center axis value.
- *     If None is given as axis, the moment value for all axes of the ndhist
- *     object will be calculated and returned as a tuple. But if the
+ *     n'th order expectation value.
+ *     In statistics the n'th order expectation value is defined as the
+ *     expectation of x^n, i.e. ``E[x^n]``, where x is the bin center axis
+ *     value in this case.
+ *     If None is given as axis, the expectation value for all axes of the
+ *     ndhist object will be calculated and returned as a tuple. But if the
  *     dimensionality of the ndhist object is 1, a scalar value is returned.
  *
  * @note This function is only defined for ndhist objects with POD axis values
  *     AND POD weight values.
  */
 boost::python::object
-moment(
+expectation(
     ndhist const & h
   , intptr_t const n = 1
   , boost::python::object const & axis = boost::python::object()
@@ -119,4 +120,4 @@ moment(
 }// namespace stats
 }// namespace ndhist
 
-#endif // !NDHIST_STATS_MOMENT_HPP_INCLUDED
+#endif // !NDHIST_STATS_EXPECTATION_HPP_INCLUDED

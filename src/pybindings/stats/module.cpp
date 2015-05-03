@@ -18,9 +18,9 @@ namespace ndhist {
 
 namespace stats {
 
+void register_expectation();
 void register_mean();
 void register_median();
-void register_moment();
 void register_skewness();
 void register_std();
 void register_var();
@@ -33,9 +33,9 @@ void register_stats_module()
     {
         bp::scope stats_module_scope(stats_module);
 
+        stats::register_expectation();
         stats::register_mean();
         stats::register_median();
-        stats::register_moment();
         stats::register_skewness();
         stats::register_std();
         stats::register_var();

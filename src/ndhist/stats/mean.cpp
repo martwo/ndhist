@@ -11,7 +11,7 @@
  */
 #include <boost/python.hpp>
 
-#include <ndhist/stats/moment.hpp>
+#include <ndhist/stats/expectation.hpp>
 #include <ndhist/stats/mean.hpp>
 
 namespace bp = boost::python;
@@ -24,7 +24,7 @@ namespace py {
 bp::object
 mean(ndhist const & h, bp::object const & axis)
 {
-    return moment(h, 1, axis);
+    return expectation(h, 1, axis);
 }
 
 }// namespace py

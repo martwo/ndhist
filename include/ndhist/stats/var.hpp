@@ -15,7 +15,7 @@
 #include <boost/python.hpp>
 
 #include <ndhist/ndhist.hpp>
-#include <ndhist/stats/moment.hpp>
+#include <ndhist/stats/expectation.hpp>
 
 namespace ndhist {
 namespace stats {
@@ -32,11 +32,11 @@ calc_axis_var_impl(
     // Do the projection here, so it won't be done twice.
     ndhist const proj = (h.get_nd() == 1 ? h : h.project(bp::object(axis)));
 
-    double moment1 = calc_axis_moment_impl<AxisValueType, WeightValueType>(proj, 1, axis);
-    double moment2 = calc_axis_moment_impl<AxisValueType, WeightValueType>(proj, 2, axis);
+    double expectation1 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 1, axis);
+    double expectation2 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 2, axis);
 
     // V[x] = E[x^2] - E[x]^2
-    return moment2 - moment1*moment1;
+    return expectation2 - expectation1*expectation1;
 }
 
 }// namespace detail

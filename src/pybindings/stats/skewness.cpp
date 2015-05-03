@@ -27,7 +27,7 @@ void register_skewness()
         )
       , "Calculates the skewness along the given axis of the given                \n"
         "ndhist object. As in statistics, the skewness is defined as              \n"
-        ":math:`SKEWNESS[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \\sqrt{V[x]^3}`.\n"
+        ":math:`Skewness[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \\sqrt{V[x]^3}`.\n"
         "This function generates a projection along the given axis and then       \n"
         "calculates the skewness.                                                 \n"
         "If ``None`` is given as axis argument (the default), the skewness        \n"

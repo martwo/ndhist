@@ -17,7 +17,7 @@
 #include <boost/python.hpp>
 
 #include <ndhist/ndhist.hpp>
-#include <ndhist/stats/moment.hpp>
+#include <ndhist/stats/expectation.hpp>
 #include <ndhist/stats/var.hpp>
 
 namespace ndhist {
@@ -35,12 +35,12 @@ calc_axis_skewness_impl(
     // Do the projection here, so it won't be done twice.
     ndhist const proj = (h.get_nd() == 1 ? h : h.project(bp::object(axis)));
 
-    double moment1 = calc_axis_moment_impl<AxisValueType, WeightValueType>(proj, 1, axis);
-    double moment3 = calc_axis_moment_impl<AxisValueType, WeightValueType>(proj, 3, axis);
+    double expectation1 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 1, axis);
+    double expectation3 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 3, axis);
     double var = calc_axis_var_impl<AxisValueType, WeightValueType>(proj, axis);
 
     // SKEWNESS[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \sqrt{V[x]^3}
-    return (moment3 - 3*var*moment1 - moment1*moment1*moment1) / std::sqrt(var*var*var);
+    return (expectation3 - 3*var*expectation1 - expectation1*expectation1*expectation1) / std::sqrt(var*var*var);
 }
 
 }// namespace detail
@@ -50,7 +50,7 @@ namespace py {
 /**
  * @brief Calculates the skewness along the given axis of the given
  *     ndhist object. As in statistics, the skewness is defined as
- *     :math:`SKEWNESS[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \\sqrt{V[x]^3}`.
+ *     :math:`Skewness[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \\sqrt{V[x]^3}`.
  *     This function generates a projection along the given axis and then
  *     calculates the skewness.
  *     If None is given as axis, the skewness for all individual axes of the
