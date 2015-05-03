@@ -15,9 +15,25 @@
 #include <boost/python.hpp>
 
 #include <ndhist/ndhist.hpp>
+#include <ndhist/stats/moment.hpp>
 
 namespace ndhist {
 namespace stats {
+
+namespace detail {
+
+template <typename AxisValueType, typename WeightValueType>
+AxisValueType
+calc_axis_mean_impl(
+    ndhist const & h
+  , intptr_t const axis
+)
+{
+    return calc_axis_moment_impl<AxisValueType, WeightValueType>(h, 1, axis);
+}
+
+}// namespace detail
+
 namespace py {
 
 /**
