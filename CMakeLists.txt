@@ -115,6 +115,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/ndhist/ndhist.cpp
         src/ndhist/ndtable.cpp
         src/ndhist/storage.cpp
+        src/ndhist/stats/excess.cpp
         src/ndhist/stats/expectation.cpp
         src/ndhist/stats/kurtosis.cpp
         src/ndhist/stats/mean.cpp
@@ -178,6 +179,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/pybindings/axis.cpp
         src/pybindings/axes/constant_bin_width_axis.cpp
         src/pybindings/axes/generic_axis.cpp
+        src/pybindings/stats/excess.cpp
         src/pybindings/stats/expectation.cpp
         src/pybindings/stats/kurtosis.cpp
         src/pybindings/stats/mean.cpp

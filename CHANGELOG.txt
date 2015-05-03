@@ -1,3 +1,6 @@
+- Implemented the excess statistics function, that calculates the excess
+  kurtosis of a particular ndhist axis.
+
 - Implemented the kurtosis statistics function, that calculates the kurtosis
   of a particular ndhist axis.
 
