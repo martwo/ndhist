@@ -1,4 +1,8 @@
-- Implemented the median statistics function.
+- Implemented the var statistics function, that calculates the variance of a
+  particular ndhist axis.
+
+- Implemented the median statistics function, that calculates the median value
+  of a particular ndhist axis.
 
 - Generalized the mean statistics function into the moment statistics function.
   The mean is defined as just the first moment.
