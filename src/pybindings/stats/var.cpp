@@ -16,7 +16,6 @@
 namespace bp = boost::python;
 
 namespace ndhist {
-
 namespace stats {
 
 void register_var()

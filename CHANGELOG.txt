@@ -1,3 +1,6 @@
+- Implemented the skewness statistics function, that calculates the skewness
+  of a particular ndhist axis.
+
 - Implemented the std statistics function, that calculates the standard
   deviation of a particular ndhist axis.
 
