@@ -36,7 +36,7 @@ namespace detail {
  * ``E[x^n]``, where x is the bin center axis value.
  */
 template <typename AxisValueType, typename WeightValueType>
-AxisValueType
+double
 calc_axis_moment_impl(
     ndhist const & h
   , intptr_t const n
@@ -69,7 +69,7 @@ calc_axis_moment_impl(
     // Skip the underflow bin.
     if(theaxis.has_underflow_bin()) ++iter;
 
-    AxisValueType moment = 0;
+    double moment = 0;
     WeightValueType sow_sum = 0;
     while(nbins > 0)
     {

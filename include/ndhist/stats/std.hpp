@@ -25,7 +25,7 @@ namespace stats {
 namespace detail {
 
 template <typename AxisValueType, typename WeightValueType>
-AxisValueType
+double
 calc_axis_std_impl(
     ndhist const & h
   , intptr_t const axis

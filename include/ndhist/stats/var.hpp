@@ -23,7 +23,7 @@ namespace stats {
 namespace detail {
 
 template <typename AxisValueType, typename WeightValueType>
-AxisValueType
+double
 calc_axis_var_impl(
     ndhist const & h
   , intptr_t const axis
@@ -32,9 +32,6 @@ calc_axis_var_impl(
     // Do the projection here, so it won't be done twice.
     ndhist const proj = (h.get_nd() == 1 ? h : h.project(bp::object(axis)));
 
-    // Since we are not allowing bp::object as AxisValueType for this function
-    // the most precise data type is double here. So we will use it as internal
-    // calculation data type.
     double moment1 = calc_axis_moment_impl<AxisValueType, WeightValueType>(proj, 1, axis);
     double moment2 = calc_axis_moment_impl<AxisValueType, WeightValueType>(proj, 2, axis);
 
