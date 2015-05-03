@@ -118,6 +118,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/ndhist/stats/mean.cpp
         src/ndhist/stats/median.cpp
         src/ndhist/stats/moment.cpp
+        src/ndhist/stats/std.cpp
         src/ndhist/stats/var.cpp
     )
 
@@ -178,6 +179,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
         src/pybindings/stats/mean.cpp
         src/pybindings/stats/median.cpp
         src/pybindings/stats/moment.cpp
+        src/pybindings/stats/std.cpp
         src/pybindings/stats/var.cpp
         src/pybindings/stats/module.cpp
         src/pybindings/error.cpp

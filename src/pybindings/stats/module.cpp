@@ -21,6 +21,7 @@ namespace stats {
 void register_mean();
 void register_median();
 void register_moment();
+void register_std();
 void register_var();
 
 }// namespace stats
@@ -34,6 +35,7 @@ void register_stats_module()
         stats::register_mean();
         stats::register_median();
         stats::register_moment();
+        stats::register_std();
         stats::register_var();
     }
 }

@@ -1,3 +1,6 @@
+- Implemented the std statistics function, that calculates the standard
+  deviation of a particular ndhist axis.
+
 - Implemented the var statistics function, that calculates the variance of a
   particular ndhist axis.
 

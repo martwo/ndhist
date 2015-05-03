@@ -23,7 +23,7 @@
 #include <ndhist/ndhist.hpp>
 #include <ndhist/type_support.hpp>
 #include <ndhist/detail/utils.hpp>
-#include <ndhist/stats/var.hpp>
+#include <ndhist/stats/std.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -35,7 +35,7 @@ namespace py {
 namespace detail {
 
 bp::object
-calc_axis_var(
+calc_axis_std(
     ndhist const & h
   , intptr_t const axis
 )
@@ -60,8 +60,8 @@ calc_axis_var(
            && bn::dtype::equivalent(h.get_weight_dtype(), bn::dtype::get_builtin<BOOST_PP_SEQ_ELEM(1,seq)>())\
           )                                                                     \
         {                                                                       \
-            BOOST_PP_SEQ_ELEM(0,seq) var = ::ndhist::stats::detail::calc_axis_var_impl<BOOST_PP_SEQ_ELEM(0,seq), BOOST_PP_SEQ_ELEM(1,seq)>(h, axis_idx);\
-            return bp::object(var);                                             \
+            BOOST_PP_SEQ_ELEM(0,seq) std = ::ndhist::stats::detail::calc_axis_std_impl<BOOST_PP_SEQ_ELEM(0,seq), BOOST_PP_SEQ_ELEM(1,seq)>(h, axis_idx);\
+            return bp::object(std);                                             \
         }
     BOOST_PP_SEQ_FOR_EACH_PRODUCT(NDHIST_MULTPLEX, (NDHIST_TYPE_SUPPORT_AXIS_VALUE_TYPES_WITHOUT_OBJECT)(NDHIST_TYPE_SUPPORT_WEIGHT_VALUE_TYPES_WITHOUT_OBJECT))
     #undef NDHIST_MULTPLEX
@@ -75,36 +75,36 @@ calc_axis_var(
 }// namespace detail
 
 bp::object
-var(
+std(
     ndhist const & h
   , bp::object const & axis
 )
 {
     if(axis != bp::object())
     {
-        // A particular axis is given. So calculate the variance only for that
+        // A particular axis is given. So calculate the std only for that
         // axis and return a scalar.
         intptr_t const axis_idx = bp::extract<intptr_t>(axis);
-        return detail::calc_axis_var(h, axis_idx);
+        return detail::calc_axis_std(h, axis_idx);
     }
 
-    // No axis was specified, so calculate the variance for all axes.
+    // No axis was specified, so calculate the std for all axes.
     intptr_t const nd = h.get_nd();
 
     // Return a scalar value if the dimensionality of the histogram is 1.
     if(nd == 1)
     {
-        return detail::calc_axis_var(h, 0);
+        return detail::calc_axis_std(h, 0);
     }
 
-    // Return a tuple holding the variance values for each single axis.
-    std::vector<bp::object> vars;
-    vars.reserve(nd);
+    // Return a tuple holding the std values for each single axis.
+    std::vector<bp::object> stds;
+    stds.reserve(nd);
     for(intptr_t i=0; i<nd; ++i)
     {
-        vars.push_back(detail::calc_axis_var(h, i));
+        stds.push_back(detail::calc_axis_std(h, i));
     }
-    return boost::python::make_tuple_from_container(vars.begin(), vars.end());
+    return boost::python::make_tuple_from_container(stds.begin(), stds.end());
 }
 
 }// namespace py
