@@ -9,10 +9,8 @@
  * (See LICENSE file).
  *
  */
-#ifndef NDHIST_STATS_SKEWNESS_HPP_INCLUDED
-#define NDHIST_STATS_SKEWNESS_HPP_INCLUDED 1
-
-#include <cmath>
+#ifndef NDHIST_STATS_KURTOSIS_HPP_INCLUDED
+#define NDHIST_STATS_KURTOSIS_HPP_INCLUDED 1
 
 #include <boost/python.hpp>
 
@@ -27,7 +25,7 @@ namespace detail {
 
 template <typename AxisValueType, typename WeightValueType>
 double
-calc_axis_skewness_impl(
+calc_axis_kurtosis_impl(
     ndhist const & h
   , intptr_t const axis
 )
@@ -35,12 +33,14 @@ calc_axis_skewness_impl(
     // Do the projection here, so it won't be done twice.
     ndhist const proj = (h.get_nd() == 1 ? h : h.project(bp::object(axis)));
 
-    double const expectation1 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 1, axis);
-    double const expectation3 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 3, axis);
+    double const expact1 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 1, axis);
+    double const expact2 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 2, axis);
+    double const expact3 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 3, axis);
+    double const expact4 = calc_axis_expectation_impl<AxisValueType, WeightValueType>(proj, 4, axis);
     double const var = calc_axis_var_impl<AxisValueType, WeightValueType>(proj, axis);
 
-    // SKEWNESS[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \sqrt{V[x]^3}
-    return (expectation3 - 3*var*expectation1 - expectation1*expectation1*expectation1) / std::sqrt(var*var*var);
+    // Kurtosis[x] = (E[x^4] - 4 E[x] E[x^3] + 6 E[x]^2 E[x^2] - 3 E[x]^4) / V[x]^2
+    return (expact4 - 4*expact1*expact3 + 6*expact1*expact1*expact2 - 3*expact1*expact1*expact1*expact1) / (var*var);
 }
 
 }// namespace detail
@@ -48,12 +48,12 @@ calc_axis_skewness_impl(
 namespace py {
 
 /**
- * @brief Calculates the skewness along the given axis of the given
- *     ndhist object. As in statistics, the skewness is defined as
- *     :math:`Skewness[x] = ( E[x^3] - 3 V[x] E[x] - E[x]^3 ) / \\sqrt{V[x]^3}`.
+ * @brief Calculates the kurtosis along the given axis of the given
+ *     ndhist object. As in statistics, the kurtosis is defined as
+ *     :math:`Kurtosis[x] = (E[x^4] - 4 E[x] E[x^3] + 6 E[x]^2 E[x^2] - 3 E[x]^4) / V[x]^2`.
  *     This function generates a projection along the given axis and then
- *     calculates the skewness.
- *     If None is given as axis, the skewness for all individual axes of the
+ *     calculates the kurtosis.
+ *     If None is given as axis, the kurtosis for all individual axes of the
  *     ndhist object will be calculated and returned as a tuple. But if the
  *     dimensionality of the ndhist object is 1, a scalar value is returned.
  *
@@ -61,7 +61,7 @@ namespace py {
  *     AND POD weight values.
  */
 boost::python::object
-skewness(
+kurtosis(
     ndhist const & h
   , boost::python::object const & axis = boost::python::object()
 );
@@ -71,4 +71,4 @@ skewness(
 }// namespace stats
 }// namespace ndhist
 
-#endif // !NDHIST_STATS_SKEWNESS_HPP_INCLUDED
+#endif // NDHIST_STATS_KURTOSIS_HPP_INCLUDED
