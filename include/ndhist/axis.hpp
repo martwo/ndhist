@@ -18,6 +18,7 @@
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/version.hpp>
 
 #include <boost/python.hpp>
 #include <boost/python/def_visitor.hpp>
@@ -505,7 +506,13 @@ class Axis
         intptr_t const selfnbins = alledges.get_size()-1;
         std::advance(end, selfnbins);
         boost::python::slice sl(start, stop, step);
-        boost::python::slice::range<iter_t> r = sl.get_indices<iter_t>(begin, end);
+        // Note: get_indices was misspelt in BOOST version prior to 1.54.
+        boost::python::slice::range<iter_t> r =
+#if BOOST_VERSION < 105400
+        sl.get_indicies<iter_t>(begin, end);
+#else
+        sl.get_indices<iter_t>(begin, end);
+#endif
         // Define the shape of the edges array, it is the number of bins
         // plus the upper edge at the end.
         std::vector<intptr_t> const shape(1, nbins + 1);

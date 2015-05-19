@@ -58,10 +58,9 @@ if(len(env_str) > 0):
 
 system("rm -rf build")
 system("mkdir -p build")
-system("cd build && %s /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s -DINSTALL_PYTHON_PACKAGE_INTO_USER_HOME=%s .."%(
+system("cd build && %s /usr/bin/env cmake -DCMAKE_BUILD_TYPE=\"%s\" -DCMAKE_INSTALL_PREFIX=\"%s\" -DCMAKE_CXX_COMPILER=%s -DINSTALL_PYTHON_PACKAGE_INTO_USER_HOME=%s .."%(
     env_str,
     options.build_type,
     options.prefix,
-    c_compiler,
     cxx_compiler,
     install_python_package_into_user_home))

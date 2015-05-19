@@ -32,18 +32,18 @@ function(find_tool tool_ incdir_ incfile_ libdir_)
 
     # Search for the tool's include directory.
     if(NOT "${incdir_}" STREQUAL "NONE")
-        find_path(${TOOL}_INCLUDE_DIR
+        find_path(${TOOL}_INCLUDE_DIRS
             NAMES ${incfile_}
             PATHS ${incdir_} ENV ${TOOL}_INCLUDE_PATH
             DOC "The ${tool_} include directory.")
-        if(${${TOOL}_INCLUDE_DIR} MATCHES ".*NOTFOUND$")
+        if(${${TOOL}_INCLUDE_DIRS} MATCHES ".*NOTFOUND$")
             print_not_found_msg("${incfile_} not found in ${incdir_}")
             set(${TOOL}_CONFIG_ERROR TRUE)
         else()
-            print_found_msg("${incfile_} found at ${${TOOL}_INCLUDE_DIR}")
+            print_found_msg("${incfile_} found at ${${TOOL}_INCLUDE_DIRS}")
         endif()
     else()
-        set(${TOOL}_INCLUDE_DIR "/doesnt/exist"
+        set(${TOOL}_INCLUDE_DIRS "/doesnt/exist"
             CACHE PATH "The ${tool_} include directory.")
     endif()
 
