@@ -114,7 +114,7 @@ class ConstantBinWidthAxis
         {
             std::stringstream ss;
             ss << "The edges array does not contain enough edges! Remember "
-               << "that the edges of the out-or-range bins, need to be "
+               << "that the edges of the out-of-range bins, need to be "
                << "specified as well, when the axis is not extendable.";
             throw ValueError(ss.str());
         }
