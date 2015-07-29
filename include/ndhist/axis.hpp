@@ -725,6 +725,51 @@ class Axis
         deepcopy_fct_;
 };
 
+/** Define static method implemenation to create a new Axis object of the
+ *  current axis type *type*. This implemenation is the same for all axis
+ *  classes but must be defined in each particular class. So we put it here as
+ *  preprocessor macro.
+ */
+#define NDHIST_AXIS_STATIC_METHOD_CREATE()                                      \
+    static                                                                      \
+    boost::shared_ptr<Axis>                                                     \
+    create(                                                                     \
+        boost::numpy::ndarray const & edges                                     \
+      , std::string const & label                                               \
+      , std::string const & name                                                \
+      , bool has_underflow_bin                                                  \
+      , bool has_overflow_bin                                                   \
+      , bool is_extendable                                                      \
+      , intptr_t extension_max_fcap                                             \
+      , intptr_t extension_max_bcap                                             \
+    )                                                                           \
+    {                                                                           \
+        return boost::shared_ptr<Axis>(new type(                                \
+            edges                                                               \
+          , label                                                               \
+          , name                                                                \
+          , has_underflow_bin                                                   \
+          , has_overflow_bin                                                    \
+          , is_extendable                                                       \
+          , extension_max_fcap                                                  \
+          , extension_max_bcap                                                  \
+        ));                                                                     \
+    }
+
+/** Define static method implemenation to deepcopy an Axis object of the current
+ *  axis type *type*. This implemenation is the same for all axis
+ *  classes but must be defined in each particular class. So we put it here as
+ *  preprocessor macro.
+ */
+#define NDHIST_AXIS_STATIC_METHOD_DEEPCOPY()                                    \
+    static                                                                      \
+    boost::shared_ptr<Axis>                                                     \
+    deepcopy(Axis const & axisbase)                                             \
+    {                                                                           \
+        type const & axis = *static_cast<type const *>(&axisbase);              \
+        return boost::shared_ptr<Axis>(new type(axis));                         \
+    }
+
 /** The axis_pyinterface template provides a boost::python::def_visitor for
  *  exposing the axis interface automatically to Python.
  */

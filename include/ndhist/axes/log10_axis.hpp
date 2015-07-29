@@ -9,10 +9,11 @@
  * (See LICENSE file).
  *
  */
-#ifndef NDHIST_AXES_LINEAR_AXIS_HPP_INCLUDED
-#define NDHIST_AXES_LINEAR_AXIS_HPP_INCLUDED 1
+#ifndef NDHIST_AXES_LOG10_AXIS_HPP_INCLUDED
+#define NDHIST_AXES_LOG10_AXIS_HPP_INCLUDED 1
 
-#include <ndhist/detail/value_transforms/identity.hpp>
+#include <ndhist/axis.hpp>
+#include <ndhist/detail/value_transforms/log10.hpp>
 #include <ndhist/axes/constant_bin_width_axis.hpp>
 #include <ndhist/axes/generic_axis.hpp>
 
@@ -20,24 +21,24 @@ namespace ndhist {
 namespace axes {
 
 template <typename AxisValueType>
-class LinearAxis
-  : public ConstantBinWidthAxis<AxisValueType, ::ndhist::detail::value_transforms::identity<AxisValueType> >
+class Log10Axis
+  : public ConstantBinWidthAxis<AxisValueType, ::ndhist::detail::value_transforms::log10<AxisValueType> >
 {
   public:
     typedef AxisValueType
             axis_value_type;
 
-    typedef ::ndhist::detail::value_transforms::identity<axis_value_type>
+    typedef ::ndhist::detail::value_transforms::log10<axis_value_type>
             value_transform_type;
 
     typedef ConstantBinWidthAxis<axis_value_type, value_transform_type>
             base;
 
-    typedef LinearAxis<axis_value_type>
+    typedef Log10Axis<axis_value_type>
             type;
 
   public:
-    LinearAxis(
+    Log10Axis(
         bn::ndarray const & edges
       , std::string const & label
       , std::string const & name
@@ -61,14 +62,14 @@ class LinearAxis
         // Set up the axis's function pointers that are specific for this class
         // type, i.e. the functions that create explicitly an object of this
         // class type.
-        base::create_fct_   = &type::create;
-        base::deepcopy_fct_ = &type::deepcopy;
+        Axis::create_fct_   = &type::create;
+        Axis::deepcopy_fct_ = &type::deepcopy;
     }
 
     /**
      * Copy constructor.
      */
-    LinearAxis(LinearAxis const & other)
+    Log10Axis(Log10Axis const & other)
       : base(other)
     {}
 
@@ -79,40 +80,40 @@ class LinearAxis
 
 // Meta function to select the correct axis class.
 // In cases where the axis value type is boost::python::object, the
-// LinearAxis template cannot be used due to its performed arithmetic
+// Log10Axis template cannot be used due to its performed arithmetic
 // operations with the ConstantBinWidthAxis template.
 // In those cases, we need to fall back to the GenericAxis template,
 // which requires only the comparsion operator to be implemented for the
 // boost::python::object object.
 template <typename AxisValueType>
-struct LinearAxis_selector
+struct Log10Axis_selector
 {
-    typedef LinearAxis<AxisValueType>
+    typedef Log10Axis<AxisValueType>
             type;
 };
 
 template <typename AxisValueType>
-struct select_LinearAxis_type
+struct select_Log10Axis_type
 {
     typedef typename boost::mpl::eval_if<
                 boost::is_same<AxisValueType, boost::python::object>
               , GenericAxis_selector<AxisValueType>
-              , LinearAxis_selector<AxisValueType>
+              , Log10Axis_selector<AxisValueType>
               >::type
             type;
 };
 
-// In order to expose the LinearAxis to Python, we need a wrapper
-// around the LinearAxis template to get rid of the template
+// In order to expose the Log10Axis to Python, we need a wrapper
+// around the Log10Axis template to get rid of the template
 // parameter to avoid several Python classes, one for each axis value type.
 namespace py {
 
-typedef PyExtendableAxisWrapper<select_LinearAxis_type>
-        linear_axis;
+typedef PyExtendableAxisWrapper<select_Log10Axis_type>
+        log10_axis;
 
 }//namespace py
 
 }//namespace axes
 }//namespace ndhist
 
-#endif // ! NDHIST_AXES_LINEAR_AXIS_HPP_INCLUDED
+#endif // ! NDHIST_AXES_LOG10_AXIS_HPP_INCLUDED

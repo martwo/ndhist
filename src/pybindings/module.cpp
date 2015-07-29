@@ -23,8 +23,9 @@ void register_stats_module();
 
 namespace axes {
 
-void register_linear_axis();
 void register_generic_axis();
+void register_linear_axis();
+void register_log10_axis();
 
 }//namespace axes
 
@@ -36,8 +37,9 @@ BOOST_PYTHON_MODULE(core)
 
     ndhist::register_error_types();
     ndhist::register_axis();
-    ndhist::axes::register_linear_axis();
     ndhist::axes::register_generic_axis();
+    ndhist::axes::register_linear_axis();
+    ndhist::axes::register_log10_axis();
     ndhist::register_ndhist();
     ndhist::register_ndtable();
     ndhist::register_stats_module();
