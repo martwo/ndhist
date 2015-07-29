@@ -285,6 +285,13 @@ class GenericAxis
     }
 };
 
+template <typename AxisValueType>
+struct GenericAxis_selector
+{
+    typedef GenericAxis<AxisValueType>
+            type;
+};
+
 namespace py {
 
 typedef PyNonExtendableAxisWrapper<GenericAxis>

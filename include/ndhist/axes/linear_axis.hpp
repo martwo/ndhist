@@ -21,7 +21,7 @@ namespace axes {
 
 template <typename AxisValueType>
 class LinearAxis
-  : ConstantBinWidthAxis<AxisValueType, ::ndhist::detail::value_transforms::identity<AxisValueType> >
+  : public ConstantBinWidthAxis<AxisValueType, ::ndhist::detail::value_transforms::identity<AxisValueType> >
 {
   public:
     typedef AxisValueType
@@ -61,8 +61,8 @@ class LinearAxis
         // Set up the axis's function pointers that are specific for this class
         // type, i.e. the functions that create explicitly an object of this
         // class type.
-        create_fct_   = &type::create;
-        deepcopy_fct_ = &type::deepcopy;
+        base::create_fct_   = &type::create;
+        base::deepcopy_fct_ = &type::deepcopy;
     }
 
     /**

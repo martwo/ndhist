@@ -17,7 +17,7 @@
 #include <boost/numpy/ndarray.hpp>
 
 #include <ndhist/axis.hpp>
-#include <ndhist/axes/constant_bin_width_axis.hpp>
+#include <ndhist/axes/linear_axis.hpp>
 
 namespace bp = boost::python;
 namespace bn = boost::numpy;
@@ -25,12 +25,12 @@ namespace bn = boost::numpy;
 namespace ndhist {
 namespace axes {
 
-void register_constant_bin_width_axis()
+void register_linear_axis()
 {
-    bp::class_<py::constant_bin_width_axis, bp::bases<Axis>, boost::shared_ptr<py::constant_bin_width_axis> >(
-          "constant_bin_width_axis"
-        , "The constant_bin_width_axis class provides an axis class for axes "
-          "with constant bin widths."
+    bp::class_<py::linear_axis, bp::bases<Axis>, boost::shared_ptr<py::linear_axis> >(
+          "linear_axis"
+        , "The linear_axis class provides an axis class for linearly scaled "
+          "axes with constant bin widths."
         , bp::init<
             bn::ndarray const &
           , std::string const &
@@ -53,7 +53,7 @@ void register_constant_bin_width_axis()
           )
           )
         )
-        .def(axis_pyinterface<py::constant_bin_width_axis>())
+        .def(axis_pyinterface<py::linear_axis>())
     ;
 }
 

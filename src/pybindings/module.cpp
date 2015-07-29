@@ -23,7 +23,7 @@ void register_stats_module();
 
 namespace axes {
 
-void register_constant_bin_width_axis();
+void register_linear_axis();
 void register_generic_axis();
 
 }//namespace axes
@@ -36,7 +36,7 @@ BOOST_PYTHON_MODULE(core)
 
     ndhist::register_error_types();
     ndhist::register_axis();
-    ndhist::axes::register_constant_bin_width_axis();
+    ndhist::axes::register_linear_axis();
     ndhist::axes::register_generic_axis();
     ndhist::register_ndhist();
     ndhist::register_ndtable();

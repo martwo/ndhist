@@ -3,7 +3,7 @@ from __future__ import division
 import math
 import numpy as np
 
-from ndhist.core import constant_bin_width_axis
+from ndhist.core import linear_axis
 
 def linear(start, stop
   , width=1
@@ -78,7 +78,7 @@ def linear(start, stop
             edges = edges_new
 
     print(edges)
-    axis = constant_bin_width_axis(edges, label, name, add_underflow_bin, add_overflow_bin, extend, extracap, extracap)
+    axis = linear_axis(edges, label, name, add_underflow_bin, add_overflow_bin, extend, extracap, extracap)
     return axis
 
 def linear_bins(start, nbins

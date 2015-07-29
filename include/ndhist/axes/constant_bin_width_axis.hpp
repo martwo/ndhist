@@ -16,14 +16,11 @@
 #include <string>
 #include <sstream>
 
-#include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <boost/numpy/iterators/flat_iterator.hpp>
 
-#include <ndhist/type_support.hpp>
 #include <ndhist/axis.hpp>
-#include <ndhist/axes/generic_axis.hpp>
 #include <ndhist/error.hpp>
 
 namespace bn = boost::numpy;
@@ -31,7 +28,25 @@ namespace bn = boost::numpy;
 namespace ndhist {
 namespace axes {
 
-template <typename AxisValueType>
+/**
+ * @class ConstantBinWidthAxis
+ *     This class provides an axis with underlaying constant bin widths. To the
+ *     user the bin widths could still vary. But as long as there is a value
+ *     transformation available that transforms the bin edge values, which
+ *     contuct the non-constant bin widths, into a linear scale with constant
+ *     bin widths, this class can be used as axis with good performance.
+ *
+ *     The ValueTransform class must provide two static methods:
+ *
+ *         AxisValueType transform(AxisValueType const value)
+ *
+ *     and
+ *
+ *         AxisValueType back_transform(AxisValueType const value)
+ *
+ *     for transforming an edge value into linear scale and back.
+ */
+template <typename AxisValueType, typename ValueTransform>
 class ConstantBinWidthAxis
   : public Axis
 {
@@ -39,13 +54,16 @@ class ConstantBinWidthAxis
     typedef AxisValueType
             axis_value_type;
 
+    typedef ValueTransform
+            value_transform_type;
+
     typedef bn::iterators::single_value<axis_value_type>
             axis_value_type_traits;
 
     typedef Axis
             base;
 
-    typedef ConstantBinWidthAxis<axis_value_type>
+    typedef ConstantBinWidthAxis<axis_value_type, value_transform_type>
             type;
 
   protected:
@@ -113,9 +131,11 @@ class ConstantBinWidthAxis
         if(n_bins_ <= 0)
         {
             std::stringstream ss;
-            ss << "The edges array does not contain enough edges! Remember "
+            ss << "The edges array does not contain enough edges! It must "
+               << "contain at least two edges! Remember "
                << "that the edges of the out-of-range bins, need to be "
-               << "specified as well, when the axis is not extendable.";
+               << "specified as well, when the axis is not extendable and is "
+               << "supposed to have such bins.";
             throw ValueError(ss.str());
         }
 
@@ -124,11 +144,11 @@ class ConstantBinWidthAxis
         // Set and skip the underflow edge.
         if(has_underflow_bin_)
         {
-            underflow_edge_ = *edges_iter;
+            underflow_edge_ = value_transform_type::transform(*edges_iter);
             ++edges_iter;
         }
 
-        min_ = *edges_iter;
+        min_ = value_transform_type::transform(*edges_iter);
         ++edges_iter;
         if(   edges_iter.is_end()
            || (has_overflow_bin_ && edges_iter.get_iter_index() == n_bins_)
@@ -136,11 +156,14 @@ class ConstantBinWidthAxis
         {
             // Only one bin (ie. the underflow or overflow bin) was given. So
             // we set the bin width to one.
+            // Note: The bin_width_ property is used only for internal
+            //       calculation. The bin width seen by the user is still
+            //       calculated through the actual bin edges.
             bin_width_ = axis_value_type(1);
         }
         else
         {
-            axis_value_type const value = *edges_iter;
+            axis_value_type const value = value_transform_type::transform(*edges_iter);
             bin_width_ = value - min_;
         }
 
@@ -148,7 +171,7 @@ class ConstantBinWidthAxis
         if(has_overflow_bin_)
         {
             edges_iter.advance(edges_iter.distance_to(edges_iter.end()) - 1);
-            overflow_edge_ = *edges_iter;
+            overflow_edge_ = value_transform_type::transform(*edges_iter);
         }
     }
 
@@ -179,7 +202,7 @@ class ConstantBinWidthAxis
       , intptr_t extension_max_bcap
     )
     {
-        return boost::shared_ptr<Axis>(new ConstantBinWidthAxis(
+        return boost::shared_ptr<Axis>(new type(
             edges
           , label
           , name
@@ -213,14 +236,14 @@ class ConstantBinWidthAxis
         if(axis.has_underflow_bin_)
         {
             // Set the underflow edge.
-            iter.set_value(axis.underflow_edge_);
+            iter.set_value(value_transform_type::back_transform(axis.underflow_edge_));
             ++iter;
         }
         intptr_t idx = 0;
         while(! iter.is_end())
         {
             axis_value_type const value = axis.min_ + idx*axis.bin_width_;
-            iter.set_value(value);
+            iter.set_value(value_transform_type::back_transform(value));
 
             ++idx;
             ++iter;
@@ -229,7 +252,7 @@ class ConstantBinWidthAxis
         {
             // Set the overflow edge.
             iter.advance(-1);
-            iter.set_value(axis.overflow_edge_);
+            iter.set_value(value_transform_type::back_transform(axis.overflow_edge_));
         }
 
         return edges_arr;
@@ -241,7 +264,8 @@ class ConstantBinWidthAxis
     {
         type const & axis = *static_cast<type const *>(&axisbase);
 
-        typename axis_value_type_traits::value_cref_type value = axis_value_type_traits::dereference(axis.avtt_, value_ptr);
+        typename axis_value_type_traits::value_cref_type value_cref = axis_value_type_traits::dereference(axis.avtt_, value_ptr);
+        axis_value_type const value = value_transform_type::transform(value_cref);
         //std::cout << "Got value = "<<value<<std::endl;
 
         if(axis.has_underflow_bin_)
@@ -318,7 +342,8 @@ class ConstantBinWidthAxis
         type const & axis = *static_cast< type const *>(&axisbase);
 
         axis_value_type_traits avtt;
-        typename axis_value_type_traits::value_ref_type value = axis_value_type_traits::dereference(avtt, value_ptr);
+        typename axis_value_type_traits::value_ref_type value_cref = axis_value_type_traits::dereference(avtt, value_ptr);
+        axis_value_type const value = value_transform_type::transform(value_cref);
 
         if(oor_flag == axis::OOR_UNDERFLOW)
         {
@@ -358,50 +383,9 @@ class ConstantBinWidthAxis
     deepcopy(Axis const & axisbase)
     {
         type const & axis = *static_cast<type const *>(&axisbase);
-        return boost::shared_ptr<Axis>(new ConstantBinWidthAxis(axis));
+        return boost::shared_ptr<Axis>(new type(axis));
     }
 };
-
-// Meta function to select the correct axis class.
-// In cases where the axis value type is boost::python::object, the
-// ConstantBinWidthAxis template cannot be used due to its performed arithmetic
-// operations. In those cases, we need to fall back to the GenericAxis template,
-// which requires only the comparsion operator to be implemented for the
-// boost::python::object object.
-template <typename AxisValueType>
-struct ConstantBinWidthAxis_selector
-{
-    typedef ConstantBinWidthAxis<AxisValueType>
-            type;
-};
-
-template <typename AxisValueType>
-struct GenericAxis_selector
-{
-    typedef GenericAxis<AxisValueType>
-            type;
-};
-
-template <typename AxisValueType>
-struct select_ConstantBinWidthAxis_type
-{
-    typedef typename boost::mpl::eval_if<
-                boost::is_same<AxisValueType, boost::python::object>
-              , GenericAxis_selector<AxisValueType>
-              , ConstantBinWidthAxis_selector<AxisValueType>
-              >::type
-            type;
-};
-
-// In order to expose the ConstantBinWidthAxis to Python, we need a wrapper
-// around the ConstantBinWidthAxis template to get rid of the template
-// parameter to avoid several Python classes, one for each axis value type.
-namespace py {
-
-typedef PyExtendableAxisWrapper<select_ConstantBinWidthAxis_type>
-        constant_bin_width_axis;
-
-}//namespace py
 
 }//namespace axes
 }//namespace ndhist

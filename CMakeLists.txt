@@ -177,7 +177,7 @@ if(${PROJECT_NAME}_CONFIGURED_SUCCESSFULLY)
     list(APPEND ${PROJECT}_core_LIBRARY_LIST ${BOOSTNUMPY_LIBRARIES})
     add_python_module(core ${${PROJECT}_core_LIBRARY_LIST}
         src/pybindings/axis.cpp
-        src/pybindings/axes/constant_bin_width_axis.cpp
+        src/pybindings/axes/linear_axis.cpp
         src/pybindings/axes/generic_axis.cpp
         src/pybindings/stats/excess.cpp
         src/pybindings/stats/expectation.cpp
