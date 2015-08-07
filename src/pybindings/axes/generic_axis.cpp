@@ -44,7 +44,8 @@ void register_generic_axis()
           , bp::arg("edges")
           , bp::arg("label")=std::string("")
           , bp::arg("name")=std::string("")
-          , bp::arg("has_oor_bins")=true
+          , bp::arg("has_underflow_bin")=true
+          , bp::arg("has_overflow_bin")=true
           )
         )
       )

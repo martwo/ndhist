@@ -1,6 +1,3 @@
-- Add ValueTransform template argument to GenericAxis template.
-  Create LinearGenericAxis template and Log10GenericAxis template.
-
 - add properties "n_entries" and "n_all_entries" providing the number of total
   entries excluding and including out-of-range bins, respectively.
 

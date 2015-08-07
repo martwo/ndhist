@@ -159,7 +159,8 @@ class GenericAxis
     {}
 
     inline
-    void init(bn::ndarray const & edges)
+    void
+    init(bn::ndarray const & edges)
     {
         // Set up the axis's function pointers.
         create_fct_                     = &type::create;
@@ -183,7 +184,7 @@ class GenericAxis
                << "contains only "<<edges.get_size()<<" edge values!";
             throw ValueError(ss.str());
         }
-        std::vector<intptr_t> shape(1, nbins);
+        std::vector<intptr_t> shape(1, nbins+1);
         std::vector<intptr_t> front_capacity(1, 0);
         std::vector<intptr_t> back_capacity(1, 0);
         edges_arr_storage_ = ::ndhist::detail::ndarray_storage(edges.get_dtype(), shape, front_capacity, back_capacity);
@@ -273,7 +274,7 @@ class GenericAxis
     {
         type const & axis = *static_cast<type const *>(&axisbase);
         bn::ndarray const & edges_arr = *static_cast<bn::ndarray const *>(&axis.edges_arr_);
-        return edges_arr.get_size();
+        return edges_arr.get_size() - 1;
     }
 
     static
