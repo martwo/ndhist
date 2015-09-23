@@ -1,0 +1,3 @@
+- The ndhist.fill method has a bug reading the right value for 2D histograms when
+  providing a 2-tuple of long ndarrays for the x and y values. It always extracts
+  the same value from the input arrays when reaching the end of the arrays.
