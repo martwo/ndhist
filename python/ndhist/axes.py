@@ -3,7 +3,7 @@ from __future__ import division
 import math
 import numpy as np
 
-from ndhist.core import linear_axis, log10_axis
+from ndhist.core import generic_axis, linear_axis, log10_axis
 
 def linear(start, stop
   , width=1
@@ -77,7 +77,7 @@ def linear(start, stop
             edges_new[-1] = +np.inf
             edges = edges_new
 
-    print(edges)
+    #print(edges)
     axis = linear_axis(edges, label, name, add_underflow_bin, add_overflow_bin, extend, extracap, extracap)
     return axis
 
@@ -208,6 +208,6 @@ def log10(start, stop
             edges_new[-1] = +np.inf
             edges = edges_new
 
-    print(edges)
+    #print(edges)
     axis = log10_axis(edges, label, name, add_underflow_bin, add_overflow_bin, extend, extracap, extracap)
     return axis

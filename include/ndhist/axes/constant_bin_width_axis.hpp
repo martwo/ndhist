@@ -125,9 +125,9 @@ class ConstantBinWidthAxis
         create_axis_slice_fct_          = &base::create_axis_slice<type>;
         deepcopy_fct_                   = &type::deepcopy;
 
-        std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
+        //std::cout << "edges.shape(0): "<< edges.shape(0)<<std::endl;
         n_bins_ = edges.shape(0) - 1;
-        std::cout << "n_bins_: "<< n_bins_<<std::endl;
+        //std::cout << "n_bins_: "<< n_bins_<<std::endl;
         if(n_bins_ <= 0)
         {
             std::stringstream ss;
@@ -186,7 +186,7 @@ class ConstantBinWidthAxis
       , underflow_edge_((*static_cast<type const *>(&other.get_axis_base())).underflow_edge_)
       , overflow_edge_((*static_cast<type const *>(&other.get_axis_base())).overflow_edge_)
     {
-        std::cout << "ConstantBinWidthAxis:: Copy constructor." << std::endl<<std::flush;
+        //std::cout << "ConstantBinWidthAxis:: Copy constructor." << std::endl<<std::flush;
     }
 
     static
@@ -219,7 +219,7 @@ class ConstantBinWidthAxis
     get_n_bins(Axis const & axisbase)
     {
         type const & axis = *static_cast<type const *>(&axisbase);
-        std::cout << "constant_bin_width_axis: get_n_bins, axis_ptr: "<< &axis<< ", axis.n_bins_="<<axis.n_bins_ <<std::endl;
+        //std::cout << "constant_bin_width_axis: get_n_bins, axis_ptr: "<< &axis<< ", axis.n_bins_="<<axis.n_bins_ <<std::endl;
         return axis.n_bins_;
     }
 

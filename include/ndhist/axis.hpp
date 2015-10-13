@@ -129,13 +129,13 @@ class Axis
       , create_axis_slice_fct_(other.get_axis_base().create_axis_slice_fct_)
       , deepcopy_fct_(other.get_axis_base().deepcopy_fct_)
     {
-        std::cout << "Copy the Axis"<<std::endl<<std::flush;
+        //std::cout << "Copy the Axis"<<std::endl<<std::flush;
     }
 
     virtual
     ~Axis()
     {
-        std::cout << "Destruct Axis"<<std::endl<<std::flush;
+        //std::cout << "Destruct Axis"<<std::endl<<std::flush;
     }
 
     /** Returns a reference to the dtype object of the axis values.
@@ -493,8 +493,8 @@ class Axis
     boost::shared_ptr<Axis>
     create_axis_slice(Axis const & axisbase, intptr_t const start, intptr_t const stop, intptr_t const step, intptr_t const nbins)
     {
-        std::cout << "create_axis_slice"<<std::endl;
-        std::cout << "start = "<<start<<", stop = "<<stop << ", step = "<<step<<", nbins="<<nbins << std::endl;
+        //std::cout << "create_axis_slice"<<std::endl;
+        //std::cout << "start = "<<start<<", stop = "<<stop << ", step = "<<step<<", nbins="<<nbins << std::endl;
         // Construct the edges array.
         typedef boost::numpy::iterators::flat_iterator< boost::numpy::iterators::single_value<typename AxisType::axis_value_type> >
                 iter_t;
@@ -939,7 +939,7 @@ class PyExtendableAxisWrapper
     PyExtendableAxisWrapper(PyExtendableAxisWrapper const & other)
       : Axis(other)
     {
-        std::cout << "PyExtendableAxisWrapper:: Copy constructor"<<std::endl<<std::flush;
+        //std::cout << "PyExtendableAxisWrapper:: Copy constructor"<<std::endl<<std::flush;
     }
 };
 
@@ -1006,7 +1006,7 @@ class PyNonExtendableAxisWrapper
     PyNonExtendableAxisWrapper(PyNonExtendableAxisWrapper const & other)
       : Axis(other)
     {
-        std::cout << "PyNonExtendableAxisWrapper:: Copy constructor"<<std::endl<<std::flush;
+        //std::cout << "PyNonExtendableAxisWrapper:: Copy constructor"<<std::endl<<std::flush;
     }
 };
 
